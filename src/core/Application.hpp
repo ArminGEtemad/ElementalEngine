@@ -2,10 +2,18 @@
 
 // header files
 #include "Window.hpp"
+#include <optional>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace elementalEngine {
+struct QueueFamilyIndices {
+  std::optional<uint32_t> graphicsFamily;
+  std::optional<uint32_t> presentFamily;
+  bool isComplete() {
+    return graphicsFamily.has_value() && presentFamily.has_value();
+  }
+};
 class Application {
 public:
   // TODO for now the window is not resizable
@@ -29,8 +37,15 @@ private:
   // - Vulkan Monolith -
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;
+  VkSurfaceKHR surface;
+  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+  VkDevice device;
   void initVulkan();
   void createInstance();
   void setupDebugMessenger();
+  void createSurface();
+  void pickPhysicalDevice();
+  bool isDeviceSuitable(VkPhysicalDevice device);
+  QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 };
 } // namespace elementalEngine

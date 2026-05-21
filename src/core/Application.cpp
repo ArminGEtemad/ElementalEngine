@@ -2,10 +2,12 @@
 #include <GLFW/glfw3.h>
 #include <cstdint>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
 namespace elementalEngine {
+
 // call back
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -43,11 +45,13 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 
 Application::Application(){};
 Application::~Application() {
+  vkDestroySurfaceKHR(instance, surface, nullptr);
   DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
   vkDestroyInstance(instance, nullptr);
 };
 
 void Application::run() {
+  initVulkan();
   while (!window.shouldClose()) {
     glfwPollEvents();
   }
@@ -56,8 +60,11 @@ void Application::run() {
 void Application::initVulkan() {
   createInstance();
   setupDebugMessenger();
+  createSurface();
+  pickPhysicalDevice();
 }
 
+// instance
 void Application::createInstance() {
   // App Info
   VkApplicationInfo appInfo = {};
@@ -114,6 +121,7 @@ void Application::createInstance() {
   }
 }
 
+// debug messanger
 void Application::setupDebugMessenger() {
   VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -136,4 +144,86 @@ void Application::setupDebugMessenger() {
   }
 }
 
+// surface
+void Application::createSurface() {
+  if (glfwCreateWindowSurface(instance, window.getGLFWwindow(), nullptr,
+                              &surface) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create a surface");
+  }
+}
+
+// pick physical device
+void Application::pickPhysicalDevice() {
+  uint32_t deviceCount = 0;
+  vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+  if (deviceCount == 0) {
+    throw std::runtime_error("failed to find GPUs with Vulkan support!");
+  }
+  std::cout << "Device count: " << deviceCount << "\n";
+  std::vector<VkPhysicalDevice> devices(deviceCount);
+  vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+  for (const auto &device : devices) {
+    if (isDeviceSuitable(device)) {
+      physicalDevice = device;
+      break;
+    }
+  }
+
+  if (physicalDevice == VK_NULL_HANDLE) {
+    throw std::runtime_error("failed to find a suitable GPU");
+  }
+}
+
+// helper function to see if the device is suitable
+bool Application::isDeviceSuitable(VkPhysicalDevice device) {
+  VkPhysicalDeviceProperties deviceProperties;
+  vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+  QueueFamilyIndices indices = findQueueFamilies(device);
+  bool supportsVulkan13 = deviceProperties.apiVersion >= VK_API_VERSION_1_3;
+
+  // if vulkan 1.3 is not supported just stop
+  if (!supportsVulkan13 || !indices.isComplete()) {
+    return false;
+  }
+  // GPU type
+  if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+    std::cout << "Selected Discrete GPU: " << deviceProperties.deviceName
+              << "\n";
+  } else {
+    std::cout
+        << "Selected Integrated/Fallback GPU (performance might be affected): "
+        << deviceProperties.deviceName << "\n";
+  }
+  return true;
+}
+
+// find queue families
+QueueFamilyIndices Application::findQueueFamilies(VkPhysicalDevice device) {
+  QueueFamilyIndices indices;
+
+  uint32_t queueFamilyCount = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+  std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                           queueFamilies.data());
+
+  int i = 0;
+  for (const auto &queueFamily : queueFamilies) {
+    if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+      indices.graphicsFamily = i;
+    }
+    VkBool32 presentSupport = false;
+    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+    if (presentSupport) {
+      indices.presentFamily = i;
+    }
+    if (indices.isComplete())
+      break;
+    i++;
+  }
+
+  return indices;
+}
 } // namespace elementalEngine
