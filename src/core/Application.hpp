@@ -2,6 +2,8 @@
 
 // header files
 #include "Window.hpp"
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace elementalEngine {
 class Application {
@@ -22,7 +24,11 @@ public:
   void run();
 
 private:
-  // initialization
+  // --- initialization ---
   WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
+  // - Vulkan Monolith -
+  VkInstance instance;
+  void initVulkan();
+  void createInstance();
 };
 } // namespace elementalEngine
