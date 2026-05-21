@@ -66,6 +66,9 @@ void Application::initVulkan() {
 
 // instance
 void Application::createInstance() {
+  // extension support
+  hasInstanceExtension();
+
   // App Info
   VkApplicationInfo appInfo = {};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -141,6 +144,19 @@ void Application::setupDebugMessenger() {
   if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
                                    &debugMessenger) != VK_SUCCESS) {
     throw std::runtime_error("Failed to set up debug messenger!");
+  }
+}
+
+// checking for extension support
+void Application::hasInstanceExtension() {
+  uint32_t extensionCount = 0;
+  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+  std::vector<VkExtensionProperties> extensions(extensionCount);
+  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount,
+                                         extensions.data());
+  std::cout << "available extensions:\n";
+  for (const auto &extension : extensions) {
+    std::cout << '\t' << extension.extensionName << '\n';
   }
 }
 

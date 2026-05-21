@@ -43,6 +43,7 @@ private:
   void initVulkan();
   void createInstance();
   void setupDebugMessenger();
+  void hasInstanceExtension();
   void createSurface();
   void pickPhysicalDevice();
   bool isDeviceSuitable(VkPhysicalDevice device);
