@@ -28,7 +28,9 @@ private:
   WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
   // - Vulkan Monolith -
   VkInstance instance;
+  VkDebugUtilsMessengerEXT debugMessenger;
   void initVulkan();
   void createInstance();
+  void setupDebugMessenger();
 };
 } // namespace elementalEngine
