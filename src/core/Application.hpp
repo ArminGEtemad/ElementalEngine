@@ -40,6 +40,8 @@ private:
   VkSurfaceKHR surface;
   VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
   VkDevice device;
+  VkQueue graphicsQueue;
+  VkQueue presentQueue;
   void initVulkan();
   void createInstance();
   void setupDebugMessenger();
@@ -48,5 +50,6 @@ private:
   void pickPhysicalDevice();
   bool isDeviceSuitable(VkPhysicalDevice device);
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+  void createLogicalDevice();
 };
 } // namespace elementalEngine
