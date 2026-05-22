@@ -7,7 +7,6 @@
 #include <set>
 #include <stdexcept>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace elementalEngine {
 
@@ -67,7 +66,9 @@ void Application::run() {
 
   while (!window.shouldClose()) {
     glfwPollEvents();
+    drawFrame();
   }
+  vkDeviceWaitIdle(device);
 }
 
 void Application::initVulkan() {
@@ -564,6 +565,128 @@ void Application::createSyncObjects() {
           VK_SUCCESS) {
     throw std::runtime_error("Failed to create synchronization objects!");
   }
+}
+
+void Application::recordCommandBuffer(VkCommandBuffer commandBuffer,
+                                      uint32_t imageIndex) {
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to begin recording command buffer!");
+  }
+
+  VkImageMemoryBarrier2 imageBarrier{};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.srcAccessMask = 0;
+  imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  imageBarrier.image = swapchainImages[imageIndex];
+  imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageBarrier.subresourceRange.baseMipLevel = 0;
+  imageBarrier.subresourceRange.levelCount = 1;
+  imageBarrier.subresourceRange.baseArrayLayer = 0;
+  imageBarrier.subresourceRange.layerCount = 1;
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers = &imageBarrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+  VkClearValue clearColor = {{{0.01f, 0.01f, 0.1f, 1.0f}}};
+
+  VkRenderingAttachmentInfo colorAttachment{};
+  colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  colorAttachment.imageView = swapchainImageViews[imageIndex];
+  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.clearValue = clearColor;
+
+  VkRenderingInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = swapchainExtent;
+  renderingInfo.layerCount = 1;
+  renderingInfo.colorAttachmentCount = 1;
+  renderingInfo.pColorAttachments = &colorAttachment;
+
+  vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+  // TODO draw commands here
+
+  vkCmdEndRendering(commandBuffer);
+
+  imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+  imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+  imageBarrier.dstAccessMask = 0;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+  if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to record command buffer!");
+  }
+}
+
+void Application::drawFrame() {
+  // wait for previous frame to finish
+  vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+
+  // get image from Swapchain
+  uint32_t imageIndex;
+  vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphore,
+                        VK_NULL_HANDLE, &imageIndex);
+
+  vkResetFences(device, 1, &inFlightFence);
+
+  vkResetCommandBuffer(commandBuffer, 0);
+  recordCommandBuffer(commandBuffer, imageIndex);
+
+  VkSemaphoreSubmitInfo waitSemaphoreInfo{};
+  waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+  waitSemaphoreInfo.semaphore = imageAvailableSemaphore;
+  waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+  VkSemaphoreSubmitInfo signalSemaphoreInfo{};
+  signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+  signalSemaphoreInfo.semaphore = renderFinishedSemaphore;
+  signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+
+  VkCommandBufferSubmitInfo cmdBufferInfo{};
+  cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+  cmdBufferInfo.commandBuffer = commandBuffer;
+
+  VkSubmitInfo2 submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+  submitInfo.waitSemaphoreInfoCount = 1;
+  submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+  submitInfo.commandBufferInfoCount = 1;
+  submitInfo.pCommandBufferInfos = &cmdBufferInfo;
+  submitInfo.signalSemaphoreInfoCount = 1;
+  submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+  if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo, inFlightFence) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to submit draw command buffer!");
+  }
+
+  VkPresentInfoKHR presentInfo{};
+  presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  presentInfo.waitSemaphoreCount = 1;
+  presentInfo.pWaitSemaphores = &renderFinishedSemaphore;
+  presentInfo.swapchainCount = 1;
+  presentInfo.pSwapchains = &swapchain;
+  presentInfo.pImageIndices = &imageIndex;
+
+  vkQueuePresentKHR(presentQueue, &presentInfo);
 }
 
 } // namespace elementalEngine

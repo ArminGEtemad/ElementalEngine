@@ -4,7 +4,6 @@
 #include "Window.hpp"
 #include <optional>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace elementalEngine {
 struct QueueFamilyIndices {
@@ -37,6 +36,7 @@ public:
 
   // functions
   void run();
+  void drawFrame();
 
 private:
   // --- initialization ---
@@ -86,5 +86,6 @@ private:
   void createCommandPool();
   void allocateCommandBuffer();
   void createSyncObjects();
+  void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 };
 } // namespace elementalEngine
