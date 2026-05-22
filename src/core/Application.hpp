@@ -53,6 +53,7 @@ private:
   std::vector<VkImage> swapchainImages;
   VkFormat swapchainImageFormat;
   VkExtent2D swapchainExtent;
+  std::vector<VkImageView> swapchainImageViews;
 
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME};
@@ -76,5 +77,6 @@ private:
       const std::vector<VkPresentModeKHR> &availablePresentModes);
   VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
   SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice device);
+  void createImageViews();
 };
 } // namespace elementalEngine
