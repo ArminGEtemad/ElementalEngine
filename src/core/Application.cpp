@@ -46,9 +46,13 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
   }
 }
 
-Application::Application(){};
+Application::Application() { initVulkan(); };
 Application::~Application() {
   vkDeviceWaitIdle(device);
+  vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+  vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
+  vkDestroyFence(device, inFlightFence, nullptr);
+  vkDestroyCommandPool(device, commandPool, nullptr);
   for (auto imageView : swapchainImageViews) {
     vkDestroyImageView(device, imageView, nullptr);
   }
@@ -60,7 +64,7 @@ Application::~Application() {
 };
 
 void Application::run() {
-  initVulkan();
+
   while (!window.shouldClose()) {
     glfwPollEvents();
   }
@@ -74,6 +78,9 @@ void Application::initVulkan() {
   createLogicalDevice();
   createSwapchain();
   createImageViews();
+  createCommandPool();
+  allocateCommandBuffer();
+  createSyncObjects();
 }
 
 // instance
@@ -173,7 +180,7 @@ void Application::hasInstanceExtension() {
 void Application::createSurface() {
   if (glfwCreateWindowSurface(instance, window.getGLFWwindow(), nullptr,
                               &surface) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create a surface");
+    throw std::runtime_error("Failed to create a surface");
   }
 }
 
@@ -182,7 +189,7 @@ void Application::pickPhysicalDevice() {
   uint32_t deviceCount = 0;
   vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
   if (deviceCount == 0) {
-    throw std::runtime_error("failed to find GPUs with Vulkan support!");
+    throw std::runtime_error("Failed to find GPUs with Vulkan support!");
   }
   std::cout << "Device count: " << deviceCount << "\n";
   std::vector<VkPhysicalDevice> devices(deviceCount);
@@ -195,7 +202,7 @@ void Application::pickPhysicalDevice() {
   }
 
   if (physicalDevice == VK_NULL_HANDLE) {
-    throw std::runtime_error("failed to find a suitable GPU");
+    throw std::runtime_error("Failed to find a suitable GPU");
   }
 }
 
@@ -211,6 +218,12 @@ bool Application::isDeviceSuitable(VkPhysicalDevice device) {
   if (!supportsVulkan13 || !indices.isComplete()) {
     return false;
   }
+
+  bool extensionsSupported = checkDeviceExtensionSupport(device);
+  if (!extensionsSupported) {
+    return false;
+  }
+
   // GPU type
   if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
     std::cout << "Selected Discrete GPU: " << deviceProperties.deviceName
@@ -219,11 +232,6 @@ bool Application::isDeviceSuitable(VkPhysicalDevice device) {
     std::cout << "Selected Integrated/Fallback GPU (performance might be "
                  "affected): "
               << deviceProperties.deviceName << "\n";
-  }
-
-  bool extensionsSupported = checkDeviceExtensionSupport(device);
-  if (!extensionsSupported) {
-    return false;
   }
 
   return true;
@@ -314,7 +322,7 @@ void Application::createLogicalDevice() {
 
   if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) !=
       VK_SUCCESS) {
-    throw std::runtime_error("failed to create logical device!");
+    throw std::runtime_error("Failed to create logical device!");
   }
 
   vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
@@ -469,7 +477,7 @@ void Application::createSwapchain() {
 
   if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) !=
       VK_SUCCESS) {
-    throw std::runtime_error("failed to create swap chain!");
+    throw std::runtime_error("Failed to create swap chain!");
   }
 
   vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
@@ -506,6 +514,55 @@ void Application::createImageViews() {
                           &swapchainImageViews[i]) != VK_SUCCESS) {
       throw std::runtime_error("Failed to create image views!");
     }
+  }
+}
+
+void Application::createCommandPool() {
+  QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+  VkCommandPoolCreateInfo poolInfo{};
+  poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+
+  // Consider resetting entire pool instead caused by "Performance Warning"
+  poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+  poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+  if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to create command pool!");
+  }
+}
+
+void Application::allocateCommandBuffer() {
+  VkCommandBufferAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.commandPool = commandPool;
+  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandBufferCount = 1;
+
+  if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to allocate command buffers!");
+  }
+}
+
+void Application::createSyncObjects() {
+  VkSemaphoreCreateInfo semaphoreInfo{};
+  semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+  VkFenceCreateInfo fenceInfo{};
+  fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start signaled so first
+                                                  // frame doesn't wait forever
+
+  if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
+                        &imageAvailableSemaphore) != VK_SUCCESS ||
+      vkCreateSemaphore(device, &semaphoreInfo, nullptr,
+                        &renderFinishedSemaphore) != VK_SUCCESS ||
+      vkCreateFence(device, &fenceInfo, nullptr, &inFlightFence) !=
+          VK_SUCCESS) {
+    throw std::runtime_error("Failed to create synchronization objects!");
   }
 }
 
