@@ -53,4 +53,4 @@ add_custom_command(
 add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT})
 add_dependencies(ElementalEngine CompileShaders)
 
-target_link_libraries(ElementalEngine Vulkan::Vulkan glfw)
+target_link_libraries(ElementalEngine Vulkan::Vulkan glfw d3d12 dxgi dxguid)
