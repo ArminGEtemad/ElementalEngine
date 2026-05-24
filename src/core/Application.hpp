@@ -59,11 +59,17 @@ private:
   VkSemaphore imageAvailableSemaphore;
   VkSemaphore renderFinishedSemaphore;
   VkFence inFlightFence;
+  VkShaderModule vertShaderModule;
+  VkShaderModule fragShaderModule;
+  VkPipeline graphicsPipeline;
+  VkPipelineLayout pipelineLayout;
 
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME};
   const std::vector<const char *> validationLayers = {
       "VK_LAYER_KHRONOS_validation"};
+  static std::vector<char>
+  readFile(const std::string &filepath); // helper function to read shader
 
   void initVulkan();
   void createInstance();
@@ -87,5 +93,7 @@ private:
   void allocateCommandBuffer();
   void createSyncObjects();
   void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+  VkShaderModule createShaderModule(const std::vector<char> &code);
+  void createGraphicsPipeline();
 };
 } // namespace elementalEngine
