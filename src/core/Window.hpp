@@ -17,6 +17,7 @@ public:
 
   // getters and public functions
   bool shouldClose() { return glfwWindowShouldClose(window); }
+  GLFWwindow *getGLFWwindow() { return window; }
 
 private:
   // declare variables
