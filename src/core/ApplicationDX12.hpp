@@ -2,6 +2,12 @@
 
 // header files
 #include "Window.hpp"
+#include <d3d12.h>
+#include <d3d12sdklayers.h>
+#include <dxgi1_6.h>
+#include <wrl.h>
+
+using Microsoft::WRL::ComPtr;
 
 namespace elementalEngine {
 class ApplicationDX12 {
@@ -24,6 +30,12 @@ public:
 private:
   // --- initialization ---
   WindowHandling window{WIDTH, HEIGHT, "Elemental Engine - DX12"};
+  // - DX12 Monolith -
+  ComPtr<IDXGIFactory4> factory;
+  ComPtr<ID3D12Debug1> debugController;
+
   void initDX12();
+  void createFactory();
+  void enableDebugLayer();
 };
 } // namespace elementalEngine
