@@ -28,6 +28,8 @@ public:
   void run();
 
 private:
+  static constexpr UINT FrameCount = 2; // double buffering swapchain
+
   // --- initialization ---
   WindowHandling window{WIDTH, HEIGHT, "Elemental Engine - DX12"};
   // - DX12 Monolith -
@@ -35,11 +37,31 @@ private:
   ComPtr<ID3D12Debug1> debugController;
   ComPtr<IDXGIAdapter1> physicalDevice;
   ComPtr<ID3D12Device> device;
+  ComPtr<ID3D12CommandQueue> commandQueue;
+  ComPtr<IDXGISwapChain3> swapchain;
+  ComPtr<ID3D12DescriptorHeap> rtvHeap;
+  ComPtr<ID3D12Resource> renderTargets[FrameCount];
+  UINT rtvDescriptorSize;
+  ComPtr<ID3D12CommandAllocator> commandAllocator;
+  ComPtr<ID3D12GraphicsCommandList7> commandList;
+  ComPtr<ID3D12Fence> fence;
+  UINT64 fenceValue = 0;
+  HANDLE fenceEvent;
+  UINT frameIndex = 0;
 
   void initDX12();
   void createFactory();
   void enableDebugLayer();
   void pickPhysicalDevice(); // adapter
   void createLogicalDevice();
+  void createCommandQueue();
+  void createSwapchain();
+  void createRenderTargetViews();
+  void createCommandList();
+  void createSyncObjects();
+
+  void populateCommandList();
+  void waitForGPU();
+  void drawFrame();
 };
 } // namespace elementalEngine
