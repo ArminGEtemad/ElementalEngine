@@ -33,9 +33,13 @@ private:
   // - DX12 Monolith -
   ComPtr<IDXGIFactory4> factory;
   ComPtr<ID3D12Debug1> debugController;
+  ComPtr<IDXGIAdapter1> physicalDevice;
+  ComPtr<ID3D12Device> device;
 
   void initDX12();
   void createFactory();
   void enableDebugLayer();
+  void pickPhysicalDevice(); // adapter
+  void createLogicalDevice();
 };
 } // namespace elementalEngine
