@@ -7,9 +7,11 @@
 #include <d3dcommon.h>
 #include <dxgi.h>
 #include <dxgiformat.h>
+#include <fstream>
 #include <intsafe.h>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 #include <winerror.h>
 #include <wrl/client.h>
 
@@ -37,6 +39,7 @@ void ApplicationDX12::initDX12() {
   createRenderTargetViews();
   createCommandList();
   createSyncObjects();
+  createGraphicsPipeline();
 }
 
 // debug layout
@@ -190,6 +193,95 @@ void ApplicationDX12::createSyncObjects() {
   frameIndex = swapchain->GetCurrentBackBufferIndex();
 }
 
+void ApplicationDX12::waitForGPU() {
+  const UINT64 fenceToWaitFor = fenceValue;
+  commandQueue->Signal(fence.Get(), fenceToWaitFor);
+  fenceValue++;
+
+  if (fence->GetCompletedValue() < fenceToWaitFor) {
+    fence->SetEventOnCompletion(fenceToWaitFor, fenceEvent);
+    WaitForSingleObject(fenceEvent, INFINITE);
+  }
+
+  frameIndex = swapchain->GetCurrentBackBufferIndex();
+}
+
+// Helper to read DXIL
+std::vector<char> ApplicationDX12::readFile(const std::string &filepath) {
+  std::ifstream file(filepath, std::ios::ate | std::ios::binary);
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed to open file: " + filepath);
+  }
+  size_t fileSize = static_cast<size_t>(file.tellg());
+  std::vector<char> buffer(fileSize);
+  file.seekg(0);
+  file.read(buffer.data(), fileSize);
+  file.close();
+  return buffer;
+}
+
+void ApplicationDX12::createGraphicsPipeline() {
+  auto vsBytecode = readFile("build/triangle_vs.dxil");
+  auto psBytecode = readFile("build/triangle_ps.dxil");
+
+  D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
+  rootSigDesc.NumParameters = 0;
+  rootSigDesc.pParameters = nullptr;
+  rootSigDesc.NumStaticSamplers = 0;
+  rootSigDesc.pStaticSamplers = nullptr;
+  rootSigDesc.Flags =
+      D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+  ComPtr<ID3DBlob> signature;
+  ComPtr<ID3DBlob> error;
+  D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_0,
+                              &signature, &error);
+  device->CreateRootSignature(0, signature->GetBufferPointer(),
+                              signature->GetBufferSize(),
+                              IID_PPV_ARGS(&rootSignature));
+
+  D3D12_RASTERIZER_DESC rasterizerDesc{};
+  rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+  rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
+  rasterizerDesc.FrontCounterClockwise = FALSE;
+  rasterizerDesc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+  rasterizerDesc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+  rasterizerDesc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+  rasterizerDesc.DepthClipEnable = TRUE;
+  rasterizerDesc.MultisampleEnable = FALSE;
+  rasterizerDesc.AntialiasedLineEnable = FALSE;
+  rasterizerDesc.ForcedSampleCount = 0;
+  rasterizerDesc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+  D3D12_BLEND_DESC blendDesc{};
+  blendDesc.AlphaToCoverageEnable = FALSE;
+  blendDesc.IndependentBlendEnable = FALSE;
+  blendDesc.RenderTarget[0].BlendEnable = FALSE;
+  blendDesc.RenderTarget[0].LogicOpEnable = FALSE;
+  blendDesc.RenderTarget[0].RenderTargetWriteMask =
+      D3D12_COLOR_WRITE_ENABLE_ALL;
+
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+  psoDesc.InputLayout = {nullptr, 0};
+  psoDesc.pRootSignature = rootSignature.Get();
+  psoDesc.VS = {vsBytecode.data(), vsBytecode.size()};
+  psoDesc.PS = {psBytecode.data(), psBytecode.size()};
+  psoDesc.RasterizerState = rasterizerDesc;
+  psoDesc.BlendState = blendDesc;
+  psoDesc.DepthStencilState.DepthEnable = FALSE;
+  psoDesc.DepthStencilState.StencilEnable = FALSE;
+  psoDesc.SampleMask = UINT_MAX;
+  psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+  psoDesc.NumRenderTargets = 1;
+  psoDesc.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
+  psoDesc.SampleDesc.Count = 1;
+
+  if (FAILED(device->CreateGraphicsPipelineState(
+          &psoDesc, IID_PPV_ARGS(&pipelineState)))) {
+    throw std::runtime_error("Failed to create DX12 Pipeline State!");
+  }
+}
+
 void ApplicationDX12::populateCommandList() {
   commandAllocator->Reset();
   commandList->Reset(commandAllocator.Get(), nullptr);
@@ -220,6 +312,28 @@ void ApplicationDX12::populateCommandList() {
   const float clearColor[] = {0.01f, 0.01f, 0.1f, 1.0f};
   commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
+  commandList->SetPipelineState(pipelineState.Get());
+  commandList->SetGraphicsRootSignature(rootSignature.Get());
+
+  D3D12_VIEWPORT viewport{};
+  viewport.TopLeftX = 0.0f;
+  viewport.TopLeftY = 0.0f;
+  viewport.Width = static_cast<float>(WIDTH);
+  viewport.Height = static_cast<float>(HEIGHT);
+  viewport.MinDepth = 0.0f;
+  viewport.MaxDepth = 1.0f;
+  commandList->RSSetViewports(1, &viewport);
+
+  D3D12_RECT scissorRect{};
+  scissorRect.left = 0;
+  scissorRect.top = 0;
+  scissorRect.right = WIDTH;
+  scissorRect.bottom = HEIGHT;
+  commandList->RSSetScissorRects(1, &scissorRect);
+
+  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  commandList->DrawInstanced(3, 1, 0, 0);
+
   D3D12_TEXTURE_BARRIER toPresentBarrier = toRenderTargetBarrier;
   toPresentBarrier.SyncBefore = D3D12_BARRIER_SYNC_RENDER_TARGET;
   toPresentBarrier.SyncAfter = D3D12_BARRIER_SYNC_NONE;
@@ -238,19 +352,6 @@ void ApplicationDX12::populateCommandList() {
   if (FAILED(commandList->Close())) {
     throw std::runtime_error("Failed to close Command List!");
   }
-}
-
-void ApplicationDX12::waitForGPU() {
-  const UINT64 fenceToWaitFor = fenceValue;
-  commandQueue->Signal(fence.Get(), fenceToWaitFor);
-  fenceValue++;
-
-  if (fence->GetCompletedValue() < fenceToWaitFor) {
-    fence->SetEventOnCompletion(fenceToWaitFor, fenceEvent);
-    WaitForSingleObject(fenceEvent, INFINITE);
-  }
-
-  frameIndex = swapchain->GetCurrentBackBufferIndex();
 }
 
 void ApplicationDX12::drawFrame() {

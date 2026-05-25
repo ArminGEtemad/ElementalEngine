@@ -5,7 +5,9 @@
 #include <d3d12.h>
 #include <d3d12sdklayers.h>
 #include <dxgi1_6.h>
+#include <vector>
 #include <wrl.h>
+
 
 using Microsoft::WRL::ComPtr;
 
@@ -48,6 +50,11 @@ private:
   UINT64 fenceValue = 0;
   HANDLE fenceEvent;
   UINT frameIndex = 0;
+  ComPtr<ID3D12RootSignature> rootSignature;
+  ComPtr<ID3D12PipelineState> pipelineState;
+
+  static std::vector<char>
+  readFile(const std::string &filepath); // helper function to read shader
 
   void initDX12();
   void createFactory();
@@ -59,7 +66,7 @@ private:
   void createRenderTargetViews();
   void createCommandList();
   void createSyncObjects();
-
+  void createGraphicsPipeline();
   void populateCommandList();
   void waitForGPU();
   void drawFrame();
