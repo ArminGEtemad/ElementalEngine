@@ -8,10 +8,12 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 
 include_directories(src src/core)
+set(DX12_LIBS d3d12 dxgi)
 
 add_executable(ElementalEngine
     src/main.cpp
-    src/core/Application.cpp
+    src/core/ApplicationVK.cpp
+    src/core/ApplicationDX12.cpp
     src/core/Window.cpp    
 )
 
@@ -33,6 +35,8 @@ endif()
 set(SHADER_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/triangle.hlsl")
 set(SPV_VERT_OUT "${CMAKE_BINARY_DIR}/triangle_vs.spv")
 set(SPV_FRAG_OUT "${CMAKE_BINARY_DIR}/triangle_ps.spv")
+set(DXIL_VERT_OUT "${CMAKE_BINARY_DIR}/triangle_vs.dxil")
+set(DXIL_FRAG_OUT "${CMAKE_BINARY_DIR}/triangle_ps.dxil")
 
 add_custom_command(
     OUTPUT ${SPV_VERT_OUT}
@@ -48,7 +52,20 @@ add_custom_command(
     COMMENT "Compiling HLSL Fragment Shader to SPIR-V..."
 )
 
-add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT})
-add_dependencies(ElementalEngine CompileShaders)
+add_custom_command(
+    OUTPUT ${DXIL_VERT_OUT}
+    COMMAND ${DXC_EXECUTABLE} -T vs_6_0 -E VSMain ${SHADER_SRC} -Fo ${DXIL_VERT_OUT}
+    DEPENDS ${SHADER_SRC}
+    COMMENT "Compiling HLSL Vertex Shader to DXIL..."
+)
 
-target_link_libraries(ElementalEngine Vulkan::Vulkan glfw)
+add_custom_command(
+    OUTPUT ${DXIL_FRAG_OUT}
+    COMMAND ${DXC_EXECUTABLE} -T ps_6_0 -E PSMain ${SHADER_SRC} -Fo ${DXIL_FRAG_OUT}
+    DEPENDS ${SHADER_SRC}
+    COMMENT "Compiling HLSL Fragment Shader to DXIL..."
+)
+add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT} ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT})
+
+add_dependencies(ElementalEngine CompileShaders)
+target_link_libraries(ElementalEngine Vulkan::Vulkan glfw d3d12 dxgi dxguid)

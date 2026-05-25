@@ -20,19 +20,19 @@ struct SwapchainSupportDetails {
   std::vector<VkPresentModeKHR> presentModes;
 };
 
-class Application {
+class ApplicationVK {
 public:
   // TODO for now the window is not resizable
   // change it later after triangle is up
   static constexpr int WIDTH{1000};
   static constexpr int HEIGHT{800};
 
-  Application();
-  ~Application();
+  ApplicationVK();
+  ~ApplicationVK();
 
   // cleaning up
-  Application(const Application &) = delete;
-  Application &operator=(const Application &) = delete;
+  ApplicationVK(const ApplicationVK &) = delete;
+  ApplicationVK &operator=(const ApplicationVK &) = delete;
 
   // functions
   void run();
@@ -40,7 +40,7 @@ public:
 
 private:
   // --- initialization ---
-  WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
+  WindowHandling window{WIDTH, HEIGHT, "Elemental Engine - VK"};
   // - Vulkan Monolith -
   VkInstance instance;
   VkDebugUtilsMessengerEXT debugMessenger;

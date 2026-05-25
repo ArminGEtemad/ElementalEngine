@@ -1,10 +1,17 @@
-#include "core/Application.hpp"
+#include "core/ApplicationDX12.hpp"
+#include "core/ApplicationVK.hpp"
 
 #include <cstdlib>
 #include <iostream>
 
+#define USE_DX12 true
+
 int main() {
-  elementalEngine::Application app{};
+#if USE_DX12
+  elementalEngine::ApplicationDX12 app{};
+#else
+  elementalEngine::ApplicationVK app{};
+#endif
 
   try {
     app.run();

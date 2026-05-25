@@ -1,4 +1,4 @@
-#include "Application.hpp"
+#include "ApplicationVK.hpp"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cstddef>
@@ -47,8 +47,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
   }
 }
 
-Application::Application() { initVulkan(); };
-Application::~Application() {
+ApplicationVK::ApplicationVK() { initVulkan(); };
+ApplicationVK::~ApplicationVK() {
   vkDeviceWaitIdle(device);
   vkDestroyPipeline(device, graphicsPipeline, nullptr);
   vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -66,8 +66,7 @@ Application::~Application() {
   vkDestroyInstance(instance, nullptr);
 };
 
-void Application::run() {
-
+void ApplicationVK::run() {
   while (!window.shouldClose()) {
     glfwPollEvents();
     drawFrame();
@@ -75,7 +74,7 @@ void Application::run() {
   vkDeviceWaitIdle(device);
 }
 
-void Application::initVulkan() {
+void ApplicationVK::initVulkan() {
   createInstance();
   setupDebugMessenger();
   createSurface();
@@ -90,7 +89,7 @@ void Application::initVulkan() {
 }
 
 // instance
-void Application::createInstance() {
+void ApplicationVK::createInstance() {
   // extension support
   hasInstanceExtension();
 
@@ -147,7 +146,7 @@ void Application::createInstance() {
 }
 
 // debug messanger
-void Application::setupDebugMessenger() {
+void ApplicationVK::setupDebugMessenger() {
   VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 
@@ -170,7 +169,7 @@ void Application::setupDebugMessenger() {
 }
 
 // checking for extension support
-void Application::hasInstanceExtension() {
+void ApplicationVK::hasInstanceExtension() {
   uint32_t extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
   std::vector<VkExtensionProperties> extensions(extensionCount);
@@ -183,7 +182,7 @@ void Application::hasInstanceExtension() {
 }
 
 // surface
-void Application::createSurface() {
+void ApplicationVK::createSurface() {
   if (glfwCreateWindowSurface(instance, window.getGLFWwindow(), nullptr,
                               &surface) != VK_SUCCESS) {
     throw std::runtime_error("Failed to create a surface");
@@ -191,7 +190,7 @@ void Application::createSurface() {
 }
 
 // pick physical device
-void Application::pickPhysicalDevice() {
+void ApplicationVK::pickPhysicalDevice() {
   uint32_t deviceCount = 0;
   vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
   if (deviceCount == 0) {
@@ -213,7 +212,7 @@ void Application::pickPhysicalDevice() {
 }
 
 // helper function to see if the device is suitable
-bool Application::isDeviceSuitable(VkPhysicalDevice device) {
+bool ApplicationVK::isDeviceSuitable(VkPhysicalDevice device) {
   VkPhysicalDeviceProperties deviceProperties;
   vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
@@ -244,7 +243,7 @@ bool Application::isDeviceSuitable(VkPhysicalDevice device) {
 }
 
 // find queue families
-QueueFamilyIndices Application::findQueueFamilies(VkPhysicalDevice device) {
+QueueFamilyIndices ApplicationVK::findQueueFamilies(VkPhysicalDevice device) {
   QueueFamilyIndices indices;
 
   uint32_t queueFamilyCount = 0;
@@ -273,7 +272,7 @@ QueueFamilyIndices Application::findQueueFamilies(VkPhysicalDevice device) {
 }
 
 // create logical device
-void Application::createLogicalDevice() {
+void ApplicationVK::createLogicalDevice() {
   QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
   std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -336,7 +335,7 @@ void Application::createLogicalDevice() {
 }
 
 // helper function to check device extention support needed for swapchain
-bool Application::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+bool ApplicationVK::checkDeviceExtensionSupport(VkPhysicalDevice device) {
   uint32_t extensionCount;
   vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
                                        nullptr);
@@ -356,7 +355,7 @@ bool Application::checkDeviceExtensionSupport(VkPhysicalDevice device) {
 }
 
 // surface format for swap chain
-VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(
+VkSurfaceFormatKHR ApplicationVK::chooseSwapSurfaceFormat(
     const std::vector<VkSurfaceFormatKHR> &availableFormats) {
   for (const auto &availableFormat : availableFormats) {
     if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
@@ -368,7 +367,7 @@ VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(
 }
 
 // present mode for swap chain
-VkPresentModeKHR Application::chooseSwapPresentMode(
+VkPresentModeKHR ApplicationVK::chooseSwapPresentMode(
     const std::vector<VkPresentModeKHR> &availablePresentModes) {
   for (const auto &availablePresentMode : availablePresentModes) {
     if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -384,7 +383,7 @@ VkPresentModeKHR Application::chooseSwapPresentMode(
 
 // resolution of the images in swap chain
 VkExtent2D
-Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
+ApplicationVK::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
   if (capabilities.currentExtent.width !=
       std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
@@ -408,7 +407,7 @@ Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
 
 // add capabilities
 SwapchainSupportDetails
-Application::querySwapchainSupport(VkPhysicalDevice device) {
+ApplicationVK::querySwapchainSupport(VkPhysicalDevice device) {
   SwapchainSupportDetails details;
 
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface,
@@ -434,7 +433,7 @@ Application::querySwapchainSupport(VkPhysicalDevice device) {
   return details;
 }
 
-void Application::createSwapchain() {
+void ApplicationVK::createSwapchain() {
   SwapchainSupportDetails swapchainSupport =
       querySwapchainSupport(physicalDevice);
 
@@ -495,7 +494,7 @@ void Application::createSwapchain() {
   swapchainExtent = extent;
 }
 
-void Application::createImageViews() {
+void ApplicationVK::createImageViews() {
   swapchainImageViews.resize(swapchainImages.size());
 
   for (size_t i = 0; i < swapchainImages.size(); i++) {
@@ -523,7 +522,7 @@ void Application::createImageViews() {
   }
 }
 
-void Application::createCommandPool() {
+void ApplicationVK::createCommandPool() {
   QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 
   VkCommandPoolCreateInfo poolInfo{};
@@ -540,7 +539,7 @@ void Application::createCommandPool() {
   }
 }
 
-void Application::allocateCommandBuffer() {
+void ApplicationVK::allocateCommandBuffer() {
   VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   allocInfo.commandPool = commandPool;
@@ -553,7 +552,7 @@ void Application::allocateCommandBuffer() {
   }
 }
 
-void Application::createSyncObjects() {
+void ApplicationVK::createSyncObjects() {
   VkSemaphoreCreateInfo semaphoreInfo{};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -573,7 +572,7 @@ void Application::createSyncObjects() {
 }
 
 // to read shaders
-std::vector<char> Application::readFile(const std::string &filepath) {
+std::vector<char> ApplicationVK::readFile(const std::string &filepath) {
   std::ifstream file(filepath, std::ios::ate | std::ios::binary);
 
   if (!file.is_open()) {
@@ -590,7 +589,8 @@ std::vector<char> Application::readFile(const std::string &filepath) {
 }
 
 // helper function to make shader module
-VkShaderModule Application::createShaderModule(const std::vector<char> &code) {
+VkShaderModule
+ApplicationVK::createShaderModule(const std::vector<char> &code) {
   VkShaderModuleCreateInfo shaderCreateInfo{};
   shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   shaderCreateInfo.codeSize = code.size();
@@ -603,7 +603,7 @@ VkShaderModule Application::createShaderModule(const std::vector<char> &code) {
   return shaderModule;
 }
 
-void Application::createGraphicsPipeline() {
+void ApplicationVK::createGraphicsPipeline() {
   auto vertShaderCode = readFile("build/triangle_vs.spv");
   auto fragShaderCode = readFile("build/triangle_ps.spv");
 
@@ -731,8 +731,8 @@ void Application::createGraphicsPipeline() {
   vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
 
-void Application::recordCommandBuffer(VkCommandBuffer commandBuffer,
-                                      uint32_t imageIndex) {
+void ApplicationVK::recordCommandBuffer(VkCommandBuffer commandBuffer,
+                                        uint32_t imageIndex) {
   VkCommandBufferBeginInfo beginInfo{};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -787,9 +787,9 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer,
 
   VkViewport viewport{};
   viewport.x = 0.0f;
-  viewport.y = 0.0f;
+  viewport.y = static_cast<float>(swapchainExtent.height);
   viewport.width = static_cast<float>(swapchainExtent.width);
-  viewport.height = static_cast<float>(swapchainExtent.height);
+  viewport.height = -static_cast<float>(swapchainExtent.height);
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
   vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -818,7 +818,7 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer,
   }
 }
 
-void Application::drawFrame() {
+void ApplicationVK::drawFrame() {
   // wait for previous frame to finish
   vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
 
