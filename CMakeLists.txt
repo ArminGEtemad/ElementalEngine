@@ -7,13 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 
-include_directories(src src/core)
+include_directories(src src/core src/rhi)
 set(DX12_LIBS d3d12 dxgi)
 
 add_executable(ElementalEngine
     src/main.cpp
+    src/rhi/Device.cpp
     src/core/ApplicationVK.cpp
     src/core/ApplicationDX12.cpp
+    src/rhi/vulkan/VulkanDevice.cpp
+    src/rhi/dx12/DX12Device.cpp
     src/core/Window.cpp    
 )
 
