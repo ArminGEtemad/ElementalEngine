@@ -38,6 +38,7 @@ int main() {
     WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
     DeviceConfig config{};
     config.enableValidationLayers = true;
+    config.enableGPUAssistedValidatioLayer = false;
     std::unique_ptr<Device> device(
         RHIFilter::createDevice(selectedBackend, config, window));
 
