@@ -8,6 +8,7 @@ enum class GraphicsAPI {
 
 struct DeviceConfig {
   bool enableValidationLayers = true;
+  bool enableGPUAssistedValidatioLayer = false;
 };
 
 } // namespace elementalEngine::RHI
