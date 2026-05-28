@@ -5,13 +5,14 @@
 #include <stdexcept>
 
 namespace elementalEngine::RHI {
-Device *RHIFilter::createDevice(GraphicsAPI api, const DeviceConfig &config,
-                                WindowHandling &window) {
+std::unique_ptr<Device> RHIFilter::createDevice(GraphicsAPI api,
+                                                const DeviceConfig &config,
+                                                WindowHandling &window) {
   switch (api) {
   case GraphicsAPI::Vulkan:
-    return new VulkanDevice(config, window);
+    return std::make_unique<VulkanDevice>(config, window);
   case GraphicsAPI::DirectX12:
-    return new DX12Device(config, window);
+    return std::make_unique<DX12Device>(config, window);
   default:
     throw std::runtime_error("Unsupported API selected!");
   }
