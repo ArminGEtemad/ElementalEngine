@@ -2,6 +2,7 @@
 
 #include "RHICommon.hpp"
 #include "Window.hpp"
+#include <memory>
 
 namespace elementalEngine::RHI {
 class Device {
@@ -19,7 +20,8 @@ protected:
 
 class RHIFilter {
 public:
-  static Device *createDevice(GraphicsAPI api, const DeviceConfig &config,
-                              WindowHandling &window);
+  static std::unique_ptr<Device> createDevice(GraphicsAPI api,
+                                              const DeviceConfig &config,
+                                              WindowHandling &window);
 };
 } // namespace elementalEngine::RHI
