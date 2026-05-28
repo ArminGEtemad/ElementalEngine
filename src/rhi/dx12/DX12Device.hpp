@@ -17,5 +17,19 @@ public:
 
   GraphicsAPI getAPI() const override { return GraphicsAPI::DirectX12; }
   void waitIdle() override;
+
+private:
+  ComPtr<IDXGIFactory4> factory;
+  ComPtr<ID3D12Debug> debugController;
+  ComPtr<ID3D12Debug1> debugController1;
+  ComPtr<IDXGIAdapter1> physicalDevice;
+  ComPtr<ID3D12Device> device;
+  ComPtr<ID3D12CommandQueue> commandQueue;
+
+  void createFactory();
+  void enableDebugLayer(bool enableGPUValidation);
+  void pickPhysicalDevice(); // adapter
+  void createLogicalDevice();
+  void createCommandQueue();
 };
 } // namespace elementalEngine::RHI
