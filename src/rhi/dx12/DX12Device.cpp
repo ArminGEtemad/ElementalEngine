@@ -81,7 +81,7 @@ void DX12Device::pickPhysicalDevice() {
 
 // logical device
 void DX12Device::createLogicalDevice() {
-  if (FAILED(D3D12CreateDevice(physicalDevice.Get(), D3D_FEATURE_LEVEL_12_1,
+  if (FAILED(D3D12CreateDevice(physicalDevice.Get(), D3D_FEATURE_LEVEL_12_2,
                                IID_PPV_ARGS(&device)))) {
     throw std::runtime_error("Failed to create logical DirectX 12 Device!");
   }
