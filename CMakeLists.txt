@@ -16,7 +16,9 @@ add_executable(ElementalEngine
     #src/core/ApplicationVK.cpp
     #src/core/ApplicationDX12.cpp
     src/rhi/vulkan/VulkanDevice.cpp
+    src/rhi/vulkan/VulkanSwapchain.cpp
     src/rhi/dx12/DX12Device.cpp
+    src/rhi/dx12/DX12Swapchain.cpp
     src/core/Window.cpp    
 )
 
