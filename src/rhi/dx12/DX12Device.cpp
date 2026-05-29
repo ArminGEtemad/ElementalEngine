@@ -1,4 +1,5 @@
 #include "DX12Device.hpp"
+#include "DX12Swapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
 
@@ -17,6 +18,10 @@ DX12Device::DX12Device(const DeviceConfig &config, WindowHandling &window) {
 DX12Device::~DX12Device() {}
 
 void DX12Device::waitIdle() {}
+
+std::unique_ptr<Swapchain> DX12Device::createSwapchain(WindowHandling &window) {
+  return std::make_unique<DX12Swapchain>(*this, window);
+}
 
 void DX12Device::enableDebugLayer(bool enableGPUValidation) {
 

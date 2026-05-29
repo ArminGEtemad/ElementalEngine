@@ -7,6 +7,7 @@
 #include <d3d12sdklayers.h>
 #include <dxgi1_6.h>
 #include <wrl.h>
+
 using Microsoft::WRL::ComPtr;
 
 namespace elementalEngine::RHI {
@@ -17,6 +18,7 @@ public:
 
   GraphicsAPI getAPI() const override { return GraphicsAPI::DirectX12; }
   void waitIdle() override;
+  std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
 
   // getter functions
   IDXGIFactory4 *getFactory() const { return factory.Get(); }
