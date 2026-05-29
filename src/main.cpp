@@ -1,5 +1,6 @@
 #include "rhi/Device.hpp"
 #include "rhi/RHICommon.hpp"
+#include "rhi/Swapchain.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -39,8 +40,11 @@ int main() {
     DeviceConfig config{};
     config.enableValidationLayers = true;
     config.enableGPUAssistedValidatioLayer = false;
+
     std::unique_ptr<Device> device(
         RHIFilter::createDevice(selectedBackend, config, window));
+
+    std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
 
     std::cout << "main loop starts now...\n";
     while (!window.shouldClose()) {
