@@ -18,6 +18,20 @@ public:
   GraphicsAPI getAPI() const override { return GraphicsAPI::Vulkan; }
   void waitIdle() override;
 
+  std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
+
+  // getter functions
+  VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+  VkSurfaceKHR getSurface() const { return surface; }
+  VkDevice getLogicalDevice() const { return device; }
+  uint32_t getGraphicsQueueFamily() const {
+    return indices.graphicsFamily.value();
+  }
+  uint32_t getPresentQueueFamily() const {
+    return indices.presentFamily.value();
+  }
+  VkQueue getPresentQueue() const { return presentQueue; };
+
 private:
   struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
@@ -34,6 +48,7 @@ private:
   VkDevice device = VK_NULL_HANDLE;
   VkQueue graphicsQueue = VK_NULL_HANDLE;
   VkQueue presentQueue = VK_NULL_HANDLE;
+  QueueFamilyIndices indices;
 
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME};
@@ -49,6 +64,7 @@ private:
 
   // helper function
   void hasInstanceExtension();
+  bool checkDeviceExtensionSupport(VkPhysicalDevice device);
   bool isDeviceSuitable(VkPhysicalDevice device);
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 };
