@@ -1,4 +1,5 @@
 #include "VulkanDevice.hpp"
+#include "VulkanSwapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
 #include <set>
@@ -6,6 +7,10 @@
 
 namespace elementalEngine::RHI {
 
+std::unique_ptr<Swapchain>
+VulkanDevice::createSwapchain(WindowHandling &window) {
+  return std::make_unique<VulkanSwapchain>(*this, window);
+}
 // just for internal linkage
 namespace {
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -60,7 +65,6 @@ VulkanDevice::~VulkanDevice() {
   vkDestroyDevice(device, nullptr);
   vkDestroySurfaceKHR(instance, surface, nullptr);
   if (debugMessenger != VK_NULL_HANDLE) {
-    std::cout << "The debug messenger is being destroyed! \n";
     DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
   }
   vkDestroyInstance(instance, nullptr);
@@ -106,6 +110,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
 
   // validation layers and features
   if (config.enableValidationLayers) {
+    std::cout << "Vulkan Core Debug Layer Enabled.\n";
     createInfo.enabledLayerCount =
         static_cast<uint32_t>(validationLayers.size());
     createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -115,6 +120,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT};
 
     if (config.enableGPUAssistedValidatioLayer) {
+      std::cout << "Vulkan GPU-Based Validation Enabled.\n";
       validationEnables.push_back(
           VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
     }
@@ -182,6 +188,26 @@ void VulkanDevice::createSurface(WindowHandling &window) {
   }
 }
 
+// helper function to check device extention support needed for swapchain
+bool VulkanDevice::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+  uint32_t extensionCount;
+  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                       nullptr);
+
+  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                       availableExtensions.data());
+
+  std::set<std::string> requiredExtensions(deviceExtensions.begin(),
+                                           deviceExtensions.end());
+
+  for (const auto &extension : availableExtensions) {
+    requiredExtensions.erase(extension.extensionName);
+  }
+
+  return requiredExtensions.empty();
+}
+
 // helper function to see if the device is suitable
 bool VulkanDevice::isDeviceSuitable(VkPhysicalDevice device) {
   VkPhysicalDeviceProperties deviceProperties;
@@ -195,12 +221,10 @@ bool VulkanDevice::isDeviceSuitable(VkPhysicalDevice device) {
     return false;
   }
 
-  /* TODO this is for swapchain later
   bool extensionsSupported = checkDeviceExtensionSupport(device);
   if (!extensionsSupported) {
     return false;
   }
-    */
 
   // GPU type
   if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -269,7 +293,7 @@ VulkanDevice::findQueueFamilies(VkPhysicalDevice device) {
 
 // create logical device
 void VulkanDevice::createLogicalDevice() {
-  QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+  this->indices = findQueueFamilies(physicalDevice);
 
   std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
   std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
