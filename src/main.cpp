@@ -1,3 +1,4 @@
+#include "rhi/CommandList.hpp"
 #include "rhi/Device.hpp"
 #include "rhi/RHICommon.hpp"
 #include "rhi/Swapchain.hpp"
@@ -39,16 +40,26 @@ int main() {
     WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
     DeviceConfig config{};
     config.enableValidationLayers = true;
-    config.enableGPUAssistedValidatioLayer = false;
+    config.enableGPUAssistedValidatioLayer = true;
 
     std::unique_ptr<Device> device(
         RHIFilter::createDevice(selectedBackend, config, window));
 
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
+    std::unique_ptr<CommandList> commandList = device->createCommandList();
 
     std::cout << "main loop starts now...\n";
     while (!window.shouldClose()) {
       glfwPollEvents();
+      swapchain->acquireNextImage();
+
+      commandList->begin();
+      commandList->beginRendering(*swapchain);
+      commandList->endRendering(*swapchain);
+      commandList->end();
+
+      device->submit(commandList.get());
+      swapchain->present();
     }
     device->waitIdle();
 
