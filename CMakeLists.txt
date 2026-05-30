@@ -13,12 +13,12 @@ set(DX12_LIBS d3d12 dxgi)
 add_executable(ElementalEngine
     src/main.cpp
     src/rhi/Device.cpp
-    #src/core/ApplicationVK.cpp
-    #src/core/ApplicationDX12.cpp
     src/rhi/vulkan/VulkanDevice.cpp
     src/rhi/vulkan/VulkanSwapchain.cpp
+    src/rhi/vulkan/VulkanCommandList.cpp
     src/rhi/dx12/DX12Device.cpp
     src/rhi/dx12/DX12Swapchain.cpp
+    src/rhi/dx12/DX12CommandList.cpp
     src/core/Window.cpp    
 )
 
