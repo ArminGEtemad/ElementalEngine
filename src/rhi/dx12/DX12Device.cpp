@@ -1,4 +1,5 @@
 #include "DX12Device.hpp"
+#include "DX12CommandList.hpp"
 #include "DX12Swapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
@@ -13,14 +14,20 @@ DX12Device::DX12Device(const DeviceConfig &config, WindowHandling &window) {
   pickPhysicalDevice();
   createLogicalDevice();
   createCommandQueue();
+  createSyncObjects(); // TODO this is for now. The Swapchain must own this
+                       // actually
 }
 
-DX12Device::~DX12Device() {}
+DX12Device::~DX12Device() { CloseHandle(fenceEvent); }
 
-void DX12Device::waitIdle() {}
+void DX12Device::waitIdle() { waitForGPU(); }
 
 std::unique_ptr<Swapchain> DX12Device::createSwapchain(WindowHandling &window) {
   return std::make_unique<DX12Swapchain>(*this, window);
+}
+
+std::unique_ptr<CommandList> DX12Device::createCommandList() {
+  return std::make_unique<DX12CommandList>(*this);
 }
 
 void DX12Device::enableDebugLayer(bool enableGPUValidation) {
@@ -103,6 +110,36 @@ void DX12Device::createCommandQueue() {
   if (FAILED(device->CreateCommandQueue(&queueDesc,
                                         IID_PPV_ARGS(&commandQueue)))) {
     throw std::runtime_error("Failed to create DX12 Command Queue!");
+  }
+}
+
+void DX12Device::submit(CommandList *commandList) {
+  auto *dxCmdList = static_cast<DX12CommandList *>(commandList);
+
+  ID3D12CommandList *ppCommandLists[] = {dxCmdList->getNativeCommandList()};
+  commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+}
+
+void DX12Device::createSyncObjects() {
+  if (FAILED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE,
+                                 IID_PPV_ARGS(&fence)))) {
+    throw std::runtime_error("Failed to create Fence!");
+  }
+
+  fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+  if (fenceEvent == nullptr) {
+    throw std::runtime_error("Failed to create Fence Event!");
+  }
+}
+
+void DX12Device::waitForGPU() {
+  const UINT64 fenceToWaitFor = fenceValue;
+  commandQueue->Signal(fence.Get(), fenceToWaitFor);
+  fenceValue++;
+
+  if (fence->GetCompletedValue() < fenceToWaitFor) {
+    fence->SetEventOnCompletion(fenceToWaitFor, fenceEvent);
+    WaitForSingleObject(fenceEvent, INFINITE);
   }
 }
 } // namespace elementalEngine::RHI
