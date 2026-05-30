@@ -13,6 +13,16 @@ public:
   void present() override;
   void acquireNextImage() override;
   uint32_t getCurrentFrameIndex() const override;
+  ID3D12Resource *getRenderTarget(uint32_t index) const {
+    return renderTargets[index].Get();
+  }
+  // get the handle for the commandList
+  D3D12_CPU_DESCRIPTOR_HANDLE getRTVHandle(uint32_t index) const {
+    D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += static_cast<SIZE_T>(index) * rtvDescriptorSize;
+    return handle;
+  }
 
 private:
   DX12Device &device;
