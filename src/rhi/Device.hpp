@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CommandList.hpp"
 #include "RHICommon.hpp"
 #include "Swapchain.hpp"
 #include "Window.hpp"
@@ -8,6 +9,7 @@
 namespace elementalEngine::RHI {
 
 class Swapchain;
+class CommandList;
 class Device {
 public:
   virtual ~Device() = default;
@@ -18,6 +20,8 @@ public:
   virtual void waitIdle() = 0;
   virtual std::unique_ptr<Swapchain>
   createSwapchain(WindowHandling &window) = 0;
+  virtual std::unique_ptr<CommandList> createCommandList() = 0;
+  virtual void submit(CommandList *commandList) = 0;
 
 protected:
   Device() = default;
