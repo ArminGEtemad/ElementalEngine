@@ -75,6 +75,6 @@ uint32_t DX12Swapchain::getCurrentFrameIndex() const {
   return swapchain->GetCurrentBackBufferIndex();
 }
 
-void DX12Swapchain::acquireNextImage() {}
+void DX12Swapchain::acquireNextImage() { device.waitForGPU(); }
 
 } // namespace elementalEngine::RHI
