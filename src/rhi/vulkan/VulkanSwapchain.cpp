@@ -241,5 +241,6 @@ void VulkanSwapchain::present() {
   if (vkQueuePresentKHR(device.getPresentQueue(), &presentInfo) != VK_SUCCESS) {
     throw std::runtime_error("Swapchain failed to present!");
   }
+  vkQueueWaitIdle(device.getPresentQueue());
 }
 } // namespace elementalEngine::RHI
