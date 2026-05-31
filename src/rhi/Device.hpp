@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CommandList.hpp"
+#include "Pipeline.hpp"
 #include "RHICommon.hpp"
 #include "Swapchain.hpp"
 #include "Window.hpp"
@@ -22,6 +23,7 @@ public:
   createSwapchain(WindowHandling &window) = 0;
   virtual std::unique_ptr<CommandList> createCommandList() = 0;
   virtual void submit(CommandList *commandList, Swapchain *swapchain) = 0;
+  virtual std::unique_ptr<Pipeline> createPipeline() = 0;
 
 protected:
   Device() = default;
