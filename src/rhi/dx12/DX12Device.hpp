@@ -21,8 +21,10 @@ public:
   GraphicsAPI getAPI() const override { return GraphicsAPI::DirectX12; }
   void waitIdle() override;
   void submit(CommandList *commandList, Swapchain *swapchain) override;
+
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;
+  std::unique_ptr<Pipeline> createPipeline() override;
 
   // getter functions
   IDXGIFactory4 *getFactory() const { return factory.Get(); }

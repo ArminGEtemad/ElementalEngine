@@ -1,6 +1,8 @@
 #include "DX12Device.hpp"
 #include "DX12CommandList.hpp"
+#include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
+#include "Pipeline.hpp"
 #include "Window.hpp"
 #include <iostream>
 
@@ -28,6 +30,10 @@ std::unique_ptr<Swapchain> DX12Device::createSwapchain(WindowHandling &window) {
 
 std::unique_ptr<CommandList> DX12Device::createCommandList() {
   return std::make_unique<DX12CommandList>(*this);
+}
+
+std::unique_ptr<Pipeline> DX12Device::createPipeline() {
+  return std::make_unique<DX12Pipeline>(*this);
 }
 
 void DX12Device::enableDebugLayer(bool enableGPUValidation) {
