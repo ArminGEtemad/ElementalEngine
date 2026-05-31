@@ -1,5 +1,6 @@
 #include "DX12CommandList.hpp"
 #include "DX12Device.hpp"
+#include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
 #include "Swapchain.hpp"
 #include <cstdint>
@@ -113,5 +114,20 @@ void DX12CommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   scissorRect.right = x + width;
   scissorRect.bottom = y + height;
   commandList->RSSetScissorRects(1, &scissorRect);
+}
+
+void DX12CommandList::bindPipeline(Pipeline &pipeline) {
+  auto &dx12Pipeline = static_cast<DX12Pipeline &>(pipeline);
+
+  commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
+  commandList->SetGraphicsRootSignature(dx12Pipeline.getNativeRootSignature());
+
+  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void DX12CommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
+                           uint32_t firstVertex, uint32_t firstInstance) {
+  commandList->DrawInstanced(vertexCount, instanceCount, firstVertex,
+                             firstInstance);
 }
 } // namespace elementalEngine::RHI
