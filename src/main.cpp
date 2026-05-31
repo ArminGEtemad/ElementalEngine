@@ -58,7 +58,7 @@ int main() {
       commandList->endRendering(*swapchain);
       commandList->end();
 
-      device->submit(commandList.get());
+      device->submit(commandList.get(), swapchain.get());
       swapchain->present();
     }
     device->waitIdle();
