@@ -21,7 +21,7 @@ public:
   virtual std::unique_ptr<Swapchain>
   createSwapchain(WindowHandling &window) = 0;
   virtual std::unique_ptr<CommandList> createCommandList() = 0;
-  virtual void submit(CommandList *commandList) = 0;
+  virtual void submit(CommandList *commandList, Swapchain *swapchain) = 0;
 
 protected:
   Device() = default;
