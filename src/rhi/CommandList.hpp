@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Pipeline.hpp"
 #include "Swapchain.hpp"
 #include <cstdint>
 
@@ -22,6 +23,11 @@ public:
   virtual void setViewport(float x, float y, float width, float height) = 0;
   virtual void setScissor(int32_t x, int32_t y, uint32_t width,
                           uint32_t height) = 0;
+
+  virtual void bindPipeline(Pipeline &pipeline) = 0;
+
+  virtual void draw(uint32_t vertexCount, uint32_t instanceCount,
+                    uint32_t firstVertex, uint32_t firstInstance) = 0;
 
 protected:
   CommandList() = default;
