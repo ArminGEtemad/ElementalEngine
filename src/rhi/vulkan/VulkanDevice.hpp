@@ -1,6 +1,7 @@
 #pragma once
 
 // add header files
+#include "CommandList.hpp"
 #include "Device.hpp"
 #include "RHICommon.hpp"
 #include "Window.hpp"
@@ -17,8 +18,10 @@ public:
 
   GraphicsAPI getAPI() const override { return GraphicsAPI::Vulkan; }
   void waitIdle() override;
+  void submit(CommandList *commandList, Swapchain *swapchain) override;
 
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
+  std::unique_ptr<CommandList> createCommandList() override;
 
   // getter functions
   VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }

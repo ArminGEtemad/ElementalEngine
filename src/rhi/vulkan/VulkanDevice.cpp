@@ -1,4 +1,6 @@
 #include "VulkanDevice.hpp"
+#include "CommandList.hpp"
+#include "VulkanCommandList.hpp"
 #include "VulkanSwapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
@@ -10,6 +12,10 @@ namespace elementalEngine::RHI {
 std::unique_ptr<Swapchain>
 VulkanDevice::createSwapchain(WindowHandling &window) {
   return std::make_unique<VulkanSwapchain>(*this, window);
+}
+
+std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
+  return std::make_unique<VulkanCommandList>(*this);
 }
 // just for internal linkage
 namespace {
@@ -352,6 +358,40 @@ void VulkanDevice::createLogicalDevice() {
 
   vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
   vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+}
+
+void VulkanDevice::submit(CommandList *commandList, Swapchain *swapchain) {
+  auto *vk13CmdList = static_cast<VulkanCommandList *>(commandList);
+  VkCommandBuffer commandBuffer = vk13CmdList->getNativeCommandBuffer();
+  auto *vk13Swapchain = static_cast<VulkanSwapchain *>(swapchain);
+
+  VkCommandBufferSubmitInfo cmdBufferInfo{};
+  cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+  cmdBufferInfo.commandBuffer = commandBuffer;
+  VkSemaphoreSubmitInfo waitSemaphoreInfo{};
+  waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+  waitSemaphoreInfo.semaphore = vk13Swapchain->getImageAvailableSemaphore();
+  waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+  VkSemaphoreSubmitInfo signalSemaphoreInfo{};
+  signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+  signalSemaphoreInfo.semaphore = vk13Swapchain->getRenderFinishedSemaphore();
+  signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+
+  VkSubmitInfo2 submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+  submitInfo.commandBufferInfoCount = 1;
+  submitInfo.pCommandBufferInfos = &cmdBufferInfo;
+  submitInfo.waitSemaphoreInfoCount = 1;
+  submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+  submitInfo.signalSemaphoreInfoCount = 1;
+  submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+  // inFlightFence has to come here for the fence
+  if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo,
+                     vk13Swapchain->getInFlightFence()) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to submit draw command buffer!");
+  }
 }
 
 } // namespace elementalEngine::RHI
