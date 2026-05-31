@@ -113,7 +113,7 @@ void DX12Device::createCommandQueue() {
   }
 }
 
-void DX12Device::submit(CommandList *commandList) {
+void DX12Device::submit(CommandList *commandList, Swapchain *swapchain) {
   auto *dxCmdList = static_cast<DX12CommandList *>(commandList);
 
   ID3D12CommandList *ppCommandLists[] = {dxCmdList->getNativeCommandList()};
