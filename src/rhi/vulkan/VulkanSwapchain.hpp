@@ -14,6 +14,18 @@ public:
   void acquireNextImage() override;
   void present() override;
   uint32_t getCurrentFrameIndex() const override { return currentImageIndex; }
+  VkImage getImage(uint32_t index) const { return swapchainImages[index]; }
+  VkImageView getImageView(uint32_t index) const {
+    return swapchainImageViews[index];
+  }
+  VkExtent2D getExtent() const { return swapchainExtent; }
+  VkSemaphore getImageAvailableSemaphore() const {
+    return imageAvailableSemaphore;
+  }
+  VkSemaphore getRenderFinishedSemaphore() const {
+    return renderFinishedSemaphore;
+  }
+  VkFence getInFlightFence() const { return inFlightFence; }
 
 private:
   uint32_t currentImageIndex = 0;
