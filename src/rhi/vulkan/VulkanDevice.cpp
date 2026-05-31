@@ -1,6 +1,8 @@
 #include "VulkanDevice.hpp"
 #include "CommandList.hpp"
+#include "Pipeline.hpp"
 #include "VulkanCommandList.hpp"
+#include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
@@ -16,6 +18,10 @@ VulkanDevice::createSwapchain(WindowHandling &window) {
 
 std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
   return std::make_unique<VulkanCommandList>(*this);
+}
+
+std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
+  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
 }
 // just for internal linkage
 namespace {

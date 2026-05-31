@@ -22,6 +22,7 @@ public:
 
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;
+  std::unique_ptr<Pipeline> createPipeline() override;
 
   // getter functions
   VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
