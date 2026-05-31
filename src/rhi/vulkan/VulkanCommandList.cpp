@@ -1,0 +1,155 @@
+#include "VulkanCommandList.hpp"
+#include "Swapchain.hpp"
+#include "VulkanDevice.hpp"
+#include "VulkanSwapchain.hpp"
+#include <cstdint>
+#include <stdexcept>
+
+namespace elementalEngine::RHI {
+VulkanCommandList::VulkanCommandList(VulkanDevice &device) : device(device) {
+  // create command pool
+  VkCommandPoolCreateInfo poolInfo{};
+  poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+  poolInfo.queueFamilyIndex = device.getGraphicsQueueFamily();
+
+  if (vkCreateCommandPool(device.getLogicalDevice(), &poolInfo, nullptr,
+                          &commandPool) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create command pool!");
+  }
+
+  // allocate command buffer
+  VkCommandBufferAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.commandPool = commandPool;
+  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandBufferCount = 1;
+
+  if (vkAllocateCommandBuffers(device.getLogicalDevice(), &allocInfo,
+                               &commandBuffer) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to allocate command buffers!");
+  }
+}
+
+// cleaning up
+VulkanCommandList::~VulkanCommandList() {
+  vkDestroyCommandPool(device.getLogicalDevice(), commandPool, nullptr);
+}
+
+// begin / reset
+void VulkanCommandList::begin() {
+  vkResetCommandBuffer(commandBuffer, 0);
+
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to begin recording command buffer!");
+  }
+}
+
+// end
+void VulkanCommandList::end() {
+  if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to record command buffer!");
+  }
+}
+
+void VulkanCommandList::beginRendering(Swapchain &swapchain) {
+  auto &vk13Swapchain = static_cast<VulkanSwapchain &>(swapchain);
+  uint32_t frameIndex = vk13Swapchain.getCurrentFrameIndex();
+  VkImage image = vk13Swapchain.getImage(frameIndex);
+  VkImageView imageView = vk13Swapchain.getImageView(frameIndex);
+
+  VkImageMemoryBarrier2 imageBarrier{};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.srcAccessMask = 0;
+  imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  imageBarrier.image = image;
+  imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageBarrier.subresourceRange.baseMipLevel = 0;
+  imageBarrier.subresourceRange.levelCount = 1;
+  imageBarrier.subresourceRange.baseArrayLayer = 0;
+  imageBarrier.subresourceRange.layerCount = 1;
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers = &imageBarrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+  VkClearValue clearColor = {{{0.01f, 0.01f, 0.1f, 1.0f}}};
+
+  VkRenderingAttachmentInfo colorAttachment{};
+  colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  colorAttachment.imageView = imageView;
+  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.clearValue = clearColor;
+
+  VkRenderingInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = vk13Swapchain.getExtent();
+  renderingInfo.layerCount = 1;
+  renderingInfo.colorAttachmentCount = 1;
+  renderingInfo.pColorAttachments = &colorAttachment;
+
+  vkCmdBeginRendering(commandBuffer, &renderingInfo);
+}
+void VulkanCommandList::endRendering(Swapchain &swapchain) {
+  auto &vkSwapchain = static_cast<VulkanSwapchain &>(swapchain);
+  uint32_t frameIndex = vkSwapchain.getCurrentFrameIndex();
+  VkImage image = vkSwapchain.getImage(frameIndex);
+
+  vkCmdEndRendering(commandBuffer);
+
+  // transition for presentations
+  VkImageMemoryBarrier2 imageBarrier{};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+  imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+  imageBarrier.dstAccessMask = 0;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  imageBarrier.image = image;
+  imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageBarrier.subresourceRange.baseMipLevel = 0;
+  imageBarrier.subresourceRange.levelCount = 1;
+  imageBarrier.subresourceRange.baseArrayLayer = 0;
+  imageBarrier.subresourceRange.layerCount = 1;
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers = &imageBarrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+}
+void VulkanCommandList::setViewport(float x, float y, float width,
+                                    float height) {
+  VkViewport viewport{};
+  viewport.x = x;
+  viewport.y = height;
+  viewport.width = width;
+  viewport.height = -height;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+}
+void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
+                                   uint32_t height) {
+  VkRect2D scissor{};
+  scissor.offset = {x, y};
+  scissor.extent = {width, height};
+  vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
+} // namespace elementalEngine::RHI
