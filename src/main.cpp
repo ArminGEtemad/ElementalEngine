@@ -1,5 +1,6 @@
 #include "rhi/CommandList.hpp"
 #include "rhi/Device.hpp"
+#include "rhi/Pipeline.hpp"
 #include "rhi/RHICommon.hpp"
 #include "rhi/Swapchain.hpp"
 
@@ -47,6 +48,7 @@ int main() {
 
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
     std::unique_ptr<CommandList> commandList = device->createCommandList();
+    std::unique_ptr<Pipeline> pipeline = device->createPipeline();
 
     std::cout << "main loop starts now...\n";
     while (!window.shouldClose()) {
@@ -55,6 +57,13 @@ int main() {
 
       commandList->begin();
       commandList->beginRendering(*swapchain);
+      commandList->bindPipeline(*pipeline);
+      commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
+                               static_cast<float>(HEIGHT));
+      commandList->setScissor(0, 0, WIDTH, HEIGHT);
+
+      commandList->draw(3, 1, 0, 0);
+
       commandList->endRendering(*swapchain);
       commandList->end();
 
