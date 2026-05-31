@@ -1,6 +1,7 @@
 #include "VulkanCommandList.hpp"
 #include "Swapchain.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
 #include <cstdint>
 #include <stdexcept>
@@ -151,5 +152,19 @@ void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   scissor.offset = {x, y};
   scissor.extent = {width, height};
   vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
+
+void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
+  auto &vk13Pipeline = static_cast<VulkanPipeline &>(pipeline);
+
+  // graphics execution context
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    vk13Pipeline.getNativePipeline());
+}
+
+void VulkanCommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
+                             uint32_t firstVertex, uint32_t firstInstance) {
+  vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex,
+            firstInstance);
 }
 } // namespace elementalEngine::RHI
