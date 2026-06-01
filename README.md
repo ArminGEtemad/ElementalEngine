@@ -26,3 +26,14 @@ I will be using two backends
 The element mechanics (Fire, Water, Electricity, Gas) are evaluated inside a 3D grid cell topology utilizing double-buffered GPU Structured Buffers. (Compute and Fragment Shader)
 
 My idea is that, the fire can make the gas explode, the water can turn off the fire, the electricity can electrify the water, the fire can evaporate the water etc.
+
+## Moving Forward
+
+The following is how I would like to move forward with the project
+
+- [x] Set up windowing (GLFW/SDL), swapchains, and device initialization for both Vulkan 1.3 and DX12.
+- [x] Build the thin HAL. Get a basic triangle rendering in both APIs to verify the pipeline.
+- [ ] Implement Compute Shader dispatching in the HAL. Set up structured buffers and read/write textures.
+- [ ] Write a basic advection and diffusion compute shader to move generic "density" around.
+- [ ] Fluid Dynamics (Water & Poison Gas)
+- Let's see how everything goes first...
