@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 using namespace elementalEngine;
 using namespace elementalEngine::RHI;
@@ -26,6 +27,7 @@ int main() {
   std::cout << "Enter your choice: ";
 
   std::cin >> choice;
+  // choice = 2;
   if (choice == 1) {
     selectedBackend = GraphicsAPI::Vulkan;
     std::cout << "Vulkan 1.3 Backend has been selected...\n";
@@ -48,6 +50,18 @@ int main() {
 
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
     std::unique_ptr<CommandList> commandList = device->createCommandList();
+    // -----------------------------------------------------------------------------
+    // vertex Data for test
+    std::vector<RHI::Vertex> vertices = {{{0.0f, 0.5f}, {1.0f, 0.0f, 0.0f}},
+                                         {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+                                         {{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}}};
+    size_t bufferSize = vertices.size() * sizeof(RHI::Vertex);
+    auto vertexBuffer = device->createBuffer(
+        bufferSize, RHI::BufferUsage::Vertex, RHI::MemoryProperty::CPUAccess);
+    void *mappedMemory = vertexBuffer->map();
+    std::memcpy(mappedMemory, vertices.data(), bufferSize);
+    vertexBuffer->unmap();
+    // -----------------------------------------------------------------------------
     std::unique_ptr<Pipeline> pipeline = device->createPipeline();
 
     std::cout << "main loop starts now...\n";
@@ -61,7 +75,7 @@ int main() {
       commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
                                static_cast<float>(HEIGHT));
       commandList->setScissor(0, 0, WIDTH, HEIGHT);
-
+      commandList->bindVertexBuffer(vertexBuffer.get(), sizeof(RHI::Vertex));
       commandList->draw(3, 1, 0, 0);
 
       commandList->endRendering(*swapchain);
