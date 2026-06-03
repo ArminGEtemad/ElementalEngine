@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_package(D3D12MemoryAllocator CONFIG REQUIRED)
 
 include_directories(src src/core src/rhi)
 set(DX12_LIBS d3d12 dxgi)
@@ -19,10 +21,13 @@ add_executable(ElementalEngine
     src/rhi/vulkan/VulkanSwapchain.cpp
     src/rhi/vulkan/VulkanCommandList.cpp
     src/rhi/vulkan/VulkanPipeline.cpp
+    src/rhi/vulkan/VulkanBuffer.cpp
+    src/rhi/vulkan/VulkanAllocator.cpp
     src/rhi/dx12/DX12Device.cpp
     src/rhi/dx12/DX12Swapchain.cpp
     src/rhi/dx12/DX12CommandList.cpp
     src/rhi/dx12/DX12Pipeline.cpp
+    src/rhi/dx12/DX12Buffer.cpp
 )
 
 find_program(DXC_EXECUTABLE 
@@ -76,4 +81,12 @@ add_custom_command(
 add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT} ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT})
 
 add_dependencies(ElementalEngine CompileShaders)
-target_link_libraries(ElementalEngine Vulkan::Vulkan glfw d3d12 dxgi dxguid)
+target_link_libraries(ElementalEngine
+    Vulkan::Vulkan 
+    glfw 
+    d3d12 
+    dxgi 
+    dxguid 
+    GPUOpen::VulkanMemoryAllocator 
+    GPUOpen::D3D12MemoryAllocator
+)
