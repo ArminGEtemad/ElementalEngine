@@ -1,7 +1,12 @@
 #include "DX12Pipeline.hpp"
 #include "FileHandling.hpp"
+#include "RHICommon.hpp"
 
+#include <cstddef>
+#include <directx/d3d12.h>
+#include <directx/dxgiformat.h>
 #include <stdexcept>
+#include <stdlib.h>
 
 namespace elementalEngine::RHI {
 DX12Pipeline::DX12Pipeline(DX12Device &device) : device(device) {
@@ -51,8 +56,20 @@ void DX12Pipeline::createPipeline() {
   blendDesc.RenderTarget[0].RenderTargetWriteMask =
       D3D12_COLOR_WRITE_ENABLE_ALL;
 
+  // input layout for the test
+  D3D12_INPUT_ELEMENT_DESC inputElementDesc[] = {
+      {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0,
+       D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+      {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+       offsetof(elementalEngine::RHI::Vertex, color),
+       D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
+
+  D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
+  inputLayoutDesc.pInputElementDescs = inputElementDesc;
+  inputLayoutDesc.NumElements = _countof(inputElementDesc);
+
   D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
-  psoDesc.InputLayout = {nullptr, 0};
+  psoDesc.InputLayout = inputLayoutDesc;
   psoDesc.pRootSignature = rootSignature.Get();
   psoDesc.VS = {vsBytecode.data(), vsBytecode.size()};
   psoDesc.PS = {psBytecode.data(), psBytecode.size()};
