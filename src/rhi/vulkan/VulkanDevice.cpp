@@ -1,12 +1,14 @@
 #include "VulkanDevice.hpp"
 #include "CommandList.hpp"
 #include "Pipeline.hpp"
+#include "VulkanBuffer.hpp"
 #include "VulkanCommandList.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
 #include <set>
+#include <stdexcept>
 #include <vector>
 
 namespace elementalEngine::RHI {
@@ -23,6 +25,13 @@ std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
 std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
   return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
 }
+
+std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
+                                                   BufferUsage usage,
+                                                   MemoryProperty memory) {
+  return std::make_unique<VulkanBuffer>(*this, size, usage, memory);
+}
+
 // just for internal linkage
 namespace {
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -69,11 +78,13 @@ VulkanDevice::VulkanDevice(const DeviceConfig &config, WindowHandling &window) {
   createSurface(window);
   pickPhysicalDevice();
   createLogicalDevice();
+  createAllocator();
 }
 
 // destructor
 VulkanDevice::~VulkanDevice() {
   waitIdle();
+  vmaDestroyAllocator(allocator);
   vkDestroyDevice(device, nullptr);
   vkDestroySurfaceKHR(instance, surface, nullptr);
   if (debugMessenger != VK_NULL_HANDLE) {
@@ -397,6 +408,18 @@ void VulkanDevice::submit(CommandList *commandList, Swapchain *swapchain) {
   if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo,
                      vk13Swapchain->getInFlightFence()) != VK_SUCCESS) {
     throw std::runtime_error("Failed to submit draw command buffer!");
+  }
+}
+
+void VulkanDevice::createAllocator() {
+  VmaAllocatorCreateInfo allocInfo{};
+  allocInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+  allocInfo.physicalDevice = physicalDevice;
+  allocInfo.device = device;
+  allocInfo.instance = instance;
+
+  if (vmaCreateAllocator(&allocInfo, &allocator) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create VMA!");
   }
 }
 
