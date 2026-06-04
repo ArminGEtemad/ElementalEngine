@@ -22,6 +22,7 @@ public:
   void bindPipeline(Pipeline &pipeline) override;
   void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
             uint32_t firstInstance) override;
+  void bindVertexBuffer(Buffer *buffer, size_t stride) override;
 
   VkCommandBuffer getNativeCommandBuffer() const { return commandBuffer; }
 

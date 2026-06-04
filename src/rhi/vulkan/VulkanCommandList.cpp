@@ -1,5 +1,6 @@
 #include "VulkanCommandList.hpp"
 #include "Swapchain.hpp"
+#include "VulkanBuffer.hpp"
 #include "VulkanDevice.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
@@ -166,5 +167,14 @@ void VulkanCommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
                              uint32_t firstVertex, uint32_t firstInstance) {
   vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex,
             firstInstance);
+}
+void VulkanCommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
+  auto *vk13Buffer = static_cast<VulkanBuffer *>(buffer);
+
+  VkBuffer buffers[] = {vk13Buffer->getVkBuffer()};
+  VkDeviceSize offsets[] = {0};
+
+  // Bind vertex stream to layout slot 0
+  vkCmdBindVertexBuffers(this->commandBuffer, 0, 1, buffers, offsets);
 }
 } // namespace elementalEngine::RHI
