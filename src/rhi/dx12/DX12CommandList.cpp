@@ -1,4 +1,5 @@
 #include "DX12CommandList.hpp"
+#include "DX12Buffer.hpp"
 #include "DX12Device.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
@@ -129,5 +130,17 @@ void DX12CommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
                            uint32_t firstVertex, uint32_t firstInstance) {
   commandList->DrawInstanced(vertexCount, instanceCount, firstVertex,
                              firstInstance);
+}
+
+void DX12CommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
+  auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
+
+  D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+  vertexBufferView.BufferLocation =
+      dx12Buffer->getResource()->GetGPUVirtualAddress();
+  vertexBufferView.StrideInBytes = static_cast<UINT>(stride);
+  vertexBufferView.SizeInBytes = static_cast<UINT>(dx12Buffer->getSize());
+
+  commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 }
 } // namespace elementalEngine::RHI
