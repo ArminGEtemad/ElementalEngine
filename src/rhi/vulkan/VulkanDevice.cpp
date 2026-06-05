@@ -115,7 +115,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
   hasInstanceExtension();
 
   // App Info
-  VkApplicationInfo appInfo = {};
+  VkApplicationInfo appInfo{};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   appInfo.pApplicationName = "Elemental Engine Project";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -124,11 +124,11 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
   appInfo.apiVersion = VK_API_VERSION_1_3;
 
   // Instance Info
-  VkInstanceCreateInfo createInfo = {};
+  VkInstanceCreateInfo createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
 
-  VkValidationFeaturesEXT validationFeatures = {};
+  VkValidationFeaturesEXT validationFeatures{};
   std::vector<VkValidationFeatureEnableEXT> validationEnables;
 
   // validation layers and features
@@ -158,7 +158,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
   }
 
   // glfw Extensions
-  uint32_t glfwExtensionCount = 0;
+  uint32_t glfwExtensionCount{0};
   const char **glfwExtensions;
   glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
   std::vector<const char *> extensions(glfwExtensions,
@@ -182,7 +182,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
 
 // create debug messanger
 void VulkanDevice::setupDebugMessenger() {
-  VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+  VkDebugUtilsMessengerCreateInfoEXT createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 
   // catch warnings and errors (ignore verbose/info spam)
@@ -264,7 +264,7 @@ bool VulkanDevice::isDeviceSuitable(VkPhysicalDevice device) {
 
 // pick physical device
 void VulkanDevice::pickPhysicalDevice() {
-  uint32_t deviceCount = 0;
+  uint32_t deviceCount{0};
   vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
   if (deviceCount == 0) {
     throw std::runtime_error("Failed to find GPUs with Vulkan support!");
@@ -289,7 +289,7 @@ VulkanDevice::QueueFamilyIndices
 VulkanDevice::findQueueFamilies(VkPhysicalDevice device) {
   QueueFamilyIndices indices;
 
-  uint32_t queueFamilyCount = 0;
+  uint32_t queueFamilyCount{0};
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
   std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);

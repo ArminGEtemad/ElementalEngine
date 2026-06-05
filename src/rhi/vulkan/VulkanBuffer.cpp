@@ -34,30 +34,28 @@ VulkanBuffer::VulkanBuffer(VulkanDevice &device, size_t size, BufferUsage usage,
     allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   }
 
-  if (vmaCreateBuffer(device.getAllocator(), &bufferInfo, &allocInfo,
-                      &this->buffer, &this->allocation,
-                      nullptr) != VK_SUCCESS) {
+  if (vmaCreateBuffer(device.getAllocator(), &bufferInfo, &allocInfo, &buffer,
+                      &allocation, nullptr) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate VMA buffer!");
   }
 }
 
 VulkanBuffer::~VulkanBuffer() {
-  if (this->buffer != VK_NULL_HANDLE) {
-    vmaDestroyBuffer(this->device.getAllocator(), this->buffer,
-                     this->allocation);
+  if (buffer != VK_NULL_HANDLE) {
+    vmaDestroyBuffer(device.getAllocator(), buffer, allocation);
   }
 }
 
 void *VulkanBuffer::map() {
   void *mappedData = nullptr;
-  if (vmaMapMemory(this->device.getAllocator(), this->allocation,
-                   &mappedData) != VK_SUCCESS) {
+  if (vmaMapMemory(device.getAllocator(), allocation, &mappedData) !=
+      VK_SUCCESS) {
     throw std::runtime_error("Failed to map Vulkan buffer memory via VMA!");
   }
   return mappedData;
 }
 
 void VulkanBuffer::unmap() {
-  vmaUnmapMemory(this->device.getAllocator(), this->allocation);
+  vmaUnmapMemory(device.getAllocator(), allocation);
 }
 } // namespace elementalEngine::RHI

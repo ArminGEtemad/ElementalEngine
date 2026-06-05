@@ -4,7 +4,9 @@
 #include "RHICommon.hpp"
 #include "VulkanDevice.hpp"
 #include <cstddef>
+
 namespace elementalEngine::RHI {
+class VulkanDevice;
 class VulkanBuffer : public Buffer {
 public:
   VulkanBuffer(VulkanDevice &device, size_t size, BufferUsage usage,
@@ -24,7 +26,7 @@ private:
   BufferUsage usage;
   MemoryProperty memoryProperty;
 
-  VkBuffer buffer = VK_NULL_HANDLE;
-  VmaAllocation allocation = VK_NULL_HANDLE;
+  VkBuffer buffer{VK_NULL_HANDLE};
+  VmaAllocation allocation{VK_NULL_HANDLE};
 };
 } // namespace elementalEngine::RHI

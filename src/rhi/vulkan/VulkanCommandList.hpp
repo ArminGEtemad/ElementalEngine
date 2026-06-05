@@ -28,7 +28,7 @@ public:
 
 private:
   VulkanDevice &device;
-  VkCommandPool commandPool = VK_NULL_HANDLE;
-  VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+  VkCommandPool commandPool{VK_NULL_HANDLE};
+  VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
 };
 } // namespace elementalEngine::RHI

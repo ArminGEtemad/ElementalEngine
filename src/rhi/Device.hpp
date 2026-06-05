@@ -1,10 +1,6 @@
 #pragma once
 
-#include "Buffer.hpp"
-#include "CommandList.hpp"
-#include "Pipeline.hpp"
 #include "RHICommon.hpp"
-#include "Swapchain.hpp"
 #include "Window.hpp"
 #include <memory>
 
@@ -12,6 +8,8 @@ namespace elementalEngine::RHI {
 
 class Swapchain;
 class CommandList;
+class Pipeline;
+class Buffer;
 class Device {
 public:
   virtual ~Device() = default;

@@ -51,15 +51,15 @@ private:
     }
   };
 
-  VkInstance instance = VK_NULL_HANDLE;
-  VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
-  VkSurfaceKHR surface = VK_NULL_HANDLE;
-  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-  VkDevice device = VK_NULL_HANDLE;
-  VkQueue graphicsQueue = VK_NULL_HANDLE;
-  VkQueue presentQueue = VK_NULL_HANDLE;
+  VkInstance instance{VK_NULL_HANDLE};
+  VkDebugUtilsMessengerEXT debugMessenger{VK_NULL_HANDLE};
+  VkSurfaceKHR surface{VK_NULL_HANDLE};
+  VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
+  VkDevice device{VK_NULL_HANDLE};
+  VkQueue graphicsQueue{VK_NULL_HANDLE};
+  VkQueue presentQueue{VK_NULL_HANDLE};
   QueueFamilyIndices indices;
-  VmaAllocator allocator = VK_NULL_HANDLE;
+  VmaAllocator allocator{VK_NULL_HANDLE};
 
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME};

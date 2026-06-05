@@ -175,6 +175,6 @@ void VulkanCommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
   VkDeviceSize offsets[] = {0};
 
   // Bind vertex stream to layout slot 0
-  vkCmdBindVertexBuffers(this->commandBuffer, 0, 1, buffers, offsets);
+  vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 }
 } // namespace elementalEngine::RHI
