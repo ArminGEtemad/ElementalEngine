@@ -29,11 +29,16 @@ void DX12Pipeline::createPipeline() {
 
   ComPtr<ID3DBlob> signature;
   ComPtr<ID3DBlob> error;
-  D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_0,
-                              &signature, &error);
-  device.getD3D12Device()->CreateRootSignature(0, signature->GetBufferPointer(),
-                                               signature->GetBufferSize(),
-                                               IID_PPV_ARGS(&rootSignature));
+  if (FAILED(D3D12SerializeRootSignature(
+          &rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error))) {
+    throw std::runtime_error("Failed to serialize graphics root signature!");
+  }
+
+  if (FAILED(device.getD3D12Device()->CreateRootSignature(
+          0, signature->GetBufferPointer(), signature->GetBufferSize(),
+          IID_PPV_ARGS(&rootSignature)))) {
+    throw std::runtime_error("Failed to create graphics root signature!");
+  }
 
   D3D12_RASTERIZER_DESC rasterizerDesc{};
   rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
