@@ -1,6 +1,8 @@
 #include "DX12Device.hpp"
+#include "ComputePipeline.hpp"
 #include "DX12Buffer.hpp"
 #include "DX12CommandList.hpp"
+#include "DX12ComputePipeline.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
 #include "Pipeline.hpp"
@@ -38,6 +40,10 @@ std::unique_ptr<CommandList> DX12Device::createCommandList() {
 
 std::unique_ptr<Pipeline> DX12Device::createPipeline() {
   return std::make_unique<DX12Pipeline>(*this);
+}
+
+std::unique_ptr<ComputePipeline> DX12Device::createComputePipeline() {
+  return std::make_unique<DX12ComputePipeline>(*this);
 }
 
 std::unique_ptr<Buffer> DX12Device::createBuffer(size_t size, BufferUsage usage,

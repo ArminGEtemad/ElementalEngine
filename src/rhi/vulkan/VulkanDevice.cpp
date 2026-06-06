@@ -1,12 +1,15 @@
 #include "VulkanDevice.hpp"
 #include "CommandList.hpp"
+#include "ComputePipeline.hpp"
 #include "Pipeline.hpp"
 #include "VulkanBuffer.hpp"
 #include "VulkanCommandList.hpp"
+#include "VulkanComputePipeline.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
+#include <memory>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -24,6 +27,10 @@ std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
 
 std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
   return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
+}
+
+std::unique_ptr<ComputePipeline> VulkanDevice::createComputePipeline() {
+  return std::make_unique<VulkanComputePipeline>(*this);
 }
 
 std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,

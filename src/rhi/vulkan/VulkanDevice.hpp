@@ -26,6 +26,7 @@ public:
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;
   std::unique_ptr<Pipeline> createPipeline() override;
+  std::unique_ptr<ComputePipeline> createComputePipeline() override;
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;
 
@@ -62,7 +63,7 @@ private:
   VmaAllocator allocator{VK_NULL_HANDLE};
 
   const std::vector<const char *> deviceExtensions = {
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME};
   const std::vector<const char *> validationLayers = {
       "VK_LAYER_KHRONOS_validation"};
 
