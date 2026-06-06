@@ -1,6 +1,8 @@
 #include "VulkanCommandList.hpp"
+#include "Pipeline.hpp"
 #include "Swapchain.hpp"
 #include "VulkanBuffer.hpp"
+#include "VulkanComputePipeline.hpp"
 #include "VulkanDevice.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
@@ -163,11 +165,24 @@ void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
                     vk13Pipeline.getNativePipeline());
 }
 
+void VulkanCommandList::bindComputePipeline(ComputePipeline &pipeline) {
+  auto &vk13Pipeline = static_cast<VulkanComputePipeline &>(pipeline);
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    vk13Pipeline.getNativePipeline());
+  computePiplineLayout = vk13Pipeline.getNativeLayout();
+}
+
+void VulkanCommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
+                                 uint32_t groupCountZ) {
+  vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
 void VulkanCommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
                              uint32_t firstVertex, uint32_t firstInstance) {
   vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex,
             firstInstance);
 }
+
 void VulkanCommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
   auto *vk13Buffer = static_cast<VulkanBuffer *>(buffer);
 
@@ -176,5 +191,29 @@ void VulkanCommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
 
   // Bind vertex stream to layout slot 0
   vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
+}
+
+void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
+                                          Buffer *buffer) {
+  auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
+
+  VkDescriptorBufferInfo bufferInfo{};
+  bufferInfo.buffer = vkBuffer->getVkBuffer();
+  bufferInfo.offset = 0;
+  bufferInfo.range = VK_WHOLE_SIZE;
+
+  VkWriteDescriptorSet writeDescSet{};
+  writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDescSet.dstBinding = bindingSlot;
+  writeDescSet.descriptorCount = 1;
+  writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  writeDescSet.pBufferInfo = &bufferInfo;
+
+  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
+      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
+  if (pushFunc) {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+             computePiplineLayout, 0, 1, &writeDescSet);
+  }
 }
 } // namespace elementalEngine::RHI
