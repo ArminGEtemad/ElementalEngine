@@ -39,5 +39,7 @@ private:
   VkCommandPool commandPool{VK_NULL_HANDLE};
   VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
   VkPipelineLayout computePiplineLayout{VK_NULL_HANDLE};
+  VkPipelineLayout graphicsPiplineLayout{VK_NULL_HANDLE};
+  bool isComputeActive = false;
 };
 } // namespace elementalEngine::RHI

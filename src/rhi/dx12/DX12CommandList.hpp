@@ -39,5 +39,6 @@ private:
   DX12Device &device;
   ComPtr<ID3D12CommandAllocator> commandAllocator;
   ComPtr<ID3D12GraphicsCommandList7> commandList;
+  bool isComputeActive = false;
 };
 } // namespace elementalEngine::RHI

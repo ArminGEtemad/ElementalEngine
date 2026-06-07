@@ -159,10 +159,11 @@ void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
 
 void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
   auto &vk13Pipeline = static_cast<VulkanPipeline &>(pipeline);
-
-  // graphics execution context
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     vk13Pipeline.getNativePipeline());
+  graphicsPiplineLayout = vk13Pipeline.getNativeLayout();
+  // TODO for now
+  isComputeActive = false;
 }
 
 void VulkanCommandList::bindComputePipeline(ComputePipeline &pipeline) {
@@ -170,6 +171,8 @@ void VulkanCommandList::bindComputePipeline(ComputePipeline &pipeline) {
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                     vk13Pipeline.getNativePipeline());
   computePiplineLayout = vk13Pipeline.getNativeLayout();
+  // TODO for now
+  isComputeActive = true;
 }
 
 void VulkanCommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
@@ -212,14 +215,26 @@ void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
   auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
       device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
   if (pushFunc) {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-             computePiplineLayout, 0, 1, &writeDescSet);
+    // TODO for now
+    if (isComputeActive) {
+      pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+               computePiplineLayout, 0, 1, &writeDescSet);
+    } else {
+      pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+               graphicsPiplineLayout, 0, 1, &writeDescSet);
+    }
   }
 }
 
 void VulkanCommandList::pushConstants(uint32_t offset, uint32_t size,
                                       const void *data) {
-  vkCmdPushConstants(commandBuffer, computePiplineLayout,
-                     VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
+  // TODO for now
+  if (isComputeActive) {
+    vkCmdPushConstants(commandBuffer, computePiplineLayout,
+                       VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
+  } else {
+    vkCmdPushConstants(commandBuffer, graphicsPiplineLayout,
+                       VK_SHADER_STAGE_FRAGMENT_BIT, offset, size, data);
+  }
 }
 } // namespace elementalEngine::RHI

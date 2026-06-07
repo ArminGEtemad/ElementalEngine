@@ -69,7 +69,6 @@ void DX12CommandList::beginRendering(Swapchain &swapchain) {
       dx12Swapchain.getRTVHandle(frameIndex);
 
   commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-  // TODO not hardcoded anymore later
   const float clearColor[] = {0.01f, 0.01f, 0.1f, 1.0f};
   commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 }
@@ -120,18 +119,19 @@ void DX12CommandList::setScissor(int32_t x, int32_t y, uint32_t width,
 
 void DX12CommandList::bindPipeline(Pipeline &pipeline) {
   auto &dx12Pipeline = static_cast<DX12Pipeline &>(pipeline);
-
   commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
   commandList->SetGraphicsRootSignature(dx12Pipeline.getNativeRootSignature());
-
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+  isComputeActive = false;
 }
 
 void DX12CommandList::bindComputePipeline(ComputePipeline &pipeline) {
   auto &dx12Pipeline = static_cast<DX12ComputePipeline &>(pipeline);
-
   commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
   commandList->SetComputeRootSignature(dx12Pipeline.getNativeRootSignature());
+
+  isComputeActive = true;
 }
 
 void DX12CommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
@@ -159,21 +159,31 @@ void DX12CommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
 
 void DX12CommandList::pushConstants(uint32_t offset, uint32_t size,
                                     const void *data) {
-  commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
+  // TODO for now
+  if (isComputeActive) {
+    commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
+  } else {
+    commandList->SetGraphicsRoot32BitConstants(0, size / 4, data, offset / 4);
+  }
 }
 
 void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
   auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
 
-  // read only
-  if (bindingSlot == 1 || bindingSlot == 2) {
-    commandList->SetComputeRootShaderResourceView(
-        bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
-  }
-  // read and write
-  else if (bindingSlot == 3) {
-    commandList->SetComputeRootUnorderedAccessView(
-        bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+  // TODO for now
+  if (isComputeActive) {
+    if (bindingSlot == 1 || bindingSlot == 2) {
+      commandList->SetComputeRootShaderResourceView(
+          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    } else if (bindingSlot == 3) {
+      commandList->SetComputeRootUnorderedAccessView(
+          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    }
+  } else {
+    if (bindingSlot == 1) {
+      commandList->SetGraphicsRootShaderResourceView(
+          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    }
   }
 }
 } // namespace elementalEngine::RHI
