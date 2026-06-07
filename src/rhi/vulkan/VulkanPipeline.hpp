@@ -11,11 +11,13 @@ public:
   ~VulkanPipeline() override;
 
   VkPipeline getNativePipeline() const { return graphicsPipeline; }
+  VkPipelineLayout getNativeLayout() const { return pipelineLayout; }
 
 private:
   VulkanDevice &device;
   VkPipelineLayout pipelineLayout;
   VkPipeline graphicsPipeline;
+  VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
 
   VkShaderModule createShaderModule(const std::vector<char> &code);
   void createPipeline(VkFormat colorAttachmentFormat);

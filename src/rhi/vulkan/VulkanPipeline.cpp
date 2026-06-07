@@ -13,6 +13,8 @@ VulkanPipeline::VulkanPipeline(VulkanDevice &device,
 VulkanPipeline::~VulkanPipeline() {
   vkDestroyPipeline(device.getLogicalDevice(), graphicsPipeline, nullptr);
   vkDestroyPipelineLayout(device.getLogicalDevice(), pipelineLayout, nullptr);
+  vkDestroyDescriptorSetLayout(device.getLogicalDevice(), descriptorSetLayout,
+                               nullptr);
 };
 
 // creating the shader modul
@@ -31,8 +33,8 @@ VulkanPipeline::createShaderModule(const std::vector<char> &code) {
 }
 
 void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat) {
-  auto vertShaderCode = Core::readFile("build/triangle_vs.spv");
-  auto fragShaderCode = Core::readFile("build/triangle_ps.spv");
+  auto vertShaderCode = Core::readFile("build/grid_vs.spv");
+  auto fragShaderCode = Core::readFile("build/grid_fs.spv");
 
   VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
   VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -49,39 +51,46 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat) {
       VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
   fragShaderStageInfo.module = fragShaderModule;
-  fragShaderStageInfo.pName = "PSMain";
+  fragShaderStageInfo.pName = "FSMain";
 
   VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
                                                     fragShaderStageInfo};
 
-  VkVertexInputBindingDescription bindingDescription{};
-  bindingDescription.binding = 0;
-  bindingDescription.stride = sizeof(elementalEngine::RHI::Vertex);
-  bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  VkDescriptorSetLayoutBinding bindingSetLayout;
 
-  VkVertexInputAttributeDescription attributeDescriptions[2]{};
+  // vertex has no binding
+  // fragment bindings
+  // read density
+  bindingSetLayout.binding = 1;
+  bindingSetLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  bindingSetLayout.descriptorCount = 1;
+  bindingSetLayout.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-  // POSITION attribute
-  attributeDescriptions[0].binding = 0;
-  attributeDescriptions[0].location = 0;
-  attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-  attributeDescriptions[0].offset =
-      offsetof(elementalEngine::RHI::Vertex, position);
+  VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
+  setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+  setLayoutInfo.bindingCount = 1;
+  setLayoutInfo.pBindings = &bindingSetLayout;
 
-  // COLOR attribute
-  attributeDescriptions[1].binding = 0;
-  attributeDescriptions[1].location = 1;
-  attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attributeDescriptions[1].offset =
-      offsetof(elementalEngine::RHI::Vertex, color);
+  if (vkCreateDescriptorSetLayout(device.getLogicalDevice(), &setLayoutInfo,
+                                  nullptr,
+                                  &descriptorSetLayout) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create compute descriptor layout!");
+  }
+
+  // uniform buffer
+  VkPushConstantRange pushConstRange{};
+  pushConstRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  pushConstRange.offset = 0;
+  pushConstRange.size = sizeof(SimConfig);
 
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertexInputInfo.vertexBindingDescriptionCount = 1;
-  vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-  vertexInputInfo.vertexAttributeDescriptionCount = 2;
-  vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions;
+  vertexInputInfo.vertexBindingDescriptionCount = 0;
+  vertexInputInfo.pVertexBindingDescriptions = nullptr;
+  vertexInputInfo.vertexAttributeDescriptionCount = 0;
+  vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
   // Input Assembly
   VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -110,7 +119,7 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat) {
   rasterizer.rasterizerDiscardEnable = VK_FALSE;
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
-  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+  rasterizer.cullMode = VK_CULL_MODE_NONE;
   rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -138,8 +147,10 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat) {
   // Pipeline Layout
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutInfo.setLayoutCount = 0;
-  pipelineLayoutInfo.pushConstantRangeCount = 0;
+  pipelineLayoutInfo.setLayoutCount = 1;
+  pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+  pipelineLayoutInfo.pushConstantRangeCount = 1;
+  pipelineLayoutInfo.pPushConstantRanges = &pushConstRange;
 
   if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo,
                              nullptr, &pipelineLayout) != VK_SUCCESS) {
@@ -177,7 +188,6 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat) {
   }
 
   // Cleanup
-  // after getting the triangle we are done with the shader module
   vkDestroyShaderModule(device.getLogicalDevice(), fragShaderModule, nullptr);
   vkDestroyShaderModule(device.getLogicalDevice(), vertShaderModule, nullptr);
 }

@@ -1,8 +1,6 @@
 #include "DX12Pipeline.hpp"
 #include "FileHandling.hpp"
-#include "RHICommon.hpp"
 
-#include <cstddef>
 #include <directx/d3d12.h>
 #include <directx/dxgiformat.h>
 #include <stdexcept>
@@ -16,16 +14,31 @@ DX12Pipeline::DX12Pipeline(DX12Device &device) : device(device) {
 DX12Pipeline::~DX12Pipeline() {}
 
 void DX12Pipeline::createPipeline() {
-  auto vsBytecode = Core::readFile("build/triangle_vs.dxil");
-  auto psBytecode = Core::readFile("build/triangle_ps.dxil");
+  auto vsBytecode = Core::readFile("build/grid_vs.dxil");
+  auto psBytecode = Core::readFile("build/grid_fs.dxil");
+
+  // uniform buffer
+  // constants from the SimConfig
+  D3D12_ROOT_PARAMETER constParam{};
+  constParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+  constParam.Constants.ShaderRegister = 0; // match b0
+  constParam.Constants.RegisterSpace = 0;
+  constParam.Constants.Num32BitValues = sizeof(SimConfig) / 4;
+  constParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  D3D12_ROOT_PARAMETER t1Param{};
+  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+  t1Param.Descriptor.ShaderRegister = 1; // match t1
+  t1Param.Descriptor.RegisterSpace = 0;
+  t1Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  // combine
+  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param};
 
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
-  rootSigDesc.NumParameters = 0;
-  rootSigDesc.pParameters = nullptr;
-  rootSigDesc.NumStaticSamplers = 0;
-  rootSigDesc.pStaticSamplers = nullptr;
-  rootSigDesc.Flags =
-      D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+  rootSigDesc.NumParameters = _countof(rootParams);
+  rootSigDesc.pParameters = rootParams;
+  rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
   ComPtr<ID3DBlob> signature;
   ComPtr<ID3DBlob> error;
@@ -61,17 +74,9 @@ void DX12Pipeline::createPipeline() {
   blendDesc.RenderTarget[0].RenderTargetWriteMask =
       D3D12_COLOR_WRITE_ENABLE_ALL;
 
-  // input layout for the test
-  D3D12_INPUT_ELEMENT_DESC inputElementDesc[] = {
-      {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0,
-       D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-      {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
-       offsetof(elementalEngine::RHI::Vertex, color),
-       D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
-
   D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
-  inputLayoutDesc.pInputElementDescs = inputElementDesc;
-  inputLayoutDesc.NumElements = _countof(inputElementDesc);
+  inputLayoutDesc.pInputElementDescs = nullptr;
+  inputLayoutDesc.NumElements = 0;
 
   D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
   psoDesc.InputLayout = inputLayoutDesc;
