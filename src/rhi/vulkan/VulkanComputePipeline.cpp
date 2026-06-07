@@ -1,9 +1,11 @@
 #include "VulkanComputePipeline.hpp"
+#include "ComputePipeline.hpp"
 #include "FileHandling.hpp"
 #include "VulkanDevice.hpp"
 
 #include <cstdint>
 #include <stdexcept>
+#include <vector>
 
 namespace elementalEngine::RHI {
 VulkanComputePipeline::VulkanComputePipeline(VulkanDevice &device)
@@ -34,7 +36,7 @@ VulkanComputePipeline::createShaderModule(const std::vector<char> &code) {
 }
 
 void VulkanComputePipeline::createPipeline() {
-  auto compShaderCode = Core::readFile("build/compute.spv");
+  auto compShaderCode = Core::readFile("build/advection.spv");
   VkShaderModule compShaderModule = createShaderModule(compShaderCode);
 
   VkPipelineShaderStageCreateInfo compShaderStageInfo{};
@@ -44,17 +46,31 @@ void VulkanComputePipeline::createPipeline() {
   compShaderStageInfo.module = compShaderModule;
   compShaderStageInfo.pName = "CSMain";
 
-  VkDescriptorSetLayoutBinding bindingSetLayout{};
-  bindingSetLayout.binding = 0;
-  bindingSetLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-  bindingSetLayout.descriptorCount = 1;
-  bindingSetLayout.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  std::vector<VkDescriptorSetLayoutBinding> bindingSetLayout(3);
+
+  // read density
+  bindingSetLayout[0].binding = 1;
+  bindingSetLayout[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  bindingSetLayout[0].descriptorCount = 1;
+  bindingSetLayout[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+  // read velocity
+  bindingSetLayout[1].binding = 2;
+  bindingSetLayout[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  bindingSetLayout[1].descriptorCount = 1;
+  bindingSetLayout[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+  // read and write density
+  bindingSetLayout[2].binding = 3;
+  bindingSetLayout[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  bindingSetLayout[2].descriptorCount = 1;
+  bindingSetLayout[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
   VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
   setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
-  setLayoutInfo.bindingCount = 1;
-  setLayoutInfo.pBindings = &bindingSetLayout;
+  setLayoutInfo.bindingCount = static_cast<uint32_t>(bindingSetLayout.size());
+  setLayoutInfo.pBindings = bindingSetLayout.data();
 
   if (vkCreateDescriptorSetLayout(device.getLogicalDevice(), &setLayoutInfo,
                                   nullptr,
@@ -62,10 +78,17 @@ void VulkanComputePipeline::createPipeline() {
     throw std::runtime_error("Failed to create compute descriptor layout!");
   }
 
+  VkPushConstantRange pushConstRange{};
+  pushConstRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  pushConstRange.offset = 0;
+  pushConstRange.size = sizeof(SimConfig);
+
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipelineLayoutInfo.setLayoutCount = 1;
   pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+  pipelineLayoutInfo.pushConstantRangeCount = 1;
+  pipelineLayoutInfo.pPushConstantRanges = &pushConstRange;
 
   if (vkCreatePipelineLayout(device.getLogicalDevice(), &pipelineLayoutInfo,
                              nullptr, &pipelineLayout) != VK_SUCCESS) {

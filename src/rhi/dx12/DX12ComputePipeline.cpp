@@ -5,6 +5,7 @@
 #include <directx/d3d12.h>
 #include <intsafe.h>
 #include <stdexcept>
+#include <stdlib.h>
 namespace elementalEngine::RHI {
 DX12ComputePipeline::DX12ComputePipeline(DX12Device &device) : device(device) {
   createPipeline();
@@ -13,17 +14,43 @@ DX12ComputePipeline::DX12ComputePipeline(DX12Device &device) : device(device) {
 DX12ComputePipeline::~DX12ComputePipeline() {}
 
 void DX12ComputePipeline::createPipeline() {
-  auto csBytecode = Core::readFile("build/compute.dxil");
+  auto csBytecode = Core::readFile("build/advection.dxil");
 
-  D3D12_ROOT_PARAMETER rootParam{};
-  rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-  rootParam.Descriptor.ShaderRegister = 0; // match u0
-  rootParam.Descriptor.RegisterSpace = 0;
-  rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+  // constants from the SimConfig
+  D3D12_ROOT_PARAMETER constParam{};
+  constParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+  constParam.Constants.ShaderRegister = 0; // match b0
+  constParam.Constants.RegisterSpace = 0;
+  constParam.Constants.Num32BitValues = sizeof(SimConfig) / 4;
+  constParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  // storage read density
+  D3D12_ROOT_PARAMETER t1Param{};
+  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+  t1Param.Descriptor.ShaderRegister = 1; // mathc t1
+  t1Param.Descriptor.RegisterSpace = 0;
+  t1Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  // storage read velocity
+  D3D12_ROOT_PARAMETER t2Param{};
+  t2Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+  t2Param.Descriptor.ShaderRegister = 2; // mathc t2
+  t2Param.Descriptor.RegisterSpace = 0;
+  t2Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  // storage read write density
+  D3D12_ROOT_PARAMETER u3Param{};
+  u3Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+  u3Param.Descriptor.ShaderRegister = 3; // mathc u3
+  u3Param.Descriptor.RegisterSpace = 0;
+  u3Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  // combine
+  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param, t2Param, u3Param};
 
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
-  rootSigDesc.NumParameters = 1;
-  rootSigDesc.pParameters = &rootParam;
+  rootSigDesc.NumParameters = _countof(rootParams);
+  rootSigDesc.pParameters = rootParams;
   rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
   ComPtr<ID3DBlob> signature;
