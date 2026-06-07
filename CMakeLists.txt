@@ -21,12 +21,14 @@ add_executable(ElementalEngine
     src/rhi/vulkan/VulkanSwapchain.cpp
     src/rhi/vulkan/VulkanCommandList.cpp
     src/rhi/vulkan/VulkanPipeline.cpp
+    src/rhi/vulkan/VulkanComputePipeline.cpp
     src/rhi/vulkan/VulkanBuffer.cpp
     src/rhi/vulkan/VulkanAllocator.cpp
     src/rhi/dx12/DX12Device.cpp
     src/rhi/dx12/DX12Swapchain.cpp
     src/rhi/dx12/DX12CommandList.cpp
     src/rhi/dx12/DX12Pipeline.cpp
+    src/rhi/dx12/DX12ComputePipeline.cpp
     src/rhi/dx12/DX12Buffer.cpp
 )
 
@@ -46,23 +48,33 @@ endif()
 
 
 set(SHADER_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/triangle.hlsl")
+set(SHADER_COMP_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/advection.hlsl")
+
 set(SPV_VERT_OUT "${CMAKE_BINARY_DIR}/triangle_vs.spv")
 set(SPV_FRAG_OUT "${CMAKE_BINARY_DIR}/triangle_ps.spv")
+set(SPV_COMP_OUT "${CMAKE_BINARY_DIR}/advection.spv")
+
 set(DXIL_VERT_OUT "${CMAKE_BINARY_DIR}/triangle_vs.dxil")
 set(DXIL_FRAG_OUT "${CMAKE_BINARY_DIR}/triangle_ps.dxil")
+set(DXIL_COMP_OUT "${CMAKE_BINARY_DIR}/advection.dxil")
 
 add_custom_command(
     OUTPUT ${SPV_VERT_OUT}
-    COMMAND ${DXC_EXECUTABLE} -spirv -T vs_6_0 -E VSMain ${SHADER_SRC} -Fo ${SPV_VERT_OUT}
+    COMMAND ${DXC_EXECUTABLE} -spirv -fspv-target-env=vulkan1.3 -T vs_6_0 -E VSMain ${SHADER_SRC} -Fo ${SPV_VERT_OUT}
     DEPENDS ${SHADER_SRC}
     COMMENT "Compiling HLSL Vertex Shader to SPIR-V..."
 )
-
 add_custom_command(
     OUTPUT ${SPV_FRAG_OUT}
-    COMMAND ${DXC_EXECUTABLE} -spirv -T ps_6_0 -E PSMain ${SHADER_SRC} -Fo ${SPV_FRAG_OUT}
+    COMMAND ${DXC_EXECUTABLE} -spirv -fspv-target-env=vulkan1.3 -T ps_6_0 -E PSMain ${SHADER_SRC} -Fo ${SPV_FRAG_OUT}
     DEPENDS ${SHADER_SRC}
     COMMENT "Compiling HLSL Fragment Shader to SPIR-V..."
+)
+add_custom_command(
+    OUTPUT ${SPV_COMP_OUT}
+    COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T cs_6_0 -E CSMain ${SHADER_COMP_SRC} -Fo ${SPV_COMP_OUT}
+    DEPENDS ${SHADER_COMP_SRC}
+    COMMENT "Compiling HLSL Compute Shader to SPIR-V..."
 )
 
 add_custom_command(
@@ -71,14 +83,20 @@ add_custom_command(
     DEPENDS ${SHADER_SRC}
     COMMENT "Compiling HLSL Vertex Shader to DXIL..."
 )
-
 add_custom_command(
     OUTPUT ${DXIL_FRAG_OUT}
     COMMAND ${DXC_EXECUTABLE} -T ps_6_0 -E PSMain ${SHADER_SRC} -Fo ${DXIL_FRAG_OUT}
     DEPENDS ${SHADER_SRC}
     COMMENT "Compiling HLSL Fragment Shader to DXIL..."
 )
-add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT} ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT})
+add_custom_command(
+    OUTPUT ${DXIL_COMP_OUT}
+    COMMAND ${DXC_EXECUTABLE} -T cs_6_0 -E CSMain ${SHADER_COMP_SRC} -Fo ${DXIL_COMP_OUT}
+    DEPENDS ${SHADER_COMP_SRC}
+    COMMENT "Compiling HLSL Compute Shader to DXIL..."
+)
+
+add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT} ${SPV_COMP_OUT} ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT} ${DXIL_COMP_OUT})
 
 add_dependencies(ElementalEngine CompileShaders)
 target_link_libraries(ElementalEngine
