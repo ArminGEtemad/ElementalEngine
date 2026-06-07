@@ -1,9 +1,12 @@
 #include "rhi/CommandList.hpp"
+#include "rhi/ComputePipeline.hpp"
 #include "rhi/Device.hpp"
 #include "rhi/Pipeline.hpp"
 #include "rhi/RHICommon.hpp"
 #include "rhi/Swapchain.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -49,8 +52,31 @@ int main() {
         RHIFilter::createDevice(selectedBackend, config, window));
 
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
+    std::unique_ptr<ComputePipeline> computePipeline =
+        device->createComputePipeline();
     std::unique_ptr<CommandList> commandList = device->createCommandList();
     // -----------------------------------------------------------------------------
+    // Test for compute eulerian grid
+    static constexpr uint32_t GRID_WIDTH{256};
+    static constexpr uint32_t GRID_HEIGHT{256};
+    static constexpr uint32_t CELL_COUNT = GRID_HEIGHT * GRID_WIDTH;
+
+    size_t densitySize = CELL_COUNT * sizeof(float);
+    size_t velocitySize = CELL_COUNT * sizeof(float) * 2; // 2D vector velocity
+
+    // -- ping pong buffer
+    auto densityBufferPing = device->createBuffer(
+        densitySize, BufferUsage::Storage, MemoryProperty::GPULocal);
+    auto densityBufferPong = device->createBuffer(
+        densitySize, BufferUsage::Storage, MemoryProperty::GPULocal);
+
+    auto velocityBufferPing = device->createBuffer(
+        velocitySize, BufferUsage::Storage, MemoryProperty::GPULocal);
+    auto velocityBufferPong = device->createBuffer(
+        velocitySize, BufferUsage::Storage, MemoryProperty::GPULocal);
+
+    bool useBufferPingToRead = true;
+
     // vertex Data for test
     std::vector<RHI::Vertex> vertices = {{{0.0f, 0.5f}, {1.0f, 0.0f, 0.0f}},
                                          {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
@@ -58,19 +84,43 @@ int main() {
     size_t bufferSize = vertices.size() * sizeof(RHI::Vertex);
     auto vertexBuffer = device->createBuffer(
         bufferSize, RHI::BufferUsage::Vertex, RHI::MemoryProperty::CPUAccess);
+
     void *mappedMemory = vertexBuffer->map();
     std::memcpy(mappedMemory, vertices.data(), bufferSize);
     vertexBuffer->unmap();
     // -----------------------------------------------------------------------------
     std::unique_ptr<Pipeline> pipeline = device->createPipeline();
 
+    SimConfig simConfigData{};
+    simConfigData.gridWidth = GRID_WIDTH;
+    simConfigData.gridHeight = GRID_HEIGHT;
+    simConfigData.dt = 0.016f; // for 60fps for now
+    simConfigData.pad_0 = 0.0f;
+
     std::cout << "main loop starts now...\n";
+
     while (!window.shouldClose()) {
       glfwPollEvents();
       swapchain->acquireNextImage();
 
       commandList->begin();
+
+      // compute
+      commandList->bindComputePipeline(*computePipeline);
+      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
+      if (useBufferPingToRead) {
+        commandList->bindStorageBuffer(1, densityBufferPing.get());  // read
+        commandList->bindStorageBuffer(2, velocityBufferPing.get()); // read
+        commandList->bindStorageBuffer(3, densityBufferPong.get());  // write
+      } else {
+        commandList->bindStorageBuffer(1, densityBufferPong.get());  // read
+        commandList->bindStorageBuffer(2, velocityBufferPong.get()); // read
+        commandList->bindStorageBuffer(3, densityBufferPing.get());  // write
+      }
+      commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
+      // render
       commandList->beginRendering(*swapchain);
+
       commandList->bindPipeline(*pipeline);
       commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
                                static_cast<float>(HEIGHT));
@@ -79,10 +129,13 @@ int main() {
       commandList->draw(3, 1, 0, 0);
 
       commandList->endRendering(*swapchain);
+
       commandList->end();
 
       device->submit(commandList.get(), swapchain.get());
       swapchain->present();
+      // Ping to Pong and pong to pind for the next frame
+      useBufferPingToRead = !useBufferPingToRead;
     }
     device->waitIdle();
 
