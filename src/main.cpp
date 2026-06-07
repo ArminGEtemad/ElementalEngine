@@ -1,5 +1,4 @@
 #include "rhi/CommandList.hpp"
-#include "rhi/ComputePipeline.hpp"
 #include "rhi/Device.hpp"
 #include "rhi/Pipeline.hpp"
 #include "rhi/RHICommon.hpp"
@@ -51,8 +50,7 @@ int main() {
         RHIFilter::createDevice(selectedBackend, config, window));
 
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
-    std::unique_ptr<ComputePipeline> computePipeline =
-        device->createComputePipeline();
+    std::unique_ptr<Pipeline> computePipeline = device->createComputePipeline();
     std::unique_ptr<CommandList> commandList = device->createCommandList();
     // -----------------------------------------------------------------------------
     // Test for compute eulerian grid
@@ -93,7 +91,7 @@ int main() {
       commandList->begin();
 
       // compute
-      commandList->bindComputePipeline(*computePipeline);
+      commandList->bindPipeline(*computePipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
       if (useBufferPingToRead) {
         commandList->bindStorageBuffer(1, densityBufferPing.get());  // read

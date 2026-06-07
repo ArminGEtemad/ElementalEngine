@@ -16,17 +16,14 @@ public:
   void beginRendering(Swapchain &swapchain) override;
   void endRendering(Swapchain &swapchain) override;
 
+  void bindPipeline(Pipeline &pipeline) override;
+
   void setViewport(float x, float y, float width, float height) override;
   void setScissor(int32_t x, int32_t y, uint32_t width,
                   uint32_t height) override;
-
-  void bindPipeline(Pipeline &pipeline) override;
   void bindVertexBuffer(Buffer *buffer, size_t stride) override;
-
-  void bindComputePipeline(ComputePipeline &pipeline) override;
   void pushConstants(uint32_t offset, uint32_t size, const void *data) override;
   void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) override;
-
   void dispatch(uint32_t groupCountX, uint32_t groupCountY,
                 uint32_t groupCountZ) override;
   void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
@@ -40,6 +37,6 @@ private:
   VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
   VkPipelineLayout computePiplineLayout{VK_NULL_HANDLE};
   VkPipelineLayout graphicsPiplineLayout{VK_NULL_HANDLE};
-  bool isComputeActive = false;
+  Pipeline *currentPipeline{nullptr};
 };
 } // namespace elementalEngine::RHI

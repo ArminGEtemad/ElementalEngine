@@ -4,6 +4,7 @@
 #include "DX12Device.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
+#include "RHICommon.hpp"
 #include "Swapchain.hpp"
 #include <cstdint>
 #include <stdexcept>
@@ -118,20 +119,19 @@ void DX12CommandList::setScissor(int32_t x, int32_t y, uint32_t width,
 }
 
 void DX12CommandList::bindPipeline(Pipeline &pipeline) {
-  auto &dx12Pipeline = static_cast<DX12Pipeline &>(pipeline);
-  commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
-  commandList->SetGraphicsRootSignature(dx12Pipeline.getNativeRootSignature());
-  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  currentPipeline = &pipeline;
 
-  isComputeActive = false;
-}
-
-void DX12CommandList::bindComputePipeline(ComputePipeline &pipeline) {
-  auto &dx12Pipeline = static_cast<DX12ComputePipeline &>(pipeline);
-  commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
-  commandList->SetComputeRootSignature(dx12Pipeline.getNativeRootSignature());
-
-  isComputeActive = true;
+  if (pipeline.getBindPoint() == PipelineBindPoint::Graphics) {
+    auto &dx12Pipeline = static_cast<DX12Pipeline &>(pipeline);
+    commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
+    commandList->SetGraphicsRootSignature(
+        dx12Pipeline.getNativeRootSignature());
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  } else { // if Compute
+    auto &dx12Pipeline = static_cast<DX12ComputePipeline &>(pipeline);
+    commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
+    commandList->SetComputeRootSignature(dx12Pipeline.getNativeRootSignature());
+  }
 }
 
 void DX12CommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
@@ -159,11 +159,10 @@ void DX12CommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
 
 void DX12CommandList::pushConstants(uint32_t offset, uint32_t size,
                                     const void *data) {
-  // TODO for now
-  if (isComputeActive) {
-    commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
-  } else {
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Graphics) {
     commandList->SetGraphicsRoot32BitConstants(0, size / 4, data, offset / 4);
+  } else { // compute
+    commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
   }
 }
 
@@ -171,7 +170,7 @@ void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
   auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
 
   // TODO for now
-  if (isComputeActive) {
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
     if (bindingSlot == 1 || bindingSlot == 2) {
       commandList->SetComputeRootShaderResourceView(
           bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
@@ -179,7 +178,7 @@ void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
       commandList->SetComputeRootUnorderedAccessView(
           bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
     }
-  } else {
+  } else { // Graphics
     if (bindingSlot == 1) {
       commandList->SetGraphicsRootShaderResourceView(
           bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());

@@ -21,7 +21,7 @@ public:
   createSwapchain(WindowHandling &window) = 0;
   virtual std::unique_ptr<CommandList> createCommandList() = 0;
   virtual std::unique_ptr<Pipeline> createPipeline() = 0;
-  virtual std::unique_ptr<ComputePipeline> createComputePipeline() = 0;
+  virtual std::unique_ptr<Pipeline> createComputePipeline() = 0;
   virtual std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                                MemoryProperty memory) = 0;
 

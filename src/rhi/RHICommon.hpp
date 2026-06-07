@@ -7,6 +7,11 @@ enum class GraphicsAPI {
   DirectX12,
 };
 
+enum class PipelineBindPoint {
+  Graphics,
+  Compute,
+};
+
 struct DeviceConfig {
   bool enableValidationLayers = true;
   bool enableGPUAssistedValidatioLayer = false;

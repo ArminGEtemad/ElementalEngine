@@ -1,5 +1,4 @@
 #include "VulkanComputePipeline.hpp"
-#include "ComputePipeline.hpp"
 #include "FileHandling.hpp"
 #include "VulkanDevice.hpp"
 

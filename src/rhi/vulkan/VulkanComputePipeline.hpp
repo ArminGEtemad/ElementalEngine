@@ -1,15 +1,16 @@
 #pragma once
 
-#include "ComputePipeline.hpp"
 #include "VulkanDevice.hpp"
 #include <vector>
-
 namespace elementalEngine::RHI {
-class VulkanComputePipeline : public ComputePipeline {
+class VulkanComputePipeline : public Pipeline {
 public:
   VulkanComputePipeline(VulkanDevice &device);
   ~VulkanComputePipeline() override;
 
+  PipelineBindPoint getBindPoint() const override {
+    return PipelineBindPoint::Compute;
+  }
   VkPipeline getNativePipeline() const { return computePipeline; }
   VkPipelineLayout getNativeLayout() const { return pipelineLayout; }
 

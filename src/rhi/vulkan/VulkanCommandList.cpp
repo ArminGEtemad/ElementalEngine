@@ -158,21 +158,18 @@ void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
 }
 
 void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
-  auto &vk13Pipeline = static_cast<VulkanPipeline &>(pipeline);
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    vk13Pipeline.getNativePipeline());
-  graphicsPiplineLayout = vk13Pipeline.getNativeLayout();
-  // TODO for now
-  isComputeActive = false;
-}
-
-void VulkanCommandList::bindComputePipeline(ComputePipeline &pipeline) {
-  auto &vk13Pipeline = static_cast<VulkanComputePipeline &>(pipeline);
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    vk13Pipeline.getNativePipeline());
-  computePiplineLayout = vk13Pipeline.getNativeLayout();
-  // TODO for now
-  isComputeActive = true;
+  currentPipeline = &pipeline;
+  if (pipeline.getBindPoint() == PipelineBindPoint::Graphics) {
+    auto &vk13Pipeline = static_cast<VulkanPipeline &>(pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      vk13Pipeline.getNativePipeline());
+    graphicsPiplineLayout = vk13Pipeline.getNativeLayout();
+  } else { // compute
+    auto &vk13Pipeline = static_cast<VulkanComputePipeline &>(pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      vk13Pipeline.getNativePipeline());
+    computePiplineLayout = vk13Pipeline.getNativeLayout();
+  }
 }
 
 void VulkanCommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
@@ -215,11 +212,10 @@ void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
   auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
       device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
   if (pushFunc) {
-    // TODO for now
-    if (isComputeActive) {
+    if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
       pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                computePiplineLayout, 0, 1, &writeDescSet);
-    } else {
+    } else { // graphics
       pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                graphicsPiplineLayout, 0, 1, &writeDescSet);
     }
@@ -228,11 +224,10 @@ void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
 
 void VulkanCommandList::pushConstants(uint32_t offset, uint32_t size,
                                       const void *data) {
-  // TODO for now
-  if (isComputeActive) {
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
     vkCmdPushConstants(commandBuffer, computePiplineLayout,
                        VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
-  } else {
+  } else { // graphics
     vkCmdPushConstants(commandBuffer, graphicsPiplineLayout,
                        VK_SHADER_STAGE_FRAGMENT_BIT, offset, size, data);
   }

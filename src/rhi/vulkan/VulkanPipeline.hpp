@@ -10,6 +10,9 @@ public:
   VulkanPipeline(VulkanDevice &device, VkFormat colorAttachmentFormat);
   ~VulkanPipeline() override;
 
+  PipelineBindPoint getBindPoint() const override {
+    return PipelineBindPoint::Graphics;
+  }
   VkPipeline getNativePipeline() const { return graphicsPipeline; }
   VkPipelineLayout getNativeLayout() const { return pipelineLayout; }
 

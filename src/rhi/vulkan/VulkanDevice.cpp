@@ -1,6 +1,5 @@
 #include "VulkanDevice.hpp"
 #include "CommandList.hpp"
-#include "ComputePipeline.hpp"
 #include "Pipeline.hpp"
 #include "VulkanBuffer.hpp"
 #include "VulkanCommandList.hpp"
@@ -29,7 +28,7 @@ std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
   return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
 }
 
-std::unique_ptr<ComputePipeline> VulkanDevice::createComputePipeline() {
+std::unique_ptr<Pipeline> VulkanDevice::createComputePipeline() {
   return std::make_unique<VulkanComputePipeline>(*this);
 }
 
