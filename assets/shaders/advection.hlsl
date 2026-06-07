@@ -21,22 +21,27 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID) {
     uint x = dispatchThreadID.x;
     uint y = dispatchThreadID.y;
 
-    // Boundary
     if (x >= SimConfig.gridWidth || y >= SimConfig.gridHeight) return;
 
-    // index calculation
     uint index = y * SimConfig.gridWidth + x;
 
-    // ------------------------
-    float2 currentVelocity = ReadVelocity[index];
+    // -----------test vis-----------------
+    // constant wind
+    float2 currentVelocity = float2(50.0f, -20.0f);
 
-    float newX = (float)x - (currentVelocity.x * SimConfig.dt);
-    float newY = (float)y - (currentVelocity.y * SimConfig.dt);
+    // a gas emitter
+    if (x > 20 && x < 30 && y > SimConfig.gridHeight / 2 - 10 && y < SimConfig.gridHeight / 2 + 10) {
+        WriteDensity[index] = 1.0f; // inject pure density
+        return; // skip advection for the emitter itself
+    }
+    // ------------------------------------
 
-    newX = clamp(newX, 0.0f, (float)SimConfig.gridWidth - 1.0f);
-    newY = clamp(newY, 0.0f, (float)SimConfig.gridHeight - 1.0f);
+    float srcX = (float)x - (currentVelocity.x * SimConfig.dt);
+    float srcY = (float)y - (currentVelocity.y * SimConfig.dt);
 
-    uint newIndex = (uint)round(newY) * SimConfig.gridWidth + (uint)round(newX);
+    srcX = clamp(srcX, 0.0f, (float)SimConfig.gridWidth - 1.0f);
+    srcY = clamp(srcY, 0.0f, (float)SimConfig.gridHeight - 1.0f);
 
-    WriteDensity[index] = ReadDensity[newIndex];
+    uint srcIndex = (uint)round(srcY) * SimConfig.gridWidth + (uint)round(srcX);
+    WriteDensity[index] = ReadDensity[srcIndex];
 }
