@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
-#include <vector>
 
 using namespace elementalEngine;
 using namespace elementalEngine::RHI;
@@ -77,18 +76,6 @@ int main() {
 
     bool useBufferPingToRead = true;
 
-    // vertex Data for test
-    std::vector<RHI::Vertex> vertices = {{{0.0f, 0.5f}, {1.0f, 0.0f, 0.0f}},
-                                         {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-                                         {{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}}};
-    size_t bufferSize = vertices.size() * sizeof(RHI::Vertex);
-    auto vertexBuffer = device->createBuffer(
-        bufferSize, RHI::BufferUsage::Vertex, RHI::MemoryProperty::CPUAccess);
-
-    void *mappedMemory = vertexBuffer->map();
-    std::memcpy(mappedMemory, vertices.data(), bufferSize);
-    vertexBuffer->unmap();
-    // -----------------------------------------------------------------------------
     std::unique_ptr<Pipeline> pipeline = device->createPipeline();
 
     SimConfig simConfigData{};
@@ -118,6 +105,7 @@ int main() {
         commandList->bindStorageBuffer(3, densityBufferPing.get());  // write
       }
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
+
       // render
       commandList->beginRendering(*swapchain);
 
@@ -125,7 +113,14 @@ int main() {
       commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
                                static_cast<float>(HEIGHT));
       commandList->setScissor(0, 0, WIDTH, HEIGHT);
-      commandList->bindVertexBuffer(vertexBuffer.get(), sizeof(RHI::Vertex));
+      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
+
+      if (useBufferPingToRead) {
+        commandList->bindStorageBuffer(1, densityBufferPong.get());
+      } else {
+        commandList->bindStorageBuffer(1, densityBufferPing.get());
+      }
+
       commandList->draw(3, 1, 0, 0);
 
       commandList->endRendering(*swapchain);
