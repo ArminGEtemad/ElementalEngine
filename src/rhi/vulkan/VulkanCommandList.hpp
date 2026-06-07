@@ -24,6 +24,7 @@ public:
   void bindVertexBuffer(Buffer *buffer, size_t stride) override;
 
   void bindComputePipeline(ComputePipeline &pipeline) override;
+  void pushConstants(uint32_t offset, uint32_t size, const void *data) override;
   void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) override;
 
   void dispatch(uint32_t groupCountX, uint32_t groupCountY,

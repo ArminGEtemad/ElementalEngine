@@ -216,4 +216,10 @@ void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
              computePiplineLayout, 0, 1, &writeDescSet);
   }
 }
+
+void VulkanCommandList::pushConstants(uint32_t offset, uint32_t size,
+                                      const void *data) {
+  vkCmdPushConstants(commandBuffer, computePiplineLayout,
+                     VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
+}
 } // namespace elementalEngine::RHI

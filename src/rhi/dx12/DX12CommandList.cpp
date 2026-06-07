@@ -157,10 +157,23 @@ void DX12CommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
   commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 }
 
+void DX12CommandList::pushConstants(uint32_t offset, uint32_t size,
+                                    const void *data) {
+  commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
+}
+
 void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
   auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
 
-  commandList->SetComputeRootUnorderedAccessView(
-      bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+  // read only
+  if (bindingSlot == 1 || bindingSlot == 2) {
+    commandList->SetComputeRootShaderResourceView(
+        bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+  }
+  // read and write
+  else if (bindingSlot == 3) {
+    commandList->SetComputeRootUnorderedAccessView(
+        bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+  }
 }
 } // namespace elementalEngine::RHI
