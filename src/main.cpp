@@ -88,39 +88,41 @@ int main() {
       glfwPollEvents();
       swapchain->acquireNextImage();
 
+      Buffer *readBuffer = useBufferPingToRead ? densityBufferPing.get()
+                                               : densityBufferPong.get();
+      Buffer *writeBuffer = useBufferPingToRead ? densityBufferPong.get()
+                                                : densityBufferPing.get();
+
       commandList->begin();
+      // transition the write buffer from a read state (last frame) to a write
+      // state (this frame)
+      commandList->transitionBuffer(writeBuffer, ResourceState::ShaderResource,
+                                    ResourceState::UnorderedAccess);
 
       // compute
       commandList->bindPipeline(*computePipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      if (useBufferPingToRead) {
-        commandList->bindStorageBuffer(1, densityBufferPing.get());  // read
-        commandList->bindStorageBuffer(2, velocityBufferPing.get()); // read
-        commandList->bindStorageBuffer(3, densityBufferPong.get());  // write
-      } else {
-        commandList->bindStorageBuffer(1, densityBufferPong.get());  // read
-        commandList->bindStorageBuffer(2, velocityBufferPong.get()); // read
-        commandList->bindStorageBuffer(3, densityBufferPing.get());  // write
-      }
+      commandList->bindStorageBuffer(1, readBuffer);  // t1
+      commandList->bindStorageBuffer(3, writeBuffer); // u3
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
+
+      // transition the write buffer so the graphics pipeline can safely read it
+      commandList->transitionBuffer(writeBuffer, ResourceState::UnorderedAccess,
+                                    ResourceState::ShaderResource);
 
       // render
       commandList->beginRendering(*swapchain);
-
       commandList->bindPipeline(*pipeline);
       commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
                                static_cast<float>(HEIGHT));
       commandList->setScissor(0, 0, WIDTH, HEIGHT);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
 
-      if (useBufferPingToRead) {
-        commandList->bindStorageBuffer(1, densityBufferPong.get());
-      } else {
-        commandList->bindStorageBuffer(1, densityBufferPing.get());
-      }
+      // graphics Pipeline reads the exact buffer compute just finished
+      // writing to
+      commandList->bindStorageBuffer(1, writeBuffer);
 
       commandList->draw(3, 1, 0, 0);
-
       commandList->endRendering(*swapchain);
 
       commandList->end();
