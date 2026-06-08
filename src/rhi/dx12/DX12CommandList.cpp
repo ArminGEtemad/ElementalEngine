@@ -1,7 +1,10 @@
 #include "DX12CommandList.hpp"
+#include "DX12Buffer.hpp"
+#include "DX12ComputePipeline.hpp"
 #include "DX12Device.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
+#include "RHICommon.hpp"
 #include "Swapchain.hpp"
 #include <cstdint>
 #include <stdexcept>
@@ -67,7 +70,6 @@ void DX12CommandList::beginRendering(Swapchain &swapchain) {
       dx12Swapchain.getRTVHandle(frameIndex);
 
   commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-  // TODO not hardcoded anymore later
   const float clearColor[] = {0.01f, 0.01f, 0.1f, 1.0f};
   commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 }
@@ -116,18 +118,104 @@ void DX12CommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   commandList->RSSetScissorRects(1, &scissorRect);
 }
 
+void DX12CommandList::transitionBuffer(Buffer *buffer, ResourceState from,
+                                       ResourceState to) {
+  auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
+
+  D3D12_BUFFER_BARRIER barrier{};
+  barrier.pResource = dx12Buffer->getResource();
+  barrier.Offset = 0;
+  barrier.Size = UINT64_MAX;
+
+  if (from == ResourceState::UnorderedAccess &&
+      to == ResourceState::ShaderResource) {
+    barrier.SyncBefore = D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+    barrier.SyncAfter =
+        D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_VERTEX_SHADING;
+    barrier.AccessBefore = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+    barrier.AccessAfter = D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+  } else if (from == ResourceState::ShaderResource &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.SyncBefore =
+        D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_VERTEX_SHADING;
+    barrier.SyncAfter = D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+    barrier.AccessBefore = D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+    barrier.AccessAfter = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+  }
+
+  D3D12_BARRIER_GROUP barrierGroup{};
+  barrierGroup.Type = D3D12_BARRIER_TYPE_BUFFER;
+  barrierGroup.NumBarriers = 1;
+  barrierGroup.pBufferBarriers = &barrier;
+
+  commandList->Barrier(1, &barrierGroup);
+}
+
 void DX12CommandList::bindPipeline(Pipeline &pipeline) {
-  auto &dx12Pipeline = static_cast<DX12Pipeline &>(pipeline);
+  currentPipeline = &pipeline;
 
-  commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
-  commandList->SetGraphicsRootSignature(dx12Pipeline.getNativeRootSignature());
+  if (pipeline.getBindPoint() == PipelineBindPoint::Graphics) {
+    auto &dx12Pipeline = static_cast<DX12Pipeline &>(pipeline);
+    commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
+    commandList->SetGraphicsRootSignature(
+        dx12Pipeline.getNativeRootSignature());
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  } else { // if Compute
+    auto &dx12Pipeline = static_cast<DX12ComputePipeline &>(pipeline);
+    commandList->SetPipelineState(dx12Pipeline.getNativePipelineState());
+    commandList->SetComputeRootSignature(dx12Pipeline.getNativeRootSignature());
+  }
+}
 
-  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+void DX12CommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
+                               uint32_t groupCountZ) {
+  commandList->Dispatch(groupCountX, groupCountY, groupCountZ);
 }
 
 void DX12CommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
                            uint32_t firstVertex, uint32_t firstInstance) {
   commandList->DrawInstanced(vertexCount, instanceCount, firstVertex,
                              firstInstance);
+}
+
+void DX12CommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
+  auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
+
+  D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+  vertexBufferView.BufferLocation =
+      dx12Buffer->getResource()->GetGPUVirtualAddress();
+  vertexBufferView.StrideInBytes = static_cast<UINT>(stride);
+  vertexBufferView.SizeInBytes = static_cast<UINT>(dx12Buffer->getSize());
+
+  commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+}
+
+void DX12CommandList::pushConstants(uint32_t offset, uint32_t size,
+                                    const void *data) {
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Graphics) {
+    commandList->SetGraphicsRoot32BitConstants(0, size / 4, data, offset / 4);
+  } else { // compute
+    commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
+  }
+}
+
+void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
+  auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
+
+  // TODO for now
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+    if (bindingSlot == 1 || bindingSlot == 2) {
+      commandList->SetComputeRootShaderResourceView(
+          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    } else if (bindingSlot == 3) {
+      commandList->SetComputeRootUnorderedAccessView(
+          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    }
+  } else { // Graphics
+    if (bindingSlot == 1) {
+      commandList->SetGraphicsRootShaderResourceView(
+          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    }
+  }
 }
 } // namespace elementalEngine::RHI

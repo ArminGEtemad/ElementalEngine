@@ -1,5 +1,8 @@
 #include "VulkanCommandList.hpp"
+#include "Pipeline.hpp"
 #include "Swapchain.hpp"
+#include "VulkanBuffer.hpp"
+#include "VulkanComputePipeline.hpp"
 #include "VulkanDevice.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
@@ -154,17 +157,115 @@ void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 
-void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
-  auto &vk13Pipeline = static_cast<VulkanPipeline &>(pipeline);
+void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
+                                         ResourceState to) {
+  auto *vk13buffer = static_cast<VulkanBuffer *>(buffer);
 
-  // graphics execution context
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    vk13Pipeline.getNativePipeline());
+  VkBufferMemoryBarrier2 barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.buffer = vk13buffer->getVkBuffer();
+  barrier.offset = 0;
+  barrier.size = VK_WHOLE_SIZE;
+
+  if (from == ResourceState::UnorderedAccess &&
+      to == ResourceState::ShaderResource) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+  } else if (from == ResourceState::ShaderResource &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+  }
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.bufferMemoryBarrierCount = 1;
+  depInfo.pBufferMemoryBarriers = &barrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+}
+
+void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
+  currentPipeline = &pipeline;
+  if (pipeline.getBindPoint() == PipelineBindPoint::Graphics) {
+    auto &vk13Pipeline = static_cast<VulkanPipeline &>(pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      vk13Pipeline.getNativePipeline());
+    graphicsPiplineLayout = vk13Pipeline.getNativeLayout();
+  } else { // compute
+    auto &vk13Pipeline = static_cast<VulkanComputePipeline &>(pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      vk13Pipeline.getNativePipeline());
+    computePiplineLayout = vk13Pipeline.getNativeLayout();
+  }
+}
+
+void VulkanCommandList::dispatch(uint32_t groupCountX, uint32_t groupCountY,
+                                 uint32_t groupCountZ) {
+  vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 }
 
 void VulkanCommandList::draw(uint32_t vertexCount, uint32_t instanceCount,
                              uint32_t firstVertex, uint32_t firstInstance) {
   vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex,
             firstInstance);
+}
+
+void VulkanCommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
+  auto *vk13Buffer = static_cast<VulkanBuffer *>(buffer);
+
+  VkBuffer buffers[] = {vk13Buffer->getVkBuffer()};
+  VkDeviceSize offsets[] = {0};
+
+  // Bind vertex stream to layout slot 0
+  vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
+}
+
+void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
+                                          Buffer *buffer) {
+  auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
+
+  VkDescriptorBufferInfo bufferInfo{};
+  bufferInfo.buffer = vkBuffer->getVkBuffer();
+  bufferInfo.offset = 0;
+  bufferInfo.range = VK_WHOLE_SIZE;
+
+  VkWriteDescriptorSet writeDescSet{};
+  writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDescSet.dstBinding = bindingSlot;
+  writeDescSet.descriptorCount = 1;
+  writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  writeDescSet.pBufferInfo = &bufferInfo;
+
+  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
+      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
+  if (pushFunc) {
+    if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+      pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+               computePiplineLayout, 0, 1, &writeDescSet);
+    } else { // graphics
+      pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+               graphicsPiplineLayout, 0, 1, &writeDescSet);
+    }
+  }
+}
+
+void VulkanCommandList::pushConstants(uint32_t offset, uint32_t size,
+                                      const void *data) {
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+    vkCmdPushConstants(commandBuffer, computePiplineLayout,
+                       VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
+  } else { // graphics
+    vkCmdPushConstants(commandBuffer, graphicsPiplineLayout,
+                       VK_SHADER_STAGE_FRAGMENT_BIT, offset, size, data);
+  }
 }
 } // namespace elementalEngine::RHI

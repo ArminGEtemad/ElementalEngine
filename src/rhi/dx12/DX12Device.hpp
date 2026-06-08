@@ -1,9 +1,11 @@
 #pragma once
 
 // add header files
+#include "Buffer.hpp"
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include "Window.hpp"
+#include <D3D12MemAlloc.h>
 #include <d3d12.h>
 #include <d3d12sdklayers.h>
 #include <dxgi1_6.h>
@@ -25,11 +27,15 @@ public:
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;
   std::unique_ptr<Pipeline> createPipeline() override;
+  std::unique_ptr<Pipeline> createComputePipeline() override;
+  std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
+                                       MemoryProperty memory) override;
 
   // getter functions
   IDXGIFactory4 *getFactory() const { return factory.Get(); }
   ID3D12Device8 *getD3D12Device() const { return device.Get(); }
   ID3D12CommandQueue *getCommandQueue() const { return commandQueue.Get(); }
+  D3D12MA::Allocator *getAllocator() const { return allocator.Get(); }
   void waitForGPU();
 
 private:
@@ -42,12 +48,14 @@ private:
   ComPtr<ID3D12Fence> fence;
   UINT64 fenceValue = 0;
   HANDLE fenceEvent;
+  ComPtr<D3D12MA::Allocator> allocator;
 
   void createFactory();
   void enableDebugLayer(bool enableGPUValidation);
-  void pickPhysicalDevice(); // adapter
+  void pickPhysicalDevice();
   void createLogicalDevice();
   void createCommandQueue();
   void createSyncObjects();
+  void createAllocator();
 };
 } // namespace elementalEngine::RHI

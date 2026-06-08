@@ -38,7 +38,7 @@ private:
 
   VulkanDevice &device;
 
-  VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+  VkSwapchainKHR swapchain{VK_NULL_HANDLE};
   std::vector<VkImage> swapchainImages;
   VkFormat swapchainImageFormat;
   VkExtent2D swapchainExtent;

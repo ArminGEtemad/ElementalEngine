@@ -1,10 +1,15 @@
 #include "DX12Device.hpp"
+#include "DX12Buffer.hpp"
 #include "DX12CommandList.hpp"
+#include "DX12ComputePipeline.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
 #include "Pipeline.hpp"
 #include "Window.hpp"
+#include <D3D12MemAlloc.h>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
 
 namespace elementalEngine::RHI {
 
@@ -16,8 +21,8 @@ DX12Device::DX12Device(const DeviceConfig &config, WindowHandling &window) {
   pickPhysicalDevice();
   createLogicalDevice();
   createCommandQueue();
-  createSyncObjects(); // TODO this is for now. The Swapchain must own this
-                       // actually
+  createSyncObjects();
+  createAllocator();
 }
 
 DX12Device::~DX12Device() { CloseHandle(fenceEvent); }
@@ -34,6 +39,15 @@ std::unique_ptr<CommandList> DX12Device::createCommandList() {
 
 std::unique_ptr<Pipeline> DX12Device::createPipeline() {
   return std::make_unique<DX12Pipeline>(*this);
+}
+
+std::unique_ptr<Pipeline> DX12Device::createComputePipeline() {
+  return std::make_unique<DX12ComputePipeline>(*this);
+}
+
+std::unique_ptr<Buffer> DX12Device::createBuffer(size_t size, BufferUsage usage,
+                                                 MemoryProperty memory) {
+  return std::make_unique<DX12Buffer>(*this, size, usage, memory);
 }
 
 void DX12Device::enableDebugLayer(bool enableGPUValidation) {
@@ -148,4 +162,15 @@ void DX12Device::waitForGPU() {
     WaitForSingleObject(fenceEvent, INFINITE);
   }
 }
+
+void DX12Device::createAllocator() {
+  D3D12MA::ALLOCATOR_DESC allocDesc{};
+  allocDesc.pDevice = device.Get();
+  allocDesc.pAdapter = physicalDevice.Get();
+
+  if (FAILED(D3D12MA::CreateAllocator(&allocDesc, &allocator))) {
+    throw std::runtime_error("Failed to create D3D12MA Memory Allocator");
+  }
+}
+
 } // namespace elementalEngine::RHI

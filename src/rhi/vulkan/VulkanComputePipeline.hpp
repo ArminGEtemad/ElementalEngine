@@ -1,28 +1,27 @@
 #pragma once
 
-#include "Pipeline.hpp"
 #include "VulkanDevice.hpp"
 #include <vector>
-
 namespace elementalEngine::RHI {
-class VulkanPipeline : public Pipeline {
+class VulkanComputePipeline : public Pipeline {
 public:
-  VulkanPipeline(VulkanDevice &device, VkFormat colorAttachmentFormat);
-  ~VulkanPipeline() override;
+  VulkanComputePipeline(VulkanDevice &device);
+  ~VulkanComputePipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
-    return PipelineBindPoint::Graphics;
+    return PipelineBindPoint::Compute;
   }
-  VkPipeline getNativePipeline() const { return graphicsPipeline; }
+  VkPipeline getNativePipeline() const { return computePipeline; }
   VkPipelineLayout getNativeLayout() const { return pipelineLayout; }
 
 private:
   VulkanDevice &device;
-  VkPipelineLayout pipelineLayout;
-  VkPipeline graphicsPipeline;
+  VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+  VkPipeline computePipeline{VK_NULL_HANDLE};
   VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
 
   VkShaderModule createShaderModule(const std::vector<char> &code);
-  void createPipeline(VkFormat colorAttachmentFormat);
+  void createPipeline();
 };
+
 } // namespace elementalEngine::RHI

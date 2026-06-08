@@ -1,16 +1,15 @@
 #pragma once
-#include "DX12Device.hpp"
-#include "Pipeline.hpp"
-#include "RHICommon.hpp"
 
+#include "DX12Device.hpp"
+#include "RHICommon.hpp"
 namespace elementalEngine::RHI {
-class DX12Pipeline : public Pipeline {
+class DX12ComputePipeline : public Pipeline {
 public:
-  DX12Pipeline(DX12Device &device);
-  ~DX12Pipeline() override;
+  DX12ComputePipeline(DX12Device &device);
+  ~DX12ComputePipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
-    return PipelineBindPoint::Graphics;
+    return PipelineBindPoint::Compute;
   }
   ID3D12PipelineState *getNativePipelineState() const {
     return pipelineState.Get();
@@ -26,4 +25,5 @@ private:
 
   void createPipeline();
 };
+
 } // namespace elementalEngine::RHI

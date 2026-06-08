@@ -1,12 +1,16 @@
 #include "VulkanDevice.hpp"
 #include "CommandList.hpp"
 #include "Pipeline.hpp"
+#include "VulkanBuffer.hpp"
 #include "VulkanCommandList.hpp"
+#include "VulkanComputePipeline.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
 #include "Window.hpp"
 #include <iostream>
+#include <memory>
 #include <set>
+#include <stdexcept>
 #include <vector>
 
 namespace elementalEngine::RHI {
@@ -23,6 +27,17 @@ std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
 std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
   return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
 }
+
+std::unique_ptr<Pipeline> VulkanDevice::createComputePipeline() {
+  return std::make_unique<VulkanComputePipeline>(*this);
+}
+
+std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
+                                                   BufferUsage usage,
+                                                   MemoryProperty memory) {
+  return std::make_unique<VulkanBuffer>(*this, size, usage, memory);
+}
+
 // just for internal linkage
 namespace {
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -69,11 +84,13 @@ VulkanDevice::VulkanDevice(const DeviceConfig &config, WindowHandling &window) {
   createSurface(window);
   pickPhysicalDevice();
   createLogicalDevice();
+  createAllocator();
 }
 
 // destructor
 VulkanDevice::~VulkanDevice() {
   waitIdle();
+  vmaDestroyAllocator(allocator);
   vkDestroyDevice(device, nullptr);
   vkDestroySurfaceKHR(instance, surface, nullptr);
   if (debugMessenger != VK_NULL_HANDLE) {
@@ -104,7 +121,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
   hasInstanceExtension();
 
   // App Info
-  VkApplicationInfo appInfo = {};
+  VkApplicationInfo appInfo{};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   appInfo.pApplicationName = "Elemental Engine Project";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -113,11 +130,11 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
   appInfo.apiVersion = VK_API_VERSION_1_3;
 
   // Instance Info
-  VkInstanceCreateInfo createInfo = {};
+  VkInstanceCreateInfo createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
 
-  VkValidationFeaturesEXT validationFeatures = {};
+  VkValidationFeaturesEXT validationFeatures{};
   std::vector<VkValidationFeatureEnableEXT> validationEnables;
 
   // validation layers and features
@@ -147,7 +164,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
   }
 
   // glfw Extensions
-  uint32_t glfwExtensionCount = 0;
+  uint32_t glfwExtensionCount{0};
   const char **glfwExtensions;
   glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
   std::vector<const char *> extensions(glfwExtensions,
@@ -171,7 +188,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
 
 // create debug messanger
 void VulkanDevice::setupDebugMessenger() {
-  VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+  VkDebugUtilsMessengerCreateInfoEXT createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 
   // catch warnings and errors (ignore verbose/info spam)
@@ -253,7 +270,7 @@ bool VulkanDevice::isDeviceSuitable(VkPhysicalDevice device) {
 
 // pick physical device
 void VulkanDevice::pickPhysicalDevice() {
-  uint32_t deviceCount = 0;
+  uint32_t deviceCount{0};
   vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
   if (deviceCount == 0) {
     throw std::runtime_error("Failed to find GPUs with Vulkan support!");
@@ -278,7 +295,7 @@ VulkanDevice::QueueFamilyIndices
 VulkanDevice::findQueueFamilies(VkPhysicalDevice device) {
   QueueFamilyIndices indices;
 
-  uint32_t queueFamilyCount = 0;
+  uint32_t queueFamilyCount{0};
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
   std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
@@ -397,6 +414,18 @@ void VulkanDevice::submit(CommandList *commandList, Swapchain *swapchain) {
   if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo,
                      vk13Swapchain->getInFlightFence()) != VK_SUCCESS) {
     throw std::runtime_error("Failed to submit draw command buffer!");
+  }
+}
+
+void VulkanDevice::createAllocator() {
+  VmaAllocatorCreateInfo allocInfo{};
+  allocInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+  allocInfo.physicalDevice = physicalDevice;
+  allocInfo.device = device;
+  allocInfo.instance = instance;
+
+  if (vmaCreateAllocator(&allocInfo, &allocator) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create VMA!");
   }
 }
 

@@ -1,12 +1,15 @@
 #pragma once
 
 // add header files
+#include "Buffer.hpp"
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include "RHICommon.hpp"
 #include "Window.hpp"
+#include <memory>
 #include <optional>
 #include <vector>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 namespace elementalEngine::RHI {
@@ -23,6 +26,9 @@ public:
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;
   std::unique_ptr<Pipeline> createPipeline() override;
+  std::unique_ptr<Pipeline> createComputePipeline() override;
+  std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
+                                       MemoryProperty memory) override;
 
   // getter functions
   VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
@@ -35,6 +41,7 @@ public:
     return indices.presentFamily.value();
   }
   VkQueue getPresentQueue() const { return presentQueue; };
+  VmaAllocator getAllocator() const { return allocator; }
 
 private:
   struct QueueFamilyIndices {
@@ -45,17 +52,18 @@ private:
     }
   };
 
-  VkInstance instance = VK_NULL_HANDLE;
-  VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
-  VkSurfaceKHR surface = VK_NULL_HANDLE;
-  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-  VkDevice device = VK_NULL_HANDLE;
-  VkQueue graphicsQueue = VK_NULL_HANDLE;
-  VkQueue presentQueue = VK_NULL_HANDLE;
+  VkInstance instance{VK_NULL_HANDLE};
+  VkDebugUtilsMessengerEXT debugMessenger{VK_NULL_HANDLE};
+  VkSurfaceKHR surface{VK_NULL_HANDLE};
+  VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
+  VkDevice device{VK_NULL_HANDLE};
+  VkQueue graphicsQueue{VK_NULL_HANDLE};
+  VkQueue presentQueue{VK_NULL_HANDLE};
   QueueFamilyIndices indices;
+  VmaAllocator allocator{VK_NULL_HANDLE};
 
   const std::vector<const char *> deviceExtensions = {
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME};
   const std::vector<const char *> validationLayers = {
       "VK_LAYER_KHRONOS_validation"};
 
@@ -65,6 +73,7 @@ private:
   void createSurface(WindowHandling &window);
   void pickPhysicalDevice();
   void createLogicalDevice();
+  void createAllocator();
 
   // helper function
   void hasInstanceExtension();
