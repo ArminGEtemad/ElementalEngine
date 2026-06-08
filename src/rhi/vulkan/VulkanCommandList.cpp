@@ -157,6 +157,42 @@ void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 
+void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
+                                         ResourceState to) {
+  auto *vk13buffer = static_cast<VulkanBuffer *>(buffer);
+
+  VkBufferMemoryBarrier2 barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.buffer = vk13buffer->getVkBuffer();
+  barrier.offset = 0;
+  barrier.size = VK_WHOLE_SIZE;
+
+  if (from == ResourceState::UnorderedAccess &&
+      to == ResourceState::ShaderResource) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+  } else if (from == ResourceState::ShaderResource &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+  }
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.bufferMemoryBarrierCount = 1;
+  depInfo.pBufferMemoryBarriers = &barrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+}
+
 void VulkanCommandList::bindPipeline(Pipeline &pipeline) {
   currentPipeline = &pipeline;
   if (pipeline.getBindPoint() == PipelineBindPoint::Graphics) {

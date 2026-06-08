@@ -118,6 +118,39 @@ void DX12CommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   commandList->RSSetScissorRects(1, &scissorRect);
 }
 
+void DX12CommandList::transitionBuffer(Buffer *buffer, ResourceState from,
+                                       ResourceState to) {
+  auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
+
+  D3D12_BUFFER_BARRIER barrier{};
+  barrier.pResource = dx12Buffer->getResource();
+  barrier.Offset = 0;
+  barrier.Size = UINT64_MAX;
+
+  if (from == ResourceState::UnorderedAccess &&
+      to == ResourceState::ShaderResource) {
+    barrier.SyncBefore = D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+    barrier.SyncAfter =
+        D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_VERTEX_SHADING;
+    barrier.AccessBefore = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+    barrier.AccessAfter = D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+  } else if (from == ResourceState::ShaderResource &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.SyncBefore =
+        D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_VERTEX_SHADING;
+    barrier.SyncAfter = D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+    barrier.AccessBefore = D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+    barrier.AccessAfter = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+  }
+
+  D3D12_BARRIER_GROUP barrierGroup{};
+  barrierGroup.Type = D3D12_BARRIER_TYPE_BUFFER;
+  barrierGroup.NumBarriers = 1;
+  barrierGroup.pBufferBarriers = &barrier;
+
+  commandList->Barrier(1, &barrierGroup);
+}
+
 void DX12CommandList::bindPipeline(Pipeline &pipeline) {
   currentPipeline = &pipeline;
 

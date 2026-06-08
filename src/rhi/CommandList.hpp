@@ -2,6 +2,7 @@
 
 #include "Buffer.hpp"
 #include "Pipeline.hpp"
+#include "RHICommon.hpp"
 #include "Swapchain.hpp"
 #include <cstdint>
 
@@ -19,6 +20,10 @@ public:
 
   virtual void beginRendering(Swapchain &swapchain) = 0;
   virtual void endRendering(Swapchain &swapchain) = 0;
+
+  // preventing race condition transitions buffer from - to
+  virtual void transitionBuffer(Buffer *buffer, ResourceState from,
+                                ResourceState to) = 0;
 
   // unified pipeline compute and graphicss
   virtual void bindPipeline(Pipeline &pipeline) = 0;

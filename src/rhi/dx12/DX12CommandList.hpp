@@ -15,6 +15,9 @@ public:
   void beginRendering(Swapchain &swapchain) override;
   void endRendering(Swapchain &swapchain) override;
 
+  void transitionBuffer(Buffer *buffer, ResourceState from,
+                        ResourceState to) override;
+
   void bindPipeline(Pipeline &pipeline) override;
 
   void setViewport(float x, float y, float width, float height) override;
