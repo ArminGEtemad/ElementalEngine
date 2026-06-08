@@ -2,15 +2,11 @@
 
 #include <cstdint>
 namespace elementalEngine::RHI {
-enum class GraphicsAPI {
-  Vulkan,
-  DirectX12,
-};
+enum class GraphicsAPI { Vulkan, DirectX12 };
 
-enum class PipelineBindPoint {
-  Graphics,
-  Compute,
-};
+enum class PipelineBindPoint { Graphics, Compute };
+
+enum class ResourceState { UnorderedAccess, ShaderResource };
 
 struct DeviceConfig {
   bool enableValidationLayers = true;
@@ -25,7 +21,7 @@ enum class BufferUsage : uint32_t {
   Uniform = 1 << 2,     // uniform buffer for constants
   Storage = 1 << 3,     // massive data
   TransferSrc = 1 << 4, // source
-  TransferDst = 1 << 5, // destination
+  TransferDst = 1 << 5  // destination
 };
 
 // combining buffer usages
