@@ -5,7 +5,7 @@
 namespace elementalEngine::RHI {
 class DX12ComputePipeline : public Pipeline {
 public:
-  DX12ComputePipeline(DX12Device &device);
+  DX12ComputePipeline(DX12Device &device, const std::string &shaderName);
   ~DX12ComputePipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
@@ -23,7 +23,7 @@ private:
   ComPtr<ID3D12RootSignature> rootSignature;
   ComPtr<ID3D12PipelineState> pipelineState;
 
-  void createPipeline();
+  void createPipeline(const std::string &shaderName);
 };
 
 } // namespace elementalEngine::RHI
