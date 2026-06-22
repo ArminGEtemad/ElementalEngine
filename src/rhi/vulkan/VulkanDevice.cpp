@@ -24,12 +24,16 @@ std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
   return std::make_unique<VulkanCommandList>(*this);
 }
 
-std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
-  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
+std::unique_ptr<Pipeline>
+VulkanDevice::createPipeline(const std::string &vertexShaderName,
+                             const std::string &fragmentShaderName) {
+  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB,
+                                          vertexShaderName, fragmentShaderName);
 }
 
-std::unique_ptr<Pipeline> VulkanDevice::createComputePipeline() {
-  return std::make_unique<VulkanComputePipeline>(*this);
+std::unique_ptr<Pipeline>
+VulkanDevice::createComputePipeline(const std::string &computeShaderName) {
+  return std::make_unique<VulkanComputePipeline>(*this, computeShaderName);
 }
 
 std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
