@@ -6,9 +6,11 @@
 
 namespace elementalEngine::RHI {
 VulkanPipeline::VulkanPipeline(VulkanDevice &device,
-                               VkFormat colorAttachmentFormat)
+                               VkFormat colorAttachmentFormat,
+                               const std::string &vertexShaderName,
+                               const std::string &fragmentShaderName)
     : device(device) {
-  createPipeline(colorAttachmentFormat);
+  createPipeline(colorAttachmentFormat, vertexShaderName, fragmentShaderName);
 };
 VulkanPipeline::~VulkanPipeline() {
   vkDestroyPipeline(device.getLogicalDevice(), graphicsPipeline, nullptr);
@@ -32,12 +34,18 @@ VulkanPipeline::createShaderModule(const std::vector<char> &code) {
   return shaderModule;
 }
 
-void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat) {
-  auto vertShaderCode = Core::readFile("build/grid_vs.spv");
-  auto fragShaderCode = Core::readFile("build/grid_fs.spv");
+void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
+                                    const std::string &vertexShaderName,
+                                    const std::string &fragmentShaderName) {
+  // make shder code -----------
+  std::string vertFilepath = "build/" + vertexShaderName + ".spv";
+  std::string fragFilepath = "build/" + fragmentShaderName + ".spv";
+  auto vertShaderCode = Core::readFile(vertFilepath);
+  auto fragShaderCode = Core::readFile(fragFilepath);
 
   VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
   VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+  // ----------------------------
 
   VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
   vertShaderStageInfo.sType =

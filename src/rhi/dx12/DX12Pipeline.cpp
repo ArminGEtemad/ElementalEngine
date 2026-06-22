@@ -7,15 +7,21 @@
 #include <stdlib.h>
 
 namespace elementalEngine::RHI {
-DX12Pipeline::DX12Pipeline(DX12Device &device) : device(device) {
-  createPipeline();
+DX12Pipeline::DX12Pipeline(DX12Device &device,
+                           const std::string &vertexShaderName,
+                           const std::string &fragmentShaderName)
+    : device(device) {
+  createPipeline(vertexShaderName, fragmentShaderName);
 }
 
 DX12Pipeline::~DX12Pipeline() {}
 
-void DX12Pipeline::createPipeline() {
-  auto vsBytecode = Core::readFile("build/grid_vs.dxil");
-  auto psBytecode = Core::readFile("build/grid_fs.dxil");
+void DX12Pipeline::createPipeline(const std::string &vertexShaderName,
+                                  const std::string &fragmentShaderName) {
+  std::string vertFilepath = "build/" + vertexShaderName + ".dxil";
+  std::string fragFilepath = "build/" + fragmentShaderName + ".dxil";
+  auto vsBytecode = Core::readFile(vertFilepath);
+  auto fsBytecode = Core::readFile(fragFilepath);
 
   // uniform buffer
   // constants from the SimConfig
@@ -82,7 +88,7 @@ void DX12Pipeline::createPipeline() {
   psoDesc.InputLayout = inputLayoutDesc;
   psoDesc.pRootSignature = rootSignature.Get();
   psoDesc.VS = {vsBytecode.data(), vsBytecode.size()};
-  psoDesc.PS = {psBytecode.data(), psBytecode.size()};
+  psoDesc.PS = {fsBytecode.data(), fsBytecode.size()};
   psoDesc.RasterizerState = rasterizerDesc;
   psoDesc.BlendState = blendDesc;
   psoDesc.DepthStencilState.DepthEnable = FALSE;

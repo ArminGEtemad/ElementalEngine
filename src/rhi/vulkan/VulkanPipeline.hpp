@@ -7,7 +7,9 @@
 namespace elementalEngine::RHI {
 class VulkanPipeline : public Pipeline {
 public:
-  VulkanPipeline(VulkanDevice &device, VkFormat colorAttachmentFormat);
+  VulkanPipeline(VulkanDevice &device, VkFormat colorAttachmentFormat,
+                 const std::string &vertexShaderName,
+                 const std::string &fragmentShaderName);
   ~VulkanPipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
@@ -23,6 +25,8 @@ private:
   VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
 
   VkShaderModule createShaderModule(const std::vector<char> &code);
-  void createPipeline(VkFormat colorAttachmentFormat);
+  void createPipeline(VkFormat colorAttachmentFormat,
+                      const std::string &vertexShaderName,
+                      const std::string &fragmentShaderName);
 };
 } // namespace elementalEngine::RHI
