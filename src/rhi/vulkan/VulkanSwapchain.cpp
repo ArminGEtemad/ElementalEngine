@@ -2,7 +2,9 @@
 #include "VulkanDevice.hpp"
 #include "Window.hpp"
 #include <algorithm>
+#include <cstddef>
 #include <iostream>
+#include <stdexcept>
 
 namespace elementalEngine::RHI {
 
@@ -15,11 +17,16 @@ VulkanSwapchain::VulkanSwapchain(VulkanDevice &device, WindowHandling &window)
 
 // cleaning up
 VulkanSwapchain::~VulkanSwapchain() {
-  vkDestroySemaphore(device.getLogicalDevice(), renderFinishedSemaphore,
-                     nullptr);
-  vkDestroySemaphore(device.getLogicalDevice(), imageAvailableSemaphore,
-                     nullptr);
-  vkDestroyFence(device.getLogicalDevice(), inFlightFence, nullptr);
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    vkDestroySemaphore(device.getLogicalDevice(), imageAvailableSemaphore[i],
+                       nullptr);
+    vkDestroyFence(device.getLogicalDevice(), inFlightFence[i], nullptr);
+  }
+
+  for (size_t i = 0; i < renderFinishedSemaphore.size(); i++) {
+    vkDestroySemaphore(device.getLogicalDevice(), renderFinishedSemaphore[i],
+                       nullptr);
+  }
 
   for (auto imageView : swapchainImageViews) {
     vkDestroyImageView(device.getLogicalDevice(), imageView, nullptr);
@@ -42,13 +49,6 @@ VkSurfaceFormatKHR VulkanSwapchain::chooseSwapSurfaceFormat(
 // present mode for swap chain
 VkPresentModeKHR VulkanSwapchain::chooseSwapPresentMode(
     const std::vector<VkPresentModeKHR> &availablePresentModes) {
-  for (const auto &availablePresentMode : availablePresentModes) {
-    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-      std::cout << "Present mode: Mailbox"
-                << "\n";
-      return availablePresentMode;
-    }
-  }
   std::cout << "Present mode: FIFO"
             << "\n";
   return VK_PRESENT_MODE_FIFO_KHR;
@@ -121,7 +121,8 @@ void VulkanSwapchain::createSwapchain(WindowHandling &window) {
       chooseSwapPresentMode(swapchainSupport.presentModes);
   VkExtent2D extent = chooseSwapExtent(swapchainSupport.capabilities, window);
 
-  uint32_t imageCount = swapchainSupport.capabilities.minImageCount + 1;
+  // enforcing double buffering
+  uint32_t imageCount = 2;
   if (swapchainSupport.capabilities.maxImageCount > 0 &&
       imageCount > swapchainSupport.capabilities.maxImageCount) {
     imageCount = swapchainSupport.capabilities.maxImageCount;
@@ -201,6 +202,10 @@ void VulkanSwapchain::createImageViews() {
 }
 
 void VulkanSwapchain::createSyncObjects() {
+  imageAvailableSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
+  renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
+  inFlightFence.resize(MAX_FRAMES_IN_FLIGHT);
+
   VkSemaphoreCreateInfo semaphoreInfo{};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -209,31 +214,35 @@ void VulkanSwapchain::createSyncObjects() {
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start signaled so first
                                                   // frame doesn't wait forever
 
-  if (vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
-                        &imageAvailableSemaphore) != VK_SUCCESS ||
-      vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
-                        &renderFinishedSemaphore) != VK_SUCCESS ||
-      vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr,
-                    &inFlightFence) != VK_SUCCESS) {
-    throw std::runtime_error("Failed to create synchronization objects!");
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    if (vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
+                          &imageAvailableSemaphore[i]) != VK_SUCCESS ||
+        vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
+                          &renderFinishedSemaphore[i]) != VK_SUCCESS ||
+        vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr,
+                      &inFlightFence[i]) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create sync object for frames.");
+    }
   }
 }
 
 void VulkanSwapchain::acquireNextImage() {
-  vkWaitForFences(device.getLogicalDevice(), 1, &inFlightFence, VK_TRUE,
-                  UINT64_MAX);
+  vkWaitForFences(device.getLogicalDevice(), 1, &inFlightFence[currentFrame],
+                  VK_TRUE, UINT64_MAX);
+
+  vkResetFences(device.getLogicalDevice(), 1, &inFlightFence[currentFrame]);
 
   vkAcquireNextImageKHR(device.getLogicalDevice(), swapchain, UINT64_MAX,
-                        imageAvailableSemaphore, VK_NULL_HANDLE,
+                        imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE,
                         &currentImageIndex);
-  vkResetFences(device.getLogicalDevice(), 1, &inFlightFence);
 }
 
 void VulkanSwapchain::present() {
   VkPresentInfoKHR presentInfo{};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  VkSemaphore signalSemaphore[] = {renderFinishedSemaphore[currentFrame]};
   presentInfo.waitSemaphoreCount = 1;
-  presentInfo.pWaitSemaphores = &renderFinishedSemaphore;
+  presentInfo.pWaitSemaphores = signalSemaphore;
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains = &swapchain;
   presentInfo.pImageIndices = &currentImageIndex;
@@ -241,6 +250,7 @@ void VulkanSwapchain::present() {
   if (vkQueuePresentKHR(device.getPresentQueue(), &presentInfo) != VK_SUCCESS) {
     throw std::runtime_error("Swapchain failed to present!");
   }
+  currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   vkQueueWaitIdle(device.getPresentQueue());
 }
 } // namespace elementalEngine::RHI
