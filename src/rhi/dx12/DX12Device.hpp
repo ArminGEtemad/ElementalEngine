@@ -26,8 +26,14 @@ public:
 
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;
-  std::unique_ptr<Pipeline> createPipeline() override;
-  std::unique_ptr<Pipeline> createComputePipeline() override;
+
+  std::unique_ptr<Pipeline>
+  createPipeline(const std::string &vertexShaderName,
+                 const std::string &fragmentShaderName) override;
+
+  std::unique_ptr<Pipeline>
+  createComputePipeline(const std::string &computeShaderName) override;
+
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;
 

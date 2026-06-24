@@ -6,7 +6,7 @@ struct SimConfig {
   uint32_t gridWidth;
   uint32_t gridHeight;
   float dt;
-  float pad_0;
+  float forceY;
 };
 class Pipeline {
 public:

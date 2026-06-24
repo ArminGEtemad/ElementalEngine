@@ -7,14 +7,17 @@
 #include <stdexcept>
 #include <stdlib.h>
 namespace elementalEngine::RHI {
-DX12ComputePipeline::DX12ComputePipeline(DX12Device &device) : device(device) {
-  createPipeline();
+DX12ComputePipeline::DX12ComputePipeline(DX12Device &device,
+                                         const std::string &shaderName)
+    : device(device) {
+  createPipeline(shaderName);
 }
 
 DX12ComputePipeline::~DX12ComputePipeline() {}
 
-void DX12ComputePipeline::createPipeline() {
-  auto csBytecode = Core::readFile("build/advection.dxil");
+void DX12ComputePipeline::createPipeline(const std::string &shaderName) {
+  std::string filepath = "build/" + shaderName + ".dxil";
+  auto csBytecode = Core::readFile(filepath);
 
   // constants from the SimConfig
   D3D12_ROOT_PARAMETER constParam{};
@@ -45,8 +48,16 @@ void DX12ComputePipeline::createPipeline() {
   u3Param.Descriptor.RegisterSpace = 0;
   u3Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+  // storage read write divergence
+  D3D12_ROOT_PARAMETER u4Param{};
+  u4Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+  u4Param.Descriptor.ShaderRegister = 4; // mathc u4
+  u4Param.Descriptor.RegisterSpace = 0;
+  u4Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
   // combine
-  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param, t2Param, u3Param};
+  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param, t2Param, u3Param,
+                                       u4Param};
 
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
   rootSigDesc.NumParameters = _countof(rootParams);

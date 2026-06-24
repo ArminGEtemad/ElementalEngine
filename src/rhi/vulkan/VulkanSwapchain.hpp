@@ -8,6 +8,8 @@
 namespace elementalEngine::RHI {
 class VulkanSwapchain : public Swapchain {
 public:
+  // enforcing double buffering
+  static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
   VulkanSwapchain(VulkanDevice &device, WindowHandling &window);
   ~VulkanSwapchain() override;
 
@@ -20,14 +22,15 @@ public:
   }
   VkExtent2D getExtent() const { return swapchainExtent; }
   VkSemaphore getImageAvailableSemaphore() const {
-    return imageAvailableSemaphore;
+    return imageAvailableSemaphore[currentFrame];
   }
   VkSemaphore getRenderFinishedSemaphore() const {
-    return renderFinishedSemaphore;
+    return renderFinishedSemaphore[currentFrame];
   }
-  VkFence getInFlightFence() const { return inFlightFence; }
+  VkFence getInFlightFence() const { return inFlightFence[currentFrame]; }
 
 private:
+  uint32_t currentFrame = 0;
   uint32_t currentImageIndex = 0;
 
   struct SwapchainSupportDetails {
@@ -43,9 +46,9 @@ private:
   VkFormat swapchainImageFormat;
   VkExtent2D swapchainExtent;
   std::vector<VkImageView> swapchainImageViews;
-  VkSemaphore imageAvailableSemaphore;
-  VkSemaphore renderFinishedSemaphore;
-  VkFence inFlightFence;
+  std::vector<VkSemaphore> imageAvailableSemaphore;
+  std::vector<VkSemaphore> renderFinishedSemaphore;
+  std::vector<VkFence> inFlightFence;
 
   // choose the surface format needed for the swapchain
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(

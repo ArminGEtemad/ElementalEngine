@@ -5,7 +5,7 @@
 namespace elementalEngine::RHI {
 class VulkanComputePipeline : public Pipeline {
 public:
-  VulkanComputePipeline(VulkanDevice &device);
+  VulkanComputePipeline(VulkanDevice &device, const std::string &shaderName);
   ~VulkanComputePipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
@@ -21,7 +21,7 @@ private:
   VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
 
   VkShaderModule createShaderModule(const std::vector<char> &code);
-  void createPipeline();
+  void createPipeline(const std::string &shaderName);
 };
 
 } // namespace elementalEngine::RHI

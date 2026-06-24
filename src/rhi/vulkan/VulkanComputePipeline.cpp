@@ -7,9 +7,10 @@
 #include <vector>
 
 namespace elementalEngine::RHI {
-VulkanComputePipeline::VulkanComputePipeline(VulkanDevice &device)
+VulkanComputePipeline::VulkanComputePipeline(VulkanDevice &device,
+                                             const std::string &shaderName)
     : device(device) {
-  createPipeline();
+  createPipeline(shaderName);
 }
 
 VulkanComputePipeline::~VulkanComputePipeline() {
@@ -34,8 +35,9 @@ VulkanComputePipeline::createShaderModule(const std::vector<char> &code) {
   return shaderModule;
 }
 
-void VulkanComputePipeline::createPipeline() {
-  auto compShaderCode = Core::readFile("build/advection.spv");
+void VulkanComputePipeline::createPipeline(const std::string &shaderName) {
+  std::string filepath = "build/" + shaderName + ".spv";
+  auto compShaderCode = Core::readFile(filepath);
   VkShaderModule compShaderModule = createShaderModule(compShaderCode);
 
   VkPipelineShaderStageCreateInfo compShaderStageInfo{};
@@ -45,7 +47,7 @@ void VulkanComputePipeline::createPipeline() {
   compShaderStageInfo.module = compShaderModule;
   compShaderStageInfo.pName = "CSMain";
 
-  std::vector<VkDescriptorSetLayoutBinding> bindingSetLayout(3);
+  std::vector<VkDescriptorSetLayoutBinding> bindingSetLayout(4);
 
   // read density
   bindingSetLayout[0].binding = 1;
@@ -64,6 +66,12 @@ void VulkanComputePipeline::createPipeline() {
   bindingSetLayout[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   bindingSetLayout[2].descriptorCount = 1;
   bindingSetLayout[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+  // read and write divergence
+  bindingSetLayout[3].binding = 4;
+  bindingSetLayout[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  bindingSetLayout[3].descriptorCount = 1;
+  bindingSetLayout[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
   VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
   setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

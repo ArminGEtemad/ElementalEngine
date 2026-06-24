@@ -24,12 +24,16 @@ std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
   return std::make_unique<VulkanCommandList>(*this);
 }
 
-std::unique_ptr<Pipeline> VulkanDevice::createPipeline() {
-  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB);
+std::unique_ptr<Pipeline>
+VulkanDevice::createPipeline(const std::string &vertexShaderName,
+                             const std::string &fragmentShaderName) {
+  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB,
+                                          vertexShaderName, fragmentShaderName);
 }
 
-std::unique_ptr<Pipeline> VulkanDevice::createComputePipeline() {
-  return std::make_unique<VulkanComputePipeline>(*this);
+std::unique_ptr<Pipeline>
+VulkanDevice::createComputePipeline(const std::string &computeShaderName) {
+  return std::make_unique<VulkanComputePipeline>(*this, computeShaderName);
 }
 
 std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
@@ -386,34 +390,45 @@ void VulkanDevice::createLogicalDevice() {
 void VulkanDevice::submit(CommandList *commandList, Swapchain *swapchain) {
   auto *vk13CmdList = static_cast<VulkanCommandList *>(commandList);
   VkCommandBuffer commandBuffer = vk13CmdList->getNativeCommandBuffer();
-  auto *vk13Swapchain = static_cast<VulkanSwapchain *>(swapchain);
 
   VkCommandBufferSubmitInfo cmdBufferInfo{};
   cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
   cmdBufferInfo.commandBuffer = commandBuffer;
-  VkSemaphoreSubmitInfo waitSemaphoreInfo{};
-  waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-  waitSemaphoreInfo.semaphore = vk13Swapchain->getImageAvailableSemaphore();
-  waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-  VkSemaphoreSubmitInfo signalSemaphoreInfo{};
-  signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-  signalSemaphoreInfo.semaphore = vk13Swapchain->getRenderFinishedSemaphore();
-  signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 
   VkSubmitInfo2 submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
   submitInfo.commandBufferInfoCount = 1;
   submitInfo.pCommandBufferInfos = &cmdBufferInfo;
-  submitInfo.waitSemaphoreInfoCount = 1;
-  submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
-  submitInfo.signalSemaphoreInfoCount = 1;
-  submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+  if (swapchain != nullptr) {
+    auto *vk13Swapchain = static_cast<VulkanSwapchain *>(swapchain);
 
-  // inFlightFence has to come here for the fence
-  if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo,
-                     vk13Swapchain->getInFlightFence()) != VK_SUCCESS) {
-    throw std::runtime_error("Failed to submit draw command buffer!");
+    VkSemaphoreSubmitInfo waitSemaphoreInfo{};
+    waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    waitSemaphoreInfo.semaphore = vk13Swapchain->getImageAvailableSemaphore();
+    waitSemaphoreInfo.stageMask =
+        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSemaphoreSubmitInfo signalSemaphoreInfo{};
+    signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    signalSemaphoreInfo.semaphore = vk13Swapchain->getRenderFinishedSemaphore();
+    signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+
+    submitInfo.waitSemaphoreInfoCount = 1;
+    submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+    submitInfo.signalSemaphoreInfoCount = 1;
+    submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+    // 🟢 Submit with the In-Flight Fence
+    if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo,
+                       vk13Swapchain->getInFlightFence()) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to submit draw command buffer!");
+    }
+  } else {
+    // 🟢 Headless fallback (no semaphores, no fence)
+    if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) !=
+        VK_SUCCESS) {
+      throw std::runtime_error("Failed to submit headless command buffer!");
+    }
   }
 }
 

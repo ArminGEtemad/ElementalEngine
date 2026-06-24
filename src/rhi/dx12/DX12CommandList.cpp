@@ -202,12 +202,11 @@ void DX12CommandList::pushConstants(uint32_t offset, uint32_t size,
 void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
   auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
 
-  // TODO for now
   if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
     if (bindingSlot == 1 || bindingSlot == 2) {
       commandList->SetComputeRootShaderResourceView(
           bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
-    } else if (bindingSlot == 3) {
+    } else if (bindingSlot == 3 || bindingSlot == 4) {
       commandList->SetComputeRootUnorderedAccessView(
           bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
     }

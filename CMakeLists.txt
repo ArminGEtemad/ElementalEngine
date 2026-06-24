@@ -47,18 +47,16 @@ if(NOT DXC_EXECUTABLE)
 endif()
 
 
+# --- VERTEX & FRAGMENT SHADERS ---
 set(SHADER_GRID_VERT "${CMAKE_SOURCE_DIR}/assets/shaders/grid_vs.hlsl")
 set(SHADER_GRID_FRAG "${CMAKE_SOURCE_DIR}/assets/shaders/grid_fs.hlsl")
-set(SHADER_GRID_COMP "${CMAKE_SOURCE_DIR}/assets/shaders/advection.hlsl")
 
 set(SPV_VERT_OUT "${CMAKE_BINARY_DIR}/grid_vs.spv")
 set(SPV_FRAG_OUT "${CMAKE_BINARY_DIR}/grid_fs.spv")
-set(SPV_COMP_OUT "${CMAKE_BINARY_DIR}/advection.spv")
-
 set(DXIL_VERT_OUT "${CMAKE_BINARY_DIR}/grid_vs.dxil")
 set(DXIL_FRAG_OUT "${CMAKE_BINARY_DIR}/grid_fs.dxil")
-set(DXIL_COMP_OUT "${CMAKE_BINARY_DIR}/advection.dxil")
 
+# Base custom commands for VS and FS
 add_custom_command(
     OUTPUT ${SPV_VERT_OUT}
     COMMAND ${DXC_EXECUTABLE} -spirv -fspv-target-env=vulkan1.3 -T vs_6_0 -E VSMain ${SHADER_GRID_VERT} -Fo ${SPV_VERT_OUT}
@@ -72,13 +70,6 @@ add_custom_command(
     COMMENT "Compiling HLSL Fragment Shader to SPIR-V..."
 )
 add_custom_command(
-    OUTPUT ${SPV_COMP_OUT}
-    COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T cs_6_0 -E CSMain ${SHADER_GRID_COMP} -Fo ${SPV_COMP_OUT}
-    DEPENDS ${SHADER_GRID_COMP}
-    COMMENT "Compiling HLSL Compute Shader to SPIR-V..."
-)
-
-add_custom_command(
     OUTPUT ${DXIL_VERT_OUT}
     COMMAND ${DXC_EXECUTABLE} -T vs_6_0 -E VSMain ${SHADER_GRID_VERT} -Fo ${DXIL_VERT_OUT}
     DEPENDS ${SHADER_GRID_VERT}
@@ -90,16 +81,46 @@ add_custom_command(
     DEPENDS ${SHADER_GRID_FRAG}
     COMMENT "Compiling HLSL Fragment Shader to DXIL..."
 )
-add_custom_command(
-    OUTPUT ${DXIL_COMP_OUT}
-    COMMAND ${DXC_EXECUTABLE} -T cs_6_0 -E CSMain ${SHADER_GRID_COMP} -Fo ${DXIL_COMP_OUT}
-    DEPENDS ${SHADER_GRID_COMP}
-    COMMENT "Compiling HLSL Compute Shader to DXIL..."
+
+# Start tracking all outputs for the final target
+set(ALL_SHADER_OUTPUTS 
+    ${SPV_VERT_OUT} ${SPV_FRAG_OUT} 
+    ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT}
 )
 
-add_custom_target(CompileShaders ALL DEPENDS ${SPV_VERT_OUT} ${SPV_FRAG_OUT} ${SPV_COMP_OUT} ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT} ${DXIL_COMP_OUT})
+# --- COMPUTE SHADERS (The Fix) ---
+# Define a list of just the base names
+set(COMPUTE_SHADERS advection divergence jacobi gradient)
 
+foreach(SHADER_NAME IN LISTS COMPUTE_SHADERS)
+    set(HLSL_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}.hlsl")
+    set(SPV_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}.spv")
+    set(DXIL_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}.dxil")
+
+    # Compute SPIR-V Custom Command
+    add_custom_command(
+        OUTPUT ${SPV_OUT}
+        COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T cs_6_0 -E CSMain ${HLSL_SRC} -Fo ${SPV_OUT}
+        DEPENDS ${HLSL_SRC}
+        COMMENT "Compiling Compute Shader (${SHADER_NAME}) to SPIR-V..."
+    )
+
+    # Compute DXIL Custom Command
+    add_custom_command(
+        OUTPUT ${DXIL_OUT}
+        COMMAND ${DXC_EXECUTABLE} -T cs_6_0 -E CSMain ${HLSL_SRC} -Fo ${DXIL_OUT}
+        DEPENDS ${HLSL_SRC}
+        COMMENT "Compiling Compute Shader (${SHADER_NAME}) to DXIL..."
+    )
+
+    # Append the outputs so the target knows to wait for them
+    list(APPEND ALL_SHADER_OUTPUTS ${SPV_OUT} ${DXIL_OUT})
+endforeach()
+
+# --- TARGETS & DEPENDENCIES ---
+add_custom_target(CompileShaders ALL DEPENDS ${ALL_SHADER_OUTPUTS})
 add_dependencies(ElementalEngine CompileShaders)
+
 target_link_libraries(ElementalEngine
     Vulkan::Vulkan 
     glfw 

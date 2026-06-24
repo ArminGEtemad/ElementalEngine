@@ -20,8 +20,14 @@ public:
   virtual std::unique_ptr<Swapchain>
   createSwapchain(WindowHandling &window) = 0;
   virtual std::unique_ptr<CommandList> createCommandList() = 0;
-  virtual std::unique_ptr<Pipeline> createPipeline() = 0;
-  virtual std::unique_ptr<Pipeline> createComputePipeline() = 0;
+
+  virtual std::unique_ptr<Pipeline>
+  createPipeline(const std::string &vertexShaderName,
+                 const std::string &fragmentShaderName) = 0;
+
+  virtual std::unique_ptr<Pipeline>
+  createComputePipeline(const std::string &computeShaderName) = 0;
+
   virtual std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                                MemoryProperty memory) = 0;
 
