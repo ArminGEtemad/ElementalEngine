@@ -2,7 +2,7 @@ struct SimConfigStruct {
     uint gridWidth;
     uint gridHeight;
     float dt;
-    float pad_0;
+    float forceY;
 };
 
 #ifdef __SPIRV__
