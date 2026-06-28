@@ -24,12 +24,14 @@ add_executable(ElementalEngine
     src/rhi/vulkan/VulkanComputePipeline.cpp
     src/rhi/vulkan/VulkanBuffer.cpp
     src/rhi/vulkan/VulkanAllocator.cpp
+    src/rhi/vulkan/VulkanTexture.cpp
     src/rhi/dx12/DX12Device.cpp
     src/rhi/dx12/DX12Swapchain.cpp
     src/rhi/dx12/DX12CommandList.cpp
     src/rhi/dx12/DX12Pipeline.cpp
     src/rhi/dx12/DX12ComputePipeline.cpp
     src/rhi/dx12/DX12Buffer.cpp
+    src/rhi/dx12/DX12Texture.cpp
 )
 
 find_program(DXC_EXECUTABLE 
