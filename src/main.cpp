@@ -1,10 +1,9 @@
+#include "Texture.hpp"
 #include "rhi/CommandList.hpp"
 #include "rhi/Device.hpp"
 #include "rhi/Pipeline.hpp"
 #include "rhi/RHICommon.hpp"
 #include "rhi/Swapchain.hpp"
-
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -61,26 +60,30 @@ int main() {
     // Test for compute eulerian grid
     static constexpr uint32_t GRID_WIDTH{256};
     static constexpr uint32_t GRID_HEIGHT{256};
-    static constexpr uint32_t CELL_COUNT = GRID_HEIGHT * GRID_WIDTH;
 
-    size_t scalarSize = CELL_COUNT * sizeof(float);
-    size_t vectorSize = CELL_COUNT * sizeof(float) * 2; // 2D vector velocity
+    TextureUsage rwTextureUsage = TextureUsage::ShaderResource |
+                                  TextureUsage::UnorderedAccess |
+                                  TextureUsage::TransferDst;
 
-    // -- ping pong buffer
-    auto densityBufferPing = device->createBuffer(
-        scalarSize, BufferUsage::Storage, MemoryProperty::GPULocal);
-    auto densityBufferPong = device->createBuffer(
-        scalarSize, BufferUsage::Storage, MemoryProperty::GPULocal);
-    auto velocityBufferPing = device->createBuffer(
-        vectorSize, BufferUsage::Storage, MemoryProperty::GPULocal);
-    auto velocityBufferPong = device->createBuffer(
-        vectorSize, BufferUsage::Storage, MemoryProperty::GPULocal);
-    auto divergenceBuffer = device->createBuffer(
-        scalarSize, BufferUsage::Storage, MemoryProperty::GPULocal);
-    auto pressureBufferPing = device->createBuffer(
-        scalarSize, BufferUsage::Storage, MemoryProperty::GPULocal);
-    auto pressureBufferPong = device->createBuffer(
-        scalarSize, BufferUsage::Storage, MemoryProperty::GPULocal);
+    // -- ping pong texture
+    auto densityPing = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
+
+    auto densityPong = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
+
+    auto velocityPing = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32G32_FLOAT, rwTextureUsage);
+    auto velocityPong = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32G32_FLOAT, rwTextureUsage);
+
+    auto divergenceTexture = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
+
+    auto pressurePing = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
+    auto pressurePong = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
 
     bool useBufferPingToRead = true;
 
@@ -93,121 +96,162 @@ int main() {
     simConfigData.forceY = 50.0f;
 
     std::cout << "main loop starts now...\n";
+    auto setupCmd = device->createCommandList();
+    setupCmd->begin();
+
+    // transition everything to unordered to initialize the writing
+    setupCmd->transitionTexture(densityPing.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(densityPong.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(velocityPing.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(velocityPong.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(pressurePing.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(pressurePong.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(divergenceTexture.get(),
+                                ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+
+    // transition everything to shader resource
+    setupCmd->transitionTexture(densityPing.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(densityPong.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(velocityPing.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(velocityPong.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(pressurePing.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(pressurePong.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(divergenceTexture.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+
+    setupCmd->end();
+    device->submit(setupCmd.get(), nullptr);
+    device->waitIdle();
 
     while (!window.shouldClose()) {
       glfwPollEvents();
       swapchain->acquireNextImage();
 
-      Buffer *densityRead = useBufferPingToRead ? densityBufferPing.get()
-                                                : densityBufferPong.get();
-      Buffer *densityWrite = useBufferPingToRead ? densityBufferPong.get()
-                                                 : densityBufferPing.get();
+      Texture *densityRead =
+          useBufferPingToRead ? densityPing.get() : densityPong.get();
+      Texture *densityWrite =
+          useBufferPingToRead ? densityPong.get() : densityPing.get();
 
       // velocity bounces within the frame. Ping is always the start state.
-      Buffer *velocityStart = velocityBufferPing.get();
-      Buffer *velocityAdvected = velocityBufferPong.get();
+      Texture *velocityStart = velocityPing.get();
+      Texture *velocityAdvected = velocityPong.get();
 
       commandList->begin();
 
       // compute
-      // compute pass 1 advection
-      commandList->transitionBuffer(densityWrite, ResourceState::ShaderResource,
-                                    ResourceState::UnorderedAccess);
-      commandList->transitionBuffer(velocityAdvected,
-                                    ResourceState::ShaderResource,
-                                    ResourceState::UnorderedAccess);
+      // ADVECTION PASS
+      commandList->transitionTexture(densityWrite,
+                                     ResourceState::ShaderResource,
+                                     ResourceState::UnorderedAccess);
+      commandList->transitionTexture(velocityAdvected,
+                                     ResourceState::ShaderResource,
+                                     ResourceState::UnorderedAccess);
 
       commandList->bindPipeline(*advectionPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindStorageBuffer(1, densityRead);   // t1: Old Density
-      commandList->bindStorageBuffer(2, velocityStart); // t2: Old Velocity
-      commandList->bindStorageBuffer(3, densityWrite);  // u3: New Density
-      commandList->bindStorageBuffer(4,
-                                     velocityAdvected); // u4: Advected Velocity
+
+      commandList->bindTexture(1, densityRead);       // t1: Old Density
+      commandList->bindTexture(2, velocityStart);     // t2: Old Velocity
+      commandList->bindStorageImage(3, densityWrite); // u3: New Density
+      commandList->bindStorageImage(4,
+                                    velocityAdvected); // u4: Advected Velocity
+      commandList->bindSampler(5);                     // s5: linear sampler
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
-      // compute 2 divergence
-      // Protect the advected velocity so we can read it, prepare Divergence for
-      // writing
-      commandList->transitionBuffer(velocityAdvected,
-                                    ResourceState::UnorderedAccess,
-                                    ResourceState::ShaderResource);
-      commandList->transitionBuffer(divergenceBuffer.get(),
-                                    ResourceState::ShaderResource,
-                                    ResourceState::UnorderedAccess);
+
+      // DIVERGENCE PASS
+      commandList->transitionTexture(velocityAdvected,
+                                     ResourceState::UnorderedAccess,
+                                     ResourceState::ShaderResource);
+      commandList->transitionTexture(divergenceTexture.get(),
+                                     ResourceState::ShaderResource,
+                                     ResourceState::UnorderedAccess);
 
       commandList->bindPipeline(*divPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindStorageBuffer(1,
-                                     velocityAdvected); // t1: Advected Velocity
-      commandList->bindStorageBuffer(
-          3, divergenceBuffer.get()); // u3: Divergence Out
+      commandList->bindTexture(1, velocityAdvected); // t1: Advected Velocity
+      commandList->bindStorageImage(
+          3, divergenceTexture.get()); // u3: Divergence Out
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
-      // jacobi
-
-      // Protect Divergence so the solver can read it safely
-      commandList->transitionBuffer(divergenceBuffer.get(),
-                                    ResourceState::UnorderedAccess,
-                                    ResourceState::ShaderResource);
-
+      // JACOBI SOLVER PASS
+      commandList->transitionTexture(divergenceTexture.get(),
+                                     ResourceState::UnorderedAccess,
+                                     ResourceState::ShaderResource);
       commandList->bindPipeline(*jacobiPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindStorageBuffer(
-          2, divergenceBuffer.get()); // t2: Divergence In
+      commandList->bindTexture(2, divergenceTexture.get()); // t2: Divergence In
 
       bool usePressurePing = true;
-      const int JACOBI_ITERATIONS =
-          20; // Increase for stiffer fluid, decrease for performance
+      const int JACOBI_ITERATIONS = 20;
 
       for (int i = 0; i < JACOBI_ITERATIONS; ++i) {
-        Buffer *pRead = usePressurePing ? pressureBufferPing.get()
-                                        : pressureBufferPong.get();
-        Buffer *pWrite = usePressurePing ? pressureBufferPong.get()
-                                         : pressureBufferPing.get();
+        Texture *pRead =
+            usePressurePing ? pressurePing.get() : pressurePong.get();
+        Texture *pWrite =
+            usePressurePing ? pressurePong.get() : pressurePing.get();
 
-        commandList->transitionBuffer(pRead, ResourceState::UnorderedAccess,
-                                      ResourceState::ShaderResource);
-        commandList->transitionBuffer(pWrite, ResourceState::ShaderResource,
-                                      ResourceState::UnorderedAccess);
+        if (i > 0) {
+          commandList->transitionTexture(pRead, ResourceState::UnorderedAccess,
+                                         ResourceState::ShaderResource);
+        }
 
-        commandList->bindStorageBuffer(1, pRead);  // t1: Pressure In
-        commandList->bindStorageBuffer(3, pWrite); // u3: Pressure Out
+        commandList->transitionTexture(pWrite, ResourceState::ShaderResource,
+                                       ResourceState::UnorderedAccess);
+
+        commandList->bindTexture(1, pRead);       // t1: Pressure In
+        commandList->bindStorageImage(3, pWrite); // u3: Pressure Out
         commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
-        usePressurePing = !usePressurePing; // Inner loop ping-pong
+        usePressurePing = !usePressurePing;
       }
 
-      // compute pass 4 gradient
-      Buffer *finalPressure =
-          usePressurePing ? pressureBufferPing.get() : pressureBufferPong.get();
-      commandList->transitionBuffer(finalPressure,
-                                    ResourceState::UnorderedAccess,
-                                    ResourceState::ShaderResource);
+      // GRADIENT SUBTRACTION PASS
+      Texture *finalPressure =
+          usePressurePing ? pressurePing.get() : pressurePong.get();
 
-      // Prepare velocityStart (Ping) to be overwritten with the final,
-      // corrected velocity
-      commandList->transitionBuffer(velocityStart,
-                                    ResourceState::ShaderResource,
-                                    ResourceState::UnorderedAccess);
+      commandList->transitionTexture(finalPressure,
+                                     ResourceState::UnorderedAccess,
+                                     ResourceState::ShaderResource);
+      commandList->transitionTexture(velocityStart,
+                                     ResourceState::ShaderResource,
+                                     ResourceState::UnorderedAccess);
 
       commandList->bindPipeline(*gradPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindStorageBuffer(1, finalPressure); // t1: Solved Pressure
-      commandList->bindStorageBuffer(2,
-                                     velocityAdvected); // t2: Advected Velocity
-      commandList->bindStorageBuffer(
-          3, velocityStart); // u3: Corrected Velocity Out (Back to Ping!)
+      commandList->bindTexture(1, finalPressure);    // t1: Solved Pressure
+      commandList->bindTexture(2, velocityAdvected); // t2: Advected Velocity
+      commandList->bindStorageImage(
+          3, velocityStart); // u3: Corrected Velocity Out
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
-      // render
-      // Transition the density write buffer and velocity buffer so the graphics
-      // pipeline can read them
-      commandList->transitionBuffer(densityWrite,
-                                    ResourceState::UnorderedAccess,
-                                    ResourceState::ShaderResource);
-      commandList->transitionBuffer(velocityStart,
-                                    ResourceState::UnorderedAccess,
-                                    ResourceState::ShaderResource);
+      // graphic
+      // GRAPHICS RENDER PASS
+      commandList->transitionTexture(densityWrite,
+                                     ResourceState::UnorderedAccess,
+                                     ResourceState::ShaderResource);
+      commandList->transitionTexture(velocityStart,
+                                     ResourceState::UnorderedAccess,
+                                     ResourceState::ShaderResource);
 
       commandList->beginRendering(*swapchain);
       commandList->bindPipeline(*graphicsPipeline);
@@ -216,9 +260,8 @@ int main() {
       commandList->setScissor(0, 0, WIDTH, HEIGHT);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
 
-      // graphics Pipeline reads the exact buffer compute just finished
-      // writing to
-      commandList->bindStorageBuffer(1, densityWrite);
+      // Ensure the graphics pipeline is reading using a Texture binding
+      commandList->bindTexture(1, densityWrite); // t1: Density
 
       commandList->draw(3, 1, 0, 0);
       commandList->endRendering(*swapchain);
