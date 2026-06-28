@@ -70,7 +70,7 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
   // fragment bindings
   // read density
   bindingSetLayout.binding = 1;
-  bindingSetLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  bindingSetLayout.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
   bindingSetLayout.descriptorCount = 1;
   bindingSetLayout.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
