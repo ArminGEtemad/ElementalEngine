@@ -4,6 +4,7 @@
 #include "Pipeline.hpp"
 #include "RHICommon.hpp"
 #include "Swapchain.hpp"
+#include "Texture.hpp"
 #include <cstdint>
 
 namespace elementalEngine::RHI {
@@ -24,6 +25,13 @@ public:
   // preventing race condition transitions buffer from - to
   virtual void transitionBuffer(Buffer *buffer, ResourceState from,
                                 ResourceState to) = 0;
+  virtual void transitionTexture(Texture *texture, ResourceState from,
+                                 ResourceState to) = 0;
+
+  // pushing images instead of raw buffers
+  virtual void bindTexture(uint32_t bindingSlot, Texture *texture) = 0;
+  virtual void bindStorageImage(uint32_t bindingSlot, Texture *texture) = 0;
+  virtual void bindSampler(uint32_t bindingSlot) = 0;
 
   // unified pipeline compute and graphicss
   virtual void bindPipeline(Pipeline &pipeline) = 0;
