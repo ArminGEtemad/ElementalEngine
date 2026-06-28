@@ -1,11 +1,13 @@
 #include "VulkanDevice.hpp"
 #include "CommandList.hpp"
 #include "Pipeline.hpp"
+#include "Texture.hpp"
 #include "VulkanBuffer.hpp"
 #include "VulkanCommandList.hpp"
 #include "VulkanComputePipeline.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
+#include "VulkanTexture.hpp"
 #include "Window.hpp"
 #include <iostream>
 #include <memory>
@@ -40,6 +42,14 @@ std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
                                                    BufferUsage usage,
                                                    MemoryProperty memory) {
   return std::make_unique<VulkanBuffer>(*this, size, usage, memory);
+}
+
+std::unique_ptr<Texture> VulkanDevice::createTexture(uint32_t gridWidth,
+                                                     uint32_t gridHeight,
+                                                     TextureFormat format,
+                                                     TextureUsage usage) {
+  return std::make_unique<VulkanTexture>(*this, gridWidth, gridHeight, format,
+                                         usage);
 }
 
 // just for internal linkage
@@ -89,11 +99,13 @@ VulkanDevice::VulkanDevice(const DeviceConfig &config, WindowHandling &window) {
   pickPhysicalDevice();
   createLogicalDevice();
   createAllocator();
+  createLinearSampler();
 }
 
 // destructor
 VulkanDevice::~VulkanDevice() {
   waitIdle();
+  vkDestroySampler(device, linearSampler, nullptr);
   vmaDestroyAllocator(allocator);
   vkDestroyDevice(device, nullptr);
   vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -418,13 +430,11 @@ void VulkanDevice::submit(CommandList *commandList, Swapchain *swapchain) {
     submitInfo.signalSemaphoreInfoCount = 1;
     submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
 
-    // 🟢 Submit with the In-Flight Fence
     if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo,
                        vk13Swapchain->getInFlightFence()) != VK_SUCCESS) {
       throw std::runtime_error("Failed to submit draw command buffer!");
     }
   } else {
-    // 🟢 Headless fallback (no semaphores, no fence)
     if (vkQueueSubmit2(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) !=
         VK_SUCCESS) {
       throw std::runtime_error("Failed to submit headless command buffer!");
@@ -441,6 +451,24 @@ void VulkanDevice::createAllocator() {
 
   if (vmaCreateAllocator(&allocInfo, &allocator) != VK_SUCCESS) {
     throw std::runtime_error("Failed to create VMA!");
+  }
+}
+
+void VulkanDevice::createLinearSampler() {
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_LINEAR; // hardware bilinear filter
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.anisotropyEnable = VK_FALSE;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+  if (vkCreateSampler(device, &samplerInfo, nullptr, &linearSampler) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to create Vulkan sampler!");
   }
 }
 
