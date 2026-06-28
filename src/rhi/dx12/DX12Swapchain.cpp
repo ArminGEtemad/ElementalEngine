@@ -25,7 +25,7 @@ void DX12Swapchain::createSwapchain(WindowHandling &window) {
   swapchainDesc.Width = width;
   swapchainDesc.Height = height;
   swapchainDesc.BufferCount = FrameCount;
-  swapchainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // has to become SRGB later
+  swapchainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
   swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
   swapchainDesc.SampleDesc.Count = 1;
   swapchainDesc.SampleDesc.Quality = 0;
@@ -59,8 +59,14 @@ void DX12Swapchain::createRenderTargetViews() {
       rtvHeap->GetCPUDescriptorHandleForHeapStart());
   for (UINT i = 0; i < FrameCount; i++) {
     swapchain->GetBuffer(i, IID_PPV_ARGS(&renderTargets[i]));
+
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+    rtvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
     device.getD3D12Device()->CreateRenderTargetView(renderTargets[i].Get(),
-                                                    nullptr, rtvHandle);
+                                                    &rtvDesc, rtvHandle);
+
     rtvHandle.ptr += rtvDescriptorSize;
   }
 }
