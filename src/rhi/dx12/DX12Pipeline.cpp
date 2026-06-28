@@ -45,9 +45,37 @@ void DX12Pipeline::createPipeline(const std::string &vertexShaderName,
   t1Param.DescriptorTable.NumDescriptorRanges = 1;
   t1Param.DescriptorTable.pDescriptorRanges = &rangeT1;
   t1Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+  // ----------------------DUMMY-----------------------------
+  D3D12_DESCRIPTOR_RANGE rangeT2{};
+  rangeT2.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  rangeT2.NumDescriptors = 1;
+  rangeT2.BaseShaderRegister = 2;
+  rangeT2.RegisterSpace = 0;
+  rangeT2.OffsetInDescriptorsFromTableStart = 0;
+
+  D3D12_ROOT_PARAMETER t2Param{};
+  t2Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  t2Param.DescriptorTable.NumDescriptorRanges = 1;
+  t2Param.DescriptorTable.pDescriptorRanges = &rangeT2;
+  t2Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+  // --------------------------------------------------------
+
+  // 3 read texture
+  D3D12_DESCRIPTOR_RANGE rangeT3{};
+  rangeT3.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  rangeT3.NumDescriptors = 1;
+  rangeT3.BaseShaderRegister = 3;
+  rangeT3.RegisterSpace = 0;
+  rangeT3.OffsetInDescriptorsFromTableStart = 0;
+
+  D3D12_ROOT_PARAMETER t3Param{};
+  t3Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  t3Param.DescriptorTable.NumDescriptorRanges = 1;
+  t3Param.DescriptorTable.pDescriptorRanges = &rangeT3;
+  t3Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
   // combine
-  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param};
+  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param, t2Param, t3Param};
 
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
   rootSigDesc.NumParameters = _countof(rootParams);

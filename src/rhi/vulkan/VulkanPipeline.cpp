@@ -64,21 +64,27 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
   VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
                                                     fragShaderStageInfo};
 
-  VkDescriptorSetLayoutBinding bindingSetLayout;
+  std::vector<VkDescriptorSetLayoutBinding> bindingSetLayout(2);
 
   // vertex has no binding
   // fragment bindings
   // read density
-  bindingSetLayout.binding = 1;
-  bindingSetLayout.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-  bindingSetLayout.descriptorCount = 1;
-  bindingSetLayout.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  bindingSetLayout[0].binding = 1;
+  bindingSetLayout[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  bindingSetLayout[0].descriptorCount = 1;
+  bindingSetLayout[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  // read obstacle
+  bindingSetLayout[1].binding = 3;
+  bindingSetLayout[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  bindingSetLayout[1].descriptorCount = 1;
+  bindingSetLayout[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
   VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
   setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
-  setLayoutInfo.bindingCount = 1;
-  setLayoutInfo.pBindings = &bindingSetLayout;
+  setLayoutInfo.bindingCount = static_cast<uint32_t>(bindingSetLayout.size());
+  setLayoutInfo.pBindings = bindingSetLayout.data();
 
   if (vkCreateDescriptorSetLayout(device.getLogicalDevice(), &setLayoutInfo,
                                   nullptr,

@@ -47,7 +47,7 @@ void VulkanComputePipeline::createPipeline(const std::string &shaderName) {
   compShaderStageInfo.module = compShaderModule;
   compShaderStageInfo.pName = "CSMain";
 
-  std::vector<VkDescriptorSetLayoutBinding> bindingSetLayout(5);
+  std::vector<VkDescriptorSetLayoutBinding> bindingSetLayout(6);
 
   // read texture (density - velocity - pressure)
   bindingSetLayout[0].binding = 1;
@@ -60,24 +60,29 @@ void VulkanComputePipeline::createPipeline(const std::string &shaderName) {
   bindingSetLayout[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
   bindingSetLayout[1].descriptorCount = 1;
   bindingSetLayout[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  // read texture (obstacle)
+  bindingSetLayout[2].binding = 3;
+  bindingSetLayout[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  bindingSetLayout[2].descriptorCount = 1;
+  bindingSetLayout[2].stageFlags = VK_SHADER_STAGE_ALL;
 
   // read and write texture (density - pressure)
-  bindingSetLayout[2].binding = 3;
-  bindingSetLayout[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-  bindingSetLayout[2].descriptorCount = 1;
-  bindingSetLayout[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-  // read and write texture (velocity)
   bindingSetLayout[3].binding = 4;
   bindingSetLayout[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
   bindingSetLayout[3].descriptorCount = 1;
   bindingSetLayout[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-  // linear sampler
+  // read and write texture (velocity)
   bindingSetLayout[4].binding = 5;
-  bindingSetLayout[4].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+  bindingSetLayout[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
   bindingSetLayout[4].descriptorCount = 1;
   bindingSetLayout[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+  // linear sampler
+  bindingSetLayout[5].binding = 6;
+  bindingSetLayout[5].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+  bindingSetLayout[5].descriptorCount = 1;
+  bindingSetLayout[5].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
   VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
   setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
