@@ -1,11 +1,13 @@
 #include "VulkanCommandList.hpp"
 #include "Pipeline.hpp"
 #include "Swapchain.hpp"
+#include "Texture.hpp"
 #include "VulkanBuffer.hpp"
 #include "VulkanComputePipeline.hpp"
 #include "VulkanDevice.hpp"
 #include "VulkanPipeline.hpp"
 #include "VulkanSwapchain.hpp"
+#include "VulkanTexture.hpp"
 #include <cstdint>
 #include <stdexcept>
 
@@ -155,6 +157,134 @@ void VulkanCommandList::setScissor(int32_t x, int32_t y, uint32_t width,
   scissor.offset = {x, y};
   scissor.extent = {width, height};
   vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
+
+void VulkanCommandList::bindTexture(uint32_t bindingSlot, Texture *texture) {
+  auto *vk13Texture = static_cast<VulkanTexture *>(texture);
+
+  VkDescriptorImageInfo descImageInfo{};
+  descImageInfo.imageLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // t register
+  descImageInfo.imageView = vk13Texture->getImageView();
+
+  VkWriteDescriptorSet writeDesc{};
+  writeDesc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDesc.dstBinding = bindingSlot;
+  writeDesc.descriptorCount = 1;
+  writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  writeDesc.pImageInfo = &descImageInfo;
+
+  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
+      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+             computePiplineLayout, 0, 1, &writeDesc);
+  } else {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+             graphicsPiplineLayout, 0, 1, &writeDesc);
+  }
+}
+
+void VulkanCommandList::bindStorageImage(uint32_t bindingSlot,
+                                         Texture *texture) {
+  auto *vk13Texture = static_cast<VulkanTexture *>(texture);
+
+  VkDescriptorImageInfo descImageInfo{};
+  descImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // u registers
+  descImageInfo.imageView = vk13Texture->getImageView();
+
+  VkWriteDescriptorSet writeDesc{};
+  writeDesc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDesc.dstBinding = bindingSlot;
+  writeDesc.descriptorCount = 1;
+  writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+  writeDesc.pImageInfo = &descImageInfo;
+
+  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
+      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+             computePiplineLayout, 0, 1, &writeDesc);
+  } else {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+             graphicsPiplineLayout, 0, 1, &writeDesc);
+  }
+}
+
+void VulkanCommandList::bindSampler(uint32_t bindingSlot) {
+  VkDescriptorImageInfo samplerInfo{};
+  samplerInfo.sampler = device.getLinearSampler();
+
+  VkWriteDescriptorSet writeDesc{};
+  writeDesc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDesc.dstBinding = bindingSlot;
+  writeDesc.descriptorCount = 1;
+  writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+  writeDesc.pImageInfo = &samplerInfo;
+
+  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
+      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
+  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+             computePiplineLayout, 0, 1, &writeDesc);
+  } else {
+    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+             graphicsPiplineLayout, 0, 1, &writeDesc);
+  }
+}
+
+void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,
+                                          ResourceState to) {
+  auto *vk13Texture = static_cast<VulkanTexture *>(texture);
+
+  VkImageMemoryBarrier2 barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  barrier.image = vk13Texture->getImage();
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+
+  // Initializing memory
+  if (from == ResourceState::Undefined &&
+      to == ResourceState::UnorderedAccess) {
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    barrier.srcAccessMask = 0;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+  }
+  //  Read to Write
+  else if (from == ResourceState::ShaderResource &&
+           to == ResourceState::UnorderedAccess) {
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+  }
+  // Write to Read
+  else if (from == ResourceState::UnorderedAccess &&
+           to == ResourceState::ShaderResource) {
+    barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+  }
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers = &barrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 }
 
 void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
