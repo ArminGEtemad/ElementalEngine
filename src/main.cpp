@@ -54,6 +54,8 @@ int main() {
     auto divPipeline = device->createComputePipeline("divergence");
     auto jacobiPipeline = device->createComputePipeline("jacobi");
     auto gradPipeline = device->createComputePipeline("gradient");
+    auto setupBoundariesPipeline =
+        device->createComputePipeline("setup_boundaries");
 
     std::unique_ptr<CommandList> commandList = device->createCommandList();
     // -----------------------------------------------------------------------------
@@ -87,6 +89,9 @@ int main() {
 
     bool useBufferPingToRead = true;
 
+    auto obstacleTexture = device->createTexture(
+        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
+
     auto graphicsPipeline = device->createPipeline("grid_vs", "grid_fs");
 
     SimConfig simConfigData{};
@@ -115,6 +120,14 @@ int main() {
     setupCmd->transitionTexture(divergenceTexture.get(),
                                 ResourceState::Undefined,
                                 ResourceState::UnorderedAccess);
+    setupCmd->transitionTexture(obstacleTexture.get(), ResourceState::Undefined,
+                                ResourceState::UnorderedAccess);
+
+    // write the obstacle once and don't touch it anymore
+    setupCmd->bindPipeline(*setupBoundariesPipeline);
+    setupCmd->pushConstants(0, sizeof(SimConfig), &simConfigData);
+    setupCmd->bindStorageImage(4, obstacleTexture.get()); // u4: Write Obstacle
+    setupCmd->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
     // transition everything to shader resource
     setupCmd->transitionTexture(densityPing.get(),
@@ -136,6 +149,9 @@ int main() {
                                 ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
     setupCmd->transitionTexture(divergenceTexture.get(),
+                                ResourceState::UnorderedAccess,
+                                ResourceState::ShaderResource);
+    setupCmd->transitionTexture(obstacleTexture.get(),
                                 ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
 
@@ -170,12 +186,13 @@ int main() {
       commandList->bindPipeline(*advectionPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
 
-      commandList->bindTexture(1, densityRead);       // t1: Old Density
-      commandList->bindTexture(2, velocityStart);     // t2: Old Velocity
-      commandList->bindStorageImage(3, densityWrite); // u3: New Density
-      commandList->bindStorageImage(4,
-                                    velocityAdvected); // u4: Advected Velocity
-      commandList->bindSampler(5);                     // s5: linear sampler
+      commandList->bindTexture(1, densityRead);           // t1: Old Density
+      commandList->bindTexture(2, velocityStart);         // t2: Old Velocity
+      commandList->bindTexture(3, obstacleTexture.get()); // t3: obstacle
+      commandList->bindStorageImage(4, densityWrite);     // u4: New Density
+      commandList->bindStorageImage(5,
+                                    velocityAdvected); // u5: Advected Velocity
+      commandList->bindSampler(6);                     // s6: linear sampler
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
       // DIVERGENCE PASS
@@ -189,8 +206,9 @@ int main() {
       commandList->bindPipeline(*divPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
       commandList->bindTexture(1, velocityAdvected); // t1: Advected Velocity
+      commandList->bindTexture(3, obstacleTexture.get()); // t3: obstacle
       commandList->bindStorageImage(
-          3, divergenceTexture.get()); // u3: Divergence Out
+          4, divergenceTexture.get()); // u4: Divergence Out
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
       // JACOBI SOLVER PASS
@@ -200,6 +218,7 @@ int main() {
       commandList->bindPipeline(*jacobiPipeline);
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
       commandList->bindTexture(2, divergenceTexture.get()); // t2: Divergence In
+      commandList->bindTexture(3, obstacleTexture.get());   // t3: obstacle
 
       bool usePressurePing = true;
       const int JACOBI_ITERATIONS = 20;
@@ -218,8 +237,9 @@ int main() {
         commandList->transitionTexture(pWrite, ResourceState::ShaderResource,
                                        ResourceState::UnorderedAccess);
 
-        commandList->bindTexture(1, pRead);       // t1: Pressure In
-        commandList->bindStorageImage(3, pWrite); // u3: Pressure Out
+        commandList->bindTexture(1, pRead);                 // t1: Pressure In
+        commandList->bindTexture(3, obstacleTexture.get()); // t3: obstacle
+        commandList->bindStorageImage(4, pWrite);           // u4: Pressure Out
         commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
         usePressurePing = !usePressurePing;
@@ -240,8 +260,9 @@ int main() {
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
       commandList->bindTexture(1, finalPressure);    // t1: Solved Pressure
       commandList->bindTexture(2, velocityAdvected); // t2: Advected Velocity
+      commandList->bindTexture(3, obstacleTexture.get()); // t3: obstacle
       commandList->bindStorageImage(
-          3, velocityStart); // u3: Corrected Velocity Out
+          4, velocityStart); // u4: Corrected Velocity Out
       commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
 
       // graphic
@@ -261,7 +282,8 @@ int main() {
       commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
 
       // Ensure the graphics pipeline is reading using a Texture binding
-      commandList->bindTexture(1, densityWrite); // t1: Density
+      commandList->bindTexture(1, densityWrite);          // t1: Density
+      commandList->bindTexture(3, obstacleTexture.get()); // t1: Density
 
       commandList->draw(3, 1, 0, 0);
       commandList->endRendering(*swapchain);

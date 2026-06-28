@@ -92,7 +92,7 @@ set(ALL_SHADER_OUTPUTS
 
 # --- COMPUTE SHADERS (The Fix) ---
 # Define a list of just the base names
-set(COMPUTE_SHADERS advection divergence jacobi gradient)
+set(COMPUTE_SHADERS advection divergence jacobi gradient setup_boundaries)
 
 foreach(SHADER_NAME IN LISTS COMPUTE_SHADERS)
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}.hlsl")
