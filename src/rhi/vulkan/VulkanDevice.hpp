@@ -34,6 +34,10 @@ public:
 
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;
+  std::unique_ptr<Texture> createTexture(uint32_t gridWidth,
+                                         uint32_t gridHeight,
+                                         TextureFormat format,
+                                         TextureUsage usage) override;
 
   // getter functions
   VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
@@ -47,6 +51,7 @@ public:
   }
   VkQueue getPresentQueue() const { return presentQueue; };
   VmaAllocator getAllocator() const { return allocator; }
+  VkSampler getLinearSampler() const { return linearSampler; }
 
 private:
   struct QueueFamilyIndices {
@@ -66,6 +71,7 @@ private:
   VkQueue presentQueue{VK_NULL_HANDLE};
   QueueFamilyIndices indices;
   VmaAllocator allocator{VK_NULL_HANDLE};
+  VkSampler linearSampler{VK_NULL_HANDLE};
 
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME};
@@ -79,6 +85,7 @@ private:
   void pickPhysicalDevice();
   void createLogicalDevice();
   void createAllocator();
+  void createLinearSampler();
 
   // helper function
   void hasInstanceExtension();

@@ -11,30 +11,28 @@ struct SimConfigStruct {
 ConstantBuffer<SimConfigStruct> SimConfig : register(b0);
 #endif
 
-StructuredBuffer<float> ReadPressure : register(t1);
-StructuredBuffer<float2> ReadVelocity : register(t2);
-RWStructuredBuffer<float2> WriteVelocity : register(u3);
+Texture2D<float> ReadPressure : register(t1);
+Texture2D<float2> ReadVelocity : register(t2);
+RWTexture2D<float2> WriteVelocity : register(u3);
 
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID) {
     if (id.x >= SimConfig.gridWidth || id.y >= SimConfig.gridHeight) return;
 
-    uint index = id.y * SimConfig.gridWidth + id.x;
-
     // Handle boundaries safely
-    uint left = id.x > 0 ? id.y * SimConfig.gridWidth + (id.x - 1) : index;
-    uint right = id.x < SimConfig.gridWidth - 1 ? id.y * SimConfig.gridWidth + (id.x + 1) : index;
-    uint top = id.y > 0 ? (id.y - 1) * SimConfig.gridWidth + id.x : index;
-    uint bottom = id.y < SimConfig.gridHeight - 1 ? (id.y + 1) * SimConfig.gridWidth + id.x : index;
+    uint left = id.x > 0 ? id.x - 1 : id.x;
+    uint right = id.x < SimConfig.gridWidth - 1 ? id.x + 1: id.x;
+    uint top = id.y > 0 ? id.y - 1 : id.y;
+    uint bottom = id.y < SimConfig.gridHeight - 1 ? id.y + 1: id.y;
 
-    float pL = ReadPressure[left];
-    float pR = ReadPressure[right];
-    float pT = ReadPressure[top];
-    float pB = ReadPressure[bottom];
+    float pL = ReadPressure[uint2(left, id.y)];
+    float pR = ReadPressure[uint2(right, id.y)];
+    float pT = ReadPressure[uint2(id.x, top)];
+    float pB = ReadPressure[uint2(id.x, bottom)];
 
-    float2 currentVel = ReadVelocity[index];
-    
-    // Subtract the pressure gradient
-    float2 newVel = currentVel - float2(pR - pL, pB - pT) * 0.5f;
-    WriteVelocity[index] = newVel;
+    float2 vel = ReadVelocity[id.xy];
+    vel.x -= 0.5f * (pR - pL);
+    vel.y -= 0.5f * (pB - pT);
+
+    WriteVelocity[id.xy] = vel;
 }

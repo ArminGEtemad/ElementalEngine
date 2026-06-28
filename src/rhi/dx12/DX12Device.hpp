@@ -11,6 +11,7 @@
 #include <dxgi1_6.h>
 #include <memory>
 #include <wrl.h>
+#include <wrl/client.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -36,12 +37,20 @@ public:
 
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;
-
+  std::unique_ptr<Texture> createTexture(uint32_t gridWidth,
+                                         uint32_t gridHeight,
+                                         TextureFormat format,
+                                         TextureUsage usage) override;
   // getter functions
   IDXGIFactory4 *getFactory() const { return factory.Get(); }
   ID3D12Device8 *getD3D12Device() const { return device.Get(); }
   ID3D12CommandQueue *getCommandQueue() const { return commandQueue.Get(); }
   D3D12MA::Allocator *getAllocator() const { return allocator.Get(); }
+  ID3D12DescriptorHeap *getGlobalDescriptorHeap() const {
+    return globalSrvUavHeap.Get();
+  }
+  UINT getDescriptorSize() const { return srvUavDescriptorSize; }
+  uint32_t allocateDescriptorSlot();
   void waitForGPU();
 
 private:
@@ -52,9 +61,13 @@ private:
   ComPtr<ID3D12Device8> device;
   ComPtr<ID3D12CommandQueue> commandQueue;
   ComPtr<ID3D12Fence> fence;
-  UINT64 fenceValue = 0;
+  UINT64 fenceValue{0};
   HANDLE fenceEvent;
   ComPtr<D3D12MA::Allocator> allocator;
+  ComPtr<ID3D12DescriptorHeap> globalSrvUavHeap;
+  UINT srvUavDescriptorSize{0};
+  uint32_t currentDescriptorOffset{0};
+  static constexpr uint32_t MAX_DESCRIPTORS{1024}; // TODO experimental
 
   void createFactory();
   void enableDebugLayer(bool enableGPUValidation);
@@ -63,5 +76,6 @@ private:
   void createCommandQueue();
   void createSyncObjects();
   void createAllocator();
+  void createGlobalDescriptorHeap();
 };
 } // namespace elementalEngine::RHI

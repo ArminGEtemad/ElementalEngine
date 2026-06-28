@@ -27,33 +27,77 @@ void DX12ComputePipeline::createPipeline(const std::string &shaderName) {
   constParam.Constants.Num32BitValues = sizeof(SimConfig) / 4;
   constParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-  // storage read density
+  // 1 reat texture
+  D3D12_DESCRIPTOR_RANGE rangeT1{};
+  rangeT1.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  rangeT1.NumDescriptors = 1;
+  rangeT1.BaseShaderRegister = 1;
+  rangeT1.RegisterSpace = 0;
+  rangeT1.OffsetInDescriptorsFromTableStart = 0;
+
   D3D12_ROOT_PARAMETER t1Param{};
-  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-  t1Param.Descriptor.ShaderRegister = 1; // mathc t1
-  t1Param.Descriptor.RegisterSpace = 0;
+  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  t1Param.DescriptorTable.NumDescriptorRanges = 1;
+  t1Param.DescriptorTable.pDescriptorRanges = &rangeT1;
   t1Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-  // storage read velocity
+  // 2 reat texture
+  D3D12_DESCRIPTOR_RANGE rangeT2{};
+  rangeT2.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  rangeT2.NumDescriptors = 1;
+  rangeT2.BaseShaderRegister = 2;
+  rangeT2.RegisterSpace = 0;
+  rangeT2.OffsetInDescriptorsFromTableStart = 0;
+
   D3D12_ROOT_PARAMETER t2Param{};
-  t2Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-  t2Param.Descriptor.ShaderRegister = 2; // mathc t2
-  t2Param.Descriptor.RegisterSpace = 0;
+  t2Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  t2Param.DescriptorTable.NumDescriptorRanges = 1;
+  t2Param.DescriptorTable.pDescriptorRanges = &rangeT2;
   t2Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-  // storage read write density
+  // 3 write texture
+  D3D12_DESCRIPTOR_RANGE rangeU3{};
+  rangeU3.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+  rangeU3.NumDescriptors = 1;
+  rangeU3.BaseShaderRegister = 3;
+  rangeU3.RegisterSpace = 0;
+  rangeU3.OffsetInDescriptorsFromTableStart = 0;
+
   D3D12_ROOT_PARAMETER u3Param{};
-  u3Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-  u3Param.Descriptor.ShaderRegister = 3; // mathc u3
-  u3Param.Descriptor.RegisterSpace = 0;
+  u3Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  u3Param.DescriptorTable.NumDescriptorRanges = 1;
+  u3Param.DescriptorTable.pDescriptorRanges = &rangeU3;
   u3Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-  // storage read write divergence
+  // 4 write texture
+  D3D12_DESCRIPTOR_RANGE rangeU4{};
+  rangeU4.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+  rangeU4.NumDescriptors = 1;
+  rangeU4.BaseShaderRegister = 4;
+  rangeU4.RegisterSpace = 0;
+  rangeU4.OffsetInDescriptorsFromTableStart = 0;
+
   D3D12_ROOT_PARAMETER u4Param{};
-  u4Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-  u4Param.Descriptor.ShaderRegister = 4; // mathc u4
-  u4Param.Descriptor.RegisterSpace = 0;
+  u4Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  u4Param.DescriptorTable.NumDescriptorRanges = 1;
+  u4Param.DescriptorTable.pDescriptorRanges = &rangeU4;
   u4Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+  // 5 sampler
+  D3D12_STATIC_SAMPLER_DESC sampler{};
+  sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+  sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  sampler.MipLODBias = 0;
+  sampler.MaxAnisotropy = 0;
+  sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+  sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+  sampler.MinLOD = 0.0f;
+  sampler.MaxLOD = D3D12_FLOAT32_MAX;
+  sampler.ShaderRegister = 5;
+  sampler.RegisterSpace = 0;
+  sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
   // combine
   D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param, t2Param, u3Param,
@@ -62,6 +106,8 @@ void DX12ComputePipeline::createPipeline(const std::string &shaderName) {
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
   rootSigDesc.NumParameters = _countof(rootParams);
   rootSigDesc.pParameters = rootParams;
+  rootSigDesc.NumStaticSamplers = 1;
+  rootSigDesc.pStaticSamplers = &sampler;
   rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
   ComPtr<ID3DBlob> signature;

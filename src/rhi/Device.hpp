@@ -1,7 +1,9 @@
 #pragma once
 
 #include "RHICommon.hpp"
+#include "Texture.hpp"
 #include "Window.hpp"
+#include <cstdint>
 #include <memory>
 
 namespace elementalEngine::RHI {
@@ -11,6 +13,7 @@ class CommandList;
 class Pipeline;
 class ComputePipeline;
 class Buffer;
+class Texture;
 class Device {
 public:
   virtual ~Device() = default;
@@ -30,6 +33,10 @@ public:
 
   virtual std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                                MemoryProperty memory) = 0;
+  virtual std::unique_ptr<Texture> createTexture(uint32_t gridWidth,
+                                                 uint32_t gridHeight,
+                                                 TextureFormat format,
+                                                 TextureUsage usage) = 0;
 
   virtual GraphicsAPI getAPI() const = 0;
   virtual void waitIdle() = 0;

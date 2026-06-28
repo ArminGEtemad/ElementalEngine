@@ -4,6 +4,7 @@
 #include "DX12ComputePipeline.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Swapchain.hpp"
+#include "DX12Texture.hpp"
 #include "Pipeline.hpp"
 #include "Window.hpp"
 #include <D3D12MemAlloc.h>
@@ -22,6 +23,7 @@ DX12Device::DX12Device(const DeviceConfig &config, WindowHandling &window) {
   createLogicalDevice();
   createCommandQueue();
   createSyncObjects();
+  createGlobalDescriptorHeap();
   createAllocator();
 }
 
@@ -52,6 +54,14 @@ DX12Device::createComputePipeline(const std::string &computeShaderName) {
 std::unique_ptr<Buffer> DX12Device::createBuffer(size_t size, BufferUsage usage,
                                                  MemoryProperty memory) {
   return std::make_unique<DX12Buffer>(*this, size, usage, memory);
+}
+
+std::unique_ptr<Texture> DX12Device::createTexture(uint32_t gridWidth,
+                                                   uint32_t gridHeight,
+                                                   TextureFormat format,
+                                                   TextureUsage usage) {
+  return std::make_unique<DX12Texture>(*this, gridWidth, gridHeight, format,
+                                       usage);
 }
 
 void DX12Device::enableDebugLayer(bool enableGPUValidation) {
@@ -175,6 +185,30 @@ void DX12Device::createAllocator() {
   if (FAILED(D3D12MA::CreateAllocator(&allocDesc, &allocator))) {
     throw std::runtime_error("Failed to create D3D12MA Memory Allocator");
   }
+}
+
+void DX12Device::createGlobalDescriptorHeap() {
+  D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
+  heapDesc.NumDescriptors = MAX_DESCRIPTORS;
+  heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+  heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+  heapDesc.NodeMask = 0;
+
+  if (FAILED(device->CreateDescriptorHeap(&heapDesc,
+                                          IID_PPV_ARGS(&globalSrvUavHeap)))) {
+    throw std::runtime_error(
+        "Failed to create Global SRV/UAV Descriptor Heap!");
+  }
+
+  srvUavDescriptorSize = device->GetDescriptorHandleIncrementSize(
+      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+}
+
+uint32_t DX12Device::allocateDescriptorSlot() {
+  if (currentDescriptorOffset >= MAX_DESCRIPTORS) {
+    throw std::runtime_error("Global Descriptor Heap is out of memory!");
+  }
+  return currentDescriptorOffset++;
 }
 
 } // namespace elementalEngine::RHI

@@ -3,6 +3,7 @@
 #include "CommandList.hpp"
 #include "Pipeline.hpp"
 #include "Swapchain.hpp"
+#include "Texture.hpp"
 #include "VulkanDevice.hpp"
 
 namespace elementalEngine::RHI {
@@ -18,6 +19,12 @@ public:
 
   void transitionBuffer(Buffer *buffer, ResourceState from,
                         ResourceState to) override;
+  void transitionTexture(Texture *texture, ResourceState from,
+                         ResourceState to) override;
+
+  void bindTexture(uint32_t bindingSlot, Texture *texture) override;
+  void bindStorageImage(uint32_t bindingSlot, Texture *texture) override;
+  void bindSampler(uint32_t bindingSlot) override;
 
   void bindPipeline(Pipeline &pipeline) override;
 

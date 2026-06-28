@@ -32,10 +32,18 @@ void DX12Pipeline::createPipeline(const std::string &vertexShaderName,
   constParam.Constants.Num32BitValues = sizeof(SimConfig) / 4;
   constParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+  // 1 read texture
+  D3D12_DESCRIPTOR_RANGE rangeT1{};
+  rangeT1.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  rangeT1.NumDescriptors = 1;
+  rangeT1.BaseShaderRegister = 1;
+  rangeT1.RegisterSpace = 0;
+  rangeT1.OffsetInDescriptorsFromTableStart = 0;
+
   D3D12_ROOT_PARAMETER t1Param{};
-  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-  t1Param.Descriptor.ShaderRegister = 1; // match t1
-  t1Param.Descriptor.RegisterSpace = 0;
+  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  t1Param.DescriptorTable.NumDescriptorRanges = 1;
+  t1Param.DescriptorTable.pDescriptorRanges = &rangeT1;
   t1Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
   // combine
@@ -44,7 +52,10 @@ void DX12Pipeline::createPipeline(const std::string &vertexShaderName,
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
   rootSigDesc.NumParameters = _countof(rootParams);
   rootSigDesc.pParameters = rootParams;
-  rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+  rootSigDesc.NumStaticSamplers = 0;
+  rootSigDesc.pStaticSamplers = nullptr;
+  rootSigDesc.Flags =
+      D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   ComPtr<ID3DBlob> signature;
   ComPtr<ID3DBlob> error;
@@ -96,7 +107,7 @@ void DX12Pipeline::createPipeline(const std::string &vertexShaderName,
   psoDesc.SampleMask = UINT_MAX;
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
-  psoDesc.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
+  psoDesc.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
   psoDesc.SampleDesc.Count = 1;
 
   if (FAILED(device.getD3D12Device()->CreateGraphicsPipelineState(
