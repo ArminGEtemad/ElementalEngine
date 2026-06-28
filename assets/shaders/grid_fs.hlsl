@@ -12,6 +12,7 @@ ConstantBuffer<SimConfigStruct> SimConfig : register(b0);
 #endif
 
 Texture2D<float> ReadDensity : register(t1);
+Texture2D<float> ReadObstacle : register(t3);
 
 struct VSOut {
     float4 position : SV_POSITION;
@@ -25,11 +26,15 @@ float4 FSMain(VSOut input) : SV_TARGET {
     // our of bounds
     gridX = clamp(gridX, 0, SimConfig.gridWidth - 1);
     gridY = clamp(gridY, 0, SimConfig.gridHeight - 1);
-    
+
+    float obstacle = ReadObstacle[uint2(gridX, gridY)];
     float density = ReadDensity[uint2(gridX, gridY)];
-    
+
+    // obstacle color
+    if (obstacle > 0.5f) {
+        return float4(0.2f, 0.2f, 0.2f, 1.0f);
+    }
     // poison gas 
     float3 gasColor = float3(0.1f, 0.9f, 0.2f);
-    
     return float4(gasColor * saturate(density), 1.0f);
 }
