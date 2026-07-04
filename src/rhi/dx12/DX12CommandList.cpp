@@ -189,6 +189,13 @@ void DX12CommandList::transitionTexture(Texture *texture, ResourceState from,
     barrier.AccessAfter = D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
     barrier.LayoutBefore = D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
     barrier.LayoutAfter = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE;
+  } else if (from == ResourceState::UnorderedAccess &&
+             to == ResourceState::UnorderedAccess) {
+    // Compute compute for the paticle based fluid
+    barrier.SyncBefore = D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+    barrier.SyncAfter = D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+    barrier.AccessBefore = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+    barrier.AccessAfter = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
   }
 
   D3D12_BARRIER_GROUP barrierGroup{};
@@ -245,27 +252,40 @@ void DX12CommandList::bindVertexBuffer(Buffer *buffer, size_t stride) {
 void DX12CommandList::pushConstants(uint32_t offset, uint32_t size,
                                     const void *data) {
   if (currentPipeline->getBindPoint() == PipelineBindPoint::Graphics) {
-    commandList->SetGraphicsRoot32BitConstants(0, size / 4, data, offset / 4);
+    auto *pipe = static_cast<DX12Pipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getPushConstantRootIndex();
+    if (rootIndex != ~0u) {
+      commandList->SetGraphicsRoot32BitConstants(rootIndex, size / 4, data,
+                                                 offset / 4);
+    }
   } else { // compute
-    commandList->SetComputeRoot32BitConstants(0, size / 4, data, offset / 4);
+    auto *pipe = static_cast<DX12ComputePipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getPushConstantRootIndex();
+    if (rootIndex != ~0u) {
+      commandList->SetComputeRoot32BitConstants(rootIndex, size / 4, data,
+                                                offset / 4);
+    }
   }
 }
 
 void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
   auto *dx12Buffer = static_cast<DX12Buffer *>(buffer);
 
+  // Storage buffers map directly to Root UAVs.
+  D3D12_GPU_VIRTUAL_ADDRESS gpuAddress =
+      dx12Buffer->getResource()->GetGPUVirtualAddress();
+
   if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    if (bindingSlot == 1 || bindingSlot == 2) {
-      commandList->SetComputeRootShaderResourceView(
-          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
-    } else if (bindingSlot == 3 || bindingSlot == 4) {
-      commandList->SetComputeRootUnorderedAccessView(
-          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    auto *pipe = static_cast<DX12ComputePipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getRootIndex(bindingSlot);
+    if (rootIndex != ~0u) {
+      commandList->SetComputeRootUnorderedAccessView(rootIndex, gpuAddress);
     }
   } else { // Graphics
-    if (bindingSlot == 1) {
-      commandList->SetGraphicsRootShaderResourceView(
-          bindingSlot, dx12Buffer->getResource()->GetGPUVirtualAddress());
+    auto *pipe = static_cast<DX12Pipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getRootIndex(bindingSlot);
+    if (rootIndex != ~0u) {
+      commandList->SetGraphicsRootUnorderedAccessView(rootIndex, gpuAddress);
     }
   }
 }
@@ -273,32 +293,48 @@ void DX12CommandList::bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) {
 void DX12CommandList::bindTexture(uint32_t bindingSlot, Texture *texture) {
   auto *dx12Texture = static_cast<DX12Texture *>(texture);
 
-  // Locate the specific SRV handle in the global heap
+  // Locate the SRV handle in the global heap
   D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle =
       device.getGlobalDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
   gpuHandle.ptr += static_cast<UINT64>(dx12Texture->getSrvSlot()) *
                    device.getDescriptorSize();
 
   if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    commandList->SetComputeRootDescriptorTable(bindingSlot, gpuHandle);
+    auto *pipe = static_cast<DX12ComputePipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getRootIndex(bindingSlot);
+    if (rootIndex != ~0u) {
+      commandList->SetComputeRootDescriptorTable(rootIndex, gpuHandle);
+    }
   } else {
-    commandList->SetGraphicsRootDescriptorTable(bindingSlot, gpuHandle);
+    auto *pipe = static_cast<DX12Pipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getRootIndex(bindingSlot);
+    if (rootIndex != ~0u) {
+      commandList->SetGraphicsRootDescriptorTable(rootIndex, gpuHandle);
+    }
   }
 }
 
 void DX12CommandList::bindStorageImage(uint32_t bindingSlot, Texture *texture) {
   auto *dx12Texture = static_cast<DX12Texture *>(texture);
 
-  // Locate the specific UAV handle in the global heap
+  // Locate the UAV handle in the global heap
   D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle =
       device.getGlobalDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
   gpuHandle.ptr += static_cast<UINT64>(dx12Texture->getUavSlot()) *
                    device.getDescriptorSize();
 
   if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    commandList->SetComputeRootDescriptorTable(bindingSlot, gpuHandle);
+    auto *pipe = static_cast<DX12ComputePipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getRootIndex(bindingSlot);
+    if (rootIndex != ~0u) {
+      commandList->SetComputeRootDescriptorTable(rootIndex, gpuHandle);
+    }
   } else {
-    commandList->SetGraphicsRootDescriptorTable(bindingSlot, gpuHandle);
+    auto *pipe = static_cast<DX12Pipeline *>(currentPipeline);
+    UINT rootIndex = pipe->getRootIndex(bindingSlot);
+    if (rootIndex != ~0u) {
+      commandList->SetGraphicsRootDescriptorTable(rootIndex, gpuHandle);
+    }
   }
 }
 
