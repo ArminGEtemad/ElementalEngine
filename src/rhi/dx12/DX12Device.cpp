@@ -41,14 +41,17 @@ std::unique_ptr<CommandList> DX12Device::createCommandList() {
 
 std::unique_ptr<Pipeline>
 DX12Device::createPipeline(const std::string &vertexShaderName,
-                           const std::string &fragmentShaderName) {
+                           const std::string &fragmentShaderName,
+                           const PipelineConfig &config) {
   return std::make_unique<DX12Pipeline>(*this, vertexShaderName,
-                                        fragmentShaderName);
+                                        fragmentShaderName, config);
 }
 
 std::unique_ptr<Pipeline>
-DX12Device::createComputePipeline(const std::string &computeShaderName) {
-  return std::make_unique<DX12ComputePipeline>(*this, computeShaderName);
+DX12Device::createComputePipeline(const std::string &computeShaderName,
+                                  const PipelineConfig &config) {
+  return std::make_unique<DX12ComputePipeline>(*this, computeShaderName,
+                                               config);
 }
 
 std::unique_ptr<Buffer> DX12Device::createBuffer(size_t size, BufferUsage usage,
