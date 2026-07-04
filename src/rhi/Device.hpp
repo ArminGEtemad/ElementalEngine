@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Pipeline.hpp"
 #include "RHICommon.hpp"
 #include "Texture.hpp"
 #include "Window.hpp"
@@ -26,10 +27,12 @@ public:
 
   virtual std::unique_ptr<Pipeline>
   createPipeline(const std::string &vertexShaderName,
-                 const std::string &fragmentShaderName) = 0;
+                 const std::string &fragmentShaderName,
+                 const PipelineConfig &config) = 0;
 
   virtual std::unique_ptr<Pipeline>
-  createComputePipeline(const std::string &computeShaderName) = 0;
+  createComputePipeline(const std::string &computeShaderName,
+                        const PipelineConfig &config) = 0;
 
   virtual std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                                MemoryProperty memory) = 0;
