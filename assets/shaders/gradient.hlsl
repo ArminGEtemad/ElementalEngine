@@ -13,8 +13,7 @@ ConstantBuffer<SimConfigStruct> SimConfig : register(b0);
 
 Texture2D<float> ReadPressure : register(t1);
 Texture2D<float2> ReadVelocity : register(t2);
-Texture2D<float> ReadObstacle : register(t3);
-RWTexture2D<float2> WriteVelocity : register(u4);
+RWTexture2D<float2> WriteVelocity : register(u3);
 
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID) {
