@@ -7,122 +7,113 @@
 #include <stdexcept>
 #include <stdlib.h>
 namespace elementalEngine::RHI {
+
+static D3D12_SHADER_VISIBILITY mapShaderStageVisibility(ShaderStage stage) {
+  bool hasVertex = (stage & ShaderStage::Vertex);
+  bool hasFragment = (stage & ShaderStage::Fragment);
+  if (hasVertex && hasFragment)
+    return D3D12_SHADER_VISIBILITY_ALL;
+  if (hasVertex)
+    return D3D12_SHADER_VISIBILITY_VERTEX;
+  if (hasFragment)
+    return D3D12_SHADER_VISIBILITY_PIXEL;
+  return D3D12_SHADER_VISIBILITY_ALL;
+}
+
 DX12ComputePipeline::DX12ComputePipeline(DX12Device &device,
-                                         const std::string &shaderName)
+                                         const std::string &shaderName,
+                                         const PipelineConfig &config)
     : device(device) {
-  createPipeline(shaderName);
+  createPipeline(shaderName, config);
 }
 
 DX12ComputePipeline::~DX12ComputePipeline() {}
 
-void DX12ComputePipeline::createPipeline(const std::string &shaderName) {
+void DX12ComputePipeline::createPipeline(const std::string &shaderName,
+                                         const PipelineConfig &config) {
   std::string filepath = "build/" + shaderName + ".dxil";
   auto csBytecode = Core::readFile(filepath);
 
-  // constants from the SimConfig
-  D3D12_ROOT_PARAMETER constParam{};
-  constParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-  constParam.Constants.ShaderRegister = 0; // match b0
-  constParam.Constants.RegisterSpace = 0;
-  constParam.Constants.Num32BitValues = sizeof(SimConfig) / 4;
-  constParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+  // dynamically put everything into root params
+  std::vector<D3D12_ROOT_PARAMETER> rootParams;
+  // dynamically setup the bindings
+  std::vector<D3D12_DESCRIPTOR_RANGE> descRanges(config.bindings.size());
+  std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplerDescs;
+  size_t rangeIdx = 0;
 
-  // 1 read texture density, velocity
-  D3D12_DESCRIPTOR_RANGE rangeT1{};
-  rangeT1.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-  rangeT1.NumDescriptors = 1;
-  rangeT1.BaseShaderRegister = 1;
-  rangeT1.RegisterSpace = 0;
-  rangeT1.OffsetInDescriptorsFromTableStart = 0;
+  if (config.pushConstants.size > 0) {
+    D3D12_ROOT_PARAMETER constParam{};
+    constParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    constParam.Constants.ShaderRegister = 0;
+    constParam.Constants.Num32BitValues = config.pushConstants.size / 4;
+    constParam.ShaderVisibility =
+        mapShaderStageVisibility(config.pushConstants.stage);
 
-  D3D12_ROOT_PARAMETER t1Param{};
-  t1Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-  t1Param.DescriptorTable.NumDescriptorRanges = 1;
-  t1Param.DescriptorTable.pDescriptorRanges = &rangeT1;
-  t1Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    pushConstantRootIndex = static_cast<UINT>(rootParams.size());
+    rootParams.push_back(constParam);
+  }
 
-  // 2 read texture velocity pressure
-  D3D12_DESCRIPTOR_RANGE rangeT2{};
-  rangeT2.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-  rangeT2.NumDescriptors = 1;
-  rangeT2.BaseShaderRegister = 2;
-  rangeT2.RegisterSpace = 0;
-  rangeT2.OffsetInDescriptorsFromTableStart = 0;
+  for (const auto &binding : config.bindings) {
+    if (binding.type == DescriptorType::Sampler) {
+      D3D12_STATIC_SAMPLER_DESC sampler{};
+      // TODO many of the parameters are hardcoded here and need to NOT be
+      // hardcoded at somepoint not the priority until I need them to be handled
+      // separately
+      sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+      sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+      sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+      sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+      sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+      sampler.MipLODBias = 0;
+      sampler.MaxAnisotropy = 0;
+      sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+      sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+      sampler.MinLOD = 0.0f;
+      sampler.MaxLOD = D3D12_FLOAT32_MAX;
+      sampler.ShaderRegister = binding.bindingSlot;
+      sampler.RegisterSpace = 0;
+      sampler.ShaderVisibility = mapShaderStageVisibility(binding.stage);
+      staticSamplerDescs.push_back(sampler);
+      continue;
+    }
+    D3D12_ROOT_PARAMETER param{};
+    param.ShaderVisibility = mapShaderStageVisibility(binding.stage);
 
-  D3D12_ROOT_PARAMETER t2Param{};
-  t2Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-  t2Param.DescriptorTable.NumDescriptorRanges = 1;
-  t2Param.DescriptorTable.pDescriptorRanges = &rangeT2;
-  t2Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    // different kinds of memory
+    if (binding.type == DescriptorType::UniformBuffer) {
+      param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // buffer view
+      param.Descriptor.ShaderRegister = binding.bindingSlot;
+      param.Descriptor.RegisterSpace = 0;
+    } else if (binding.type == DescriptorType::StorageBuffer) {
+      param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+      param.Descriptor.ShaderRegister = binding.bindingSlot;
+      param.Descriptor.RegisterSpace = 0;
+    } else if (binding.type == DescriptorType::SampledImage ||
+               binding.type == DescriptorType::StorageImage) {
+      // texture we have to define the tables
+      param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 
-  // 3 read texture obstacle
-  D3D12_DESCRIPTOR_RANGE rangeT3{};
-  rangeT3.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-  rangeT3.NumDescriptors = 1;
-  rangeT3.BaseShaderRegister = 3;
-  rangeT3.RegisterSpace = 0;
-  rangeT3.OffsetInDescriptorsFromTableStart = 0;
-
-  D3D12_ROOT_PARAMETER t3Param{};
-  t3Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-  t3Param.DescriptorTable.NumDescriptorRanges = 1;
-  t3Param.DescriptorTable.pDescriptorRanges = &rangeT3;
-  t3Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-  // 4 write texture density out
-  D3D12_DESCRIPTOR_RANGE rangeU4{};
-  rangeU4.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-  rangeU4.NumDescriptors = 1;
-  rangeU4.BaseShaderRegister = 4;
-  rangeU4.RegisterSpace = 0;
-  rangeU4.OffsetInDescriptorsFromTableStart = 0;
-
-  D3D12_ROOT_PARAMETER u4Param{};
-  u4Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-  u4Param.DescriptorTable.NumDescriptorRanges = 1;
-  u4Param.DescriptorTable.pDescriptorRanges = &rangeU4;
-  u4Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-  // 4 write texture velocity out
-  D3D12_DESCRIPTOR_RANGE rangeU5{};
-  rangeU5.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-  rangeU5.NumDescriptors = 1;
-  rangeU5.BaseShaderRegister = 5;
-  rangeU5.RegisterSpace = 0;
-  rangeU5.OffsetInDescriptorsFromTableStart = 0;
-
-  D3D12_ROOT_PARAMETER u5Param{};
-  u5Param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-  u5Param.DescriptorTable.NumDescriptorRanges = 1;
-  u5Param.DescriptorTable.pDescriptorRanges = &rangeU5;
-  u5Param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-  // 6 sampler
-  D3D12_STATIC_SAMPLER_DESC sampler{};
-  sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-  sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-  sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-  sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-  sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-  sampler.MipLODBias = 0;
-  sampler.MaxAnisotropy = 0;
-  sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-  sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-  sampler.MinLOD = 0.0f;
-  sampler.MaxLOD = D3D12_FLOAT32_MAX;
-  sampler.ShaderRegister = 6;
-  sampler.RegisterSpace = 0;
-  sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-  // combine
-  D3D12_ROOT_PARAMETER rootParams[] = {constParam, t1Param, t2Param,
-                                       t3Param,    u4Param, u5Param};
+      auto &range = descRanges[rangeIdx++];
+      range.RangeType = (binding.type == DescriptorType::SampledImage)
+                            ? D3D12_DESCRIPTOR_RANGE_TYPE_SRV
+                            : D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+      range.NumDescriptors = binding.count;
+      range.BaseShaderRegister = binding.bindingSlot;
+      range.RegisterSpace = 0;
+      range.OffsetInDescriptorsFromTableStart = 0;
+      param.DescriptorTable.NumDescriptorRanges = 1;
+      param.DescriptorTable.pDescriptorRanges = &range;
+    }
+    slotToRootIndex[binding.bindingSlot] = static_cast<UINT>(rootParams.size());
+    rootParams.push_back(param);
+  }
 
   D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
-  rootSigDesc.NumParameters = _countof(rootParams);
-  rootSigDesc.pParameters = rootParams;
-  rootSigDesc.NumStaticSamplers = 1;
-  rootSigDesc.pStaticSamplers = &sampler;
+  rootSigDesc.NumParameters = static_cast<UINT>(rootParams.size());
+  rootSigDesc.pParameters = rootParams.empty() ? nullptr : rootParams.data();
+  rootSigDesc.NumStaticSamplers = static_cast<UINT>(staticSamplerDescs.size());
+  rootSigDesc.pStaticSamplers =
+      staticSamplerDescs.empty() ? nullptr : staticSamplerDescs.data();
   rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
   ComPtr<ID3DBlob> signature;

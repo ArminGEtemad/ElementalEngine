@@ -9,7 +9,8 @@ class VulkanPipeline : public Pipeline {
 public:
   VulkanPipeline(VulkanDevice &device, VkFormat colorAttachmentFormat,
                  const std::string &vertexShaderName,
-                 const std::string &fragmentShaderName);
+                 const std::string &fragmentShaderName,
+                 const PipelineConfig &config);
   ~VulkanPipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
@@ -27,6 +28,7 @@ private:
   VkShaderModule createShaderModule(const std::vector<char> &code);
   void createPipeline(VkFormat colorAttachmentFormat,
                       const std::string &vertexShaderName,
-                      const std::string &fragmentShaderName);
+                      const std::string &fragmentShaderName,
+                      const PipelineConfig &config);
 };
 } // namespace elementalEngine::RHI
