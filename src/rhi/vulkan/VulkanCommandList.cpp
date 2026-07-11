@@ -12,6 +12,18 @@
 #include <stdexcept>
 
 namespace elementalEngine::RHI {
+
+static VkShaderStageFlags mapShaderStage(ShaderStage stage) {
+  VkShaderStageFlags flags = 0;
+  if (stage & ShaderStage::Vertex)
+    flags |= VK_SHADER_STAGE_VERTEX_BIT;
+  if (stage & ShaderStage::Fragment)
+    flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+  if (stage & ShaderStage::Compute)
+    flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+  return flags;
+}
+
 VulkanCommandList::VulkanCommandList(VulkanDevice &device) : device(device) {
   // create command pool
   VkCommandPoolCreateInfo poolInfo{};
@@ -313,6 +325,22 @@ void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    // compute to compute barrier
+  } else if (from == ResourceState::UnorderedAccess &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    // We need to wait for writes to finish before we Read OR Write again
+    barrier.dstAccessMask =
+        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+  } else if (from == ResourceState::TransferDst &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask =
+        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
   }
 
   VkDependencyInfo depInfo{};
@@ -389,13 +417,21 @@ void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
 }
 
 void VulkanCommandList::pushConstants(uint32_t offset, uint32_t size,
-                                      const void *data) {
+                                      const void *data, ShaderStage stage) {
+  VkShaderStageFlags vkStage = mapShaderStage(stage);
+
   if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    vkCmdPushConstants(commandBuffer, computePiplineLayout,
-                       VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
-  } else { // graphics
-    vkCmdPushConstants(commandBuffer, graphicsPiplineLayout,
-                       VK_SHADER_STAGE_FRAGMENT_BIT, offset, size, data);
+    vkCmdPushConstants(commandBuffer, computePiplineLayout, vkStage, offset,
+                       size, data);
+  } else {
+    vkCmdPushConstants(commandBuffer, graphicsPiplineLayout, vkStage, offset,
+                       size, data);
   }
+}
+
+void VulkanCommandList::clearBuffer(Buffer *buffer, uint32_t value) {
+  auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
+  vkCmdFillBuffer(commandBuffer, vkBuffer->getVkBuffer(), 0, VK_WHOLE_SIZE,
+                  value);
 }
 } // namespace elementalEngine::RHI

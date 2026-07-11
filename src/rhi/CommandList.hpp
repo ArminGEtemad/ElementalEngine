@@ -21,6 +21,7 @@ public:
 
   virtual void beginRendering(Swapchain &swapchain) = 0;
   virtual void endRendering(Swapchain &swapchain) = 0;
+  virtual void clearBuffer(Buffer *buffer, uint32_t value) = 0;
 
   // preventing race condition transitions buffer from - to
   virtual void transitionBuffer(Buffer *buffer, ResourceState from,
@@ -46,8 +47,8 @@ public:
 
   // compute commands
   virtual void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) = 0;
-  virtual void pushConstants(uint32_t offset, uint32_t size,
-                             const void *data) = 0;
+  virtual void pushConstants(uint32_t offset, uint32_t size, const void *data,
+                             ShaderStage stage) = 0;
   virtual void dispatch(uint32_t groupCountX, uint32_t groupCountY,
                         uint32_t groupCountZ) = 0;
 
