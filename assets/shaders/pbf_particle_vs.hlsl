@@ -2,10 +2,12 @@ struct Particle {
     float2 position;
     float2 velocity;
     float2 predictedPosition;
-    uint state; // 0: flying 1: settled
-    float lambda;
+    float density;
+    float nearDensity;
+    float pressure;
+    float nearPressure;
+    uint2 pad;
 };
-
 struct PBFRenderParams {
 float4x4 viewProj;
   float particleRadius;
@@ -23,7 +25,6 @@ StructuredBuffer<Particle> particles : register(t0);
 struct VSOut {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
-    nointerpolation uint state : BLENDINDICES0;
 };
 
 static float2 QUAD_VERTS[6] = {
@@ -43,7 +44,6 @@ VSOut VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
     
     float2 localPos = QUAD_VERTS[vertexID];
     output.uv = QUAD_UVS[vertexID];
-    output.state = p.state;
 
     float2 worldPos = p.position + (localPos * renderParams.particleRadius);
 
