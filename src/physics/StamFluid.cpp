@@ -1,4 +1,5 @@
 #include "StamFluid.hpp"
+#include "Pipeline.hpp"
 #include <cstdint>
 
 namespace elementalEngine::Physics {
@@ -58,6 +59,9 @@ void StamFluid::createPipeline() {
   config.pushConstants.offset = 0;
   config.pushConstants.stage = ShaderStage::Compute;
 
+  config.bindings.push_back(
+      {6, DescriptorType::StorageBuffer, 1, ShaderStage::Compute});
+
   // create pipelines
   advectionPipeline = device.createComputePipeline("advection", config);
   divPipeline = device.createComputePipeline("divergence", config);
@@ -107,9 +111,11 @@ void StamFluid::init(RHI::CommandList &setupCmd) {
                              ResourceState::ShaderResource);
 }
 
-void StamFluid::simulate(RHI::CommandList &commandList, float dt) {
+void StamFluid::simulate(RHI::CommandList &commandList, float dt,
+                         RHI::Buffer *particleBuffer, uint32_t numParticles) {
   using namespace RHI;
   simConfig.dt = dt;
+  simConfig.numParticles = numParticles;
 
   Texture *densityRead =
       useBufferPingToRead ? densityPingTex.get() : densityPongTex.get();
@@ -125,12 +131,16 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt) {
                                 ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*advectionPipeline);
-  commandList.pushConstants(0, sizeof(SimConfig), &simConfig);
+  commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
+                            ShaderStage::Compute);
   commandList.bindTexture(1, densityRead);
   commandList.bindTexture(2, velocityStart);
   commandList.bindStorageImage(3, densityWrite);
   commandList.bindStorageImage(4, velocityAdvected);
   commandList.bindSampler(5);
+  if (particleBuffer) {
+    commandList.bindStorageBuffer(6, particleBuffer);
+  }
   commandList.dispatch(gridWidth / 8, gridHeight / 8, 1);
 
   // DIVERGENCE PASS
@@ -142,7 +152,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt) {
                                 ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*divPipeline);
-  commandList.pushConstants(0, sizeof(SimConfig), &simConfig);
+  commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
+                            ShaderStage::Compute);
   commandList.bindTexture(1, velocityAdvected);
   commandList.bindStorageImage(3, divergenceTex.get());
   commandList.dispatch(gridWidth / 8, gridHeight / 8, 1);
@@ -152,7 +163,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt) {
                                 ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
   commandList.bindPipeline(*jacobiPipeline);
-  commandList.pushConstants(0, sizeof(SimConfig), &simConfig);
+  commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
+                            ShaderStage::Compute);
   commandList.bindTexture(2, divergenceTex.get());
 
   bool usePressurePing = true;
@@ -188,7 +200,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt) {
                                 ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*gradPipeline);
-  commandList.pushConstants(0, sizeof(SimConfig), &simConfig);
+  commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
+                            ShaderStage::Compute);
   commandList.bindTexture(1, finalPressure);
   commandList.bindTexture(2, velocityAdvected);
   commandList.bindStorageImage(3, velocityStart);

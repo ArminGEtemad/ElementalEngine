@@ -13,11 +13,14 @@ public:
   ~StamFluid() = default;
 
   // initialize the undifined resource states
-  void init(RHI::CommandList &cmdList);
+  void init(RHI::CommandList &commandList);
   // called every frame
-  void simulate(RHI::CommandList &cmdList, float dt);
+  void simulate(RHI::CommandList &commandList, float dt,
+                RHI::Buffer *particleBuffer = nullptr,
+                uint32_t numParticles = 0);
 
   // getter
+  RHI::SimConfig getSimConfig() const { return simConfig; }
   RHI::Texture *getRenderTexture() const;
 
 private:
