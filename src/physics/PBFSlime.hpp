@@ -19,18 +19,23 @@ private:
   RHI::Device &device;
   uint32_t numParticles;
   RHI::ParticleSimulationParameters simParams;
+  bool isFirstFrame = true;
 
   // resources
   std::unique_ptr<RHI::Buffer> particleBuffer;
   // Spatial Hashing Linked-List Buffers
   std::unique_ptr<RHI::Buffer> gridHeadBuffer; // 1 uint per cell
   std::unique_ptr<RHI::Buffer> gridNextBuffer; // 1 uint per particle
+  std::unique_ptr<RHI::Buffer> springBuffer;
 
   // compute pipelines
-  std::unique_ptr<RHI::Pipeline> predictPipeline;
-  std::unique_ptr<RHI::Pipeline> hashPipeline;
-  std::unique_ptr<RHI::Pipeline> solveLambdaPipeline;
-  std::unique_ptr<RHI::Pipeline> solveDeltaPipeline;
+  std::unique_ptr<RHI::Pipeline> clearGridPipeline;
+  std::unique_ptr<RHI::Pipeline> buildGridPipeline;
+  std::unique_ptr<RHI::Pipeline> predictionPipeline;
+  std::unique_ptr<RHI::Pipeline> buildGridPredictedPipeline;
+  std::unique_ptr<RHI::Pipeline> springPipeline;
+  std::unique_ptr<RHI::Pipeline> densityPipeline;
+  std::unique_ptr<RHI::Pipeline> relaxPipeline;
   std::unique_ptr<RHI::Pipeline> integratePipeline;
 
   // create functions
