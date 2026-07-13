@@ -341,6 +341,14 @@ void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask =
         VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+  } else if (from == ResourceState::UnorderedAccess &&
+             to == ResourceState::TransferDst) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask =
+        VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.dstStageMask =
+        VK_PIPELINE_STAGE_2_CLEAR_BIT; // vkCmdFillBuffer stage
+    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
   }
 
   VkDependencyInfo depInfo{};
