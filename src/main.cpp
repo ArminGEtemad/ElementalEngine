@@ -1,7 +1,9 @@
+#include "physics/PBFSlime.hpp"
 #include "physics/StamFluid.hpp"
+#include "renderer/PBFSlimeRenderer.hpp"
+#include "renderer/StamFluidRenderer.hpp"
 #include "rhi/CommandList.hpp"
 #include "rhi/Device.hpp"
-#include "rhi/Pipeline.hpp"
 #include "rhi/RHICommon.hpp"
 #include "rhi/Swapchain.hpp"
 #include <cstdlib>
@@ -10,12 +12,28 @@
 using namespace elementalEngine;
 using namespace elementalEngine::RHI;
 using namespace elementalEngine::Physics;
+using namespace elementalEngine::Renderer;
+
+// build the projection matrix as combination of a translation and scaling for a
+// 2D screen. making the world screen understandable for device that neexs a
+// [-1,+1]x[-1,+1] coordinate
+void projMatrix(float left, float right, float bottom, float top,
+                float *resultMatrix) {
+  for (int i = 0; i < 16; ++i)
+    resultMatrix[i] = 0.0f;
+  resultMatrix[0] = 2.0f / (right - left);
+  resultMatrix[5] = 2.0f / (top - bottom);
+  resultMatrix[10] = 1.0f;
+  resultMatrix[12] = -(right + left) / (right - left);
+  resultMatrix[13] = -(bottom + top) / (top - bottom);
+  resultMatrix[15] = 1.0f;
+}
 
 int main() {
-  static constexpr int WIDTH{1000};
+  static constexpr int WIDTH{2000};
   static constexpr int HEIGHT{800};
-  static constexpr int GRID_WIDTH{256};
-  static constexpr int GRID_HEIGHT{256};
+  static constexpr int GRID_WIDTH{2000};
+  static constexpr int GRID_HEIGHT{800};
 
   GraphicsAPI selectedBackend;
   int choice;
@@ -29,7 +47,7 @@ int main() {
   std::cout << "Enter your choice: ";
 
   std::cin >> choice;
-  // choice = 2;
+  // choice = 1;
   if (choice == 1) {
     selectedBackend = GraphicsAPI::Vulkan;
     std::cout << "Vulkan 1.3 Backend has been selected...\n";
@@ -53,16 +71,15 @@ int main() {
 
     //  Physics Subsystem
     StamFluid fluidSim(*device, GRID_WIDTH, GRID_HEIGHT);
+    StamFluidRenderer fluidRenderer(*device);
+    PBFSlime slimeSim(*device, 100);
+    PBFSlimeRenderer slimeRenderer(*device);
 
-    PipelineConfig GraphicPipelineConfig;
-    GraphicPipelineConfig.bindings = {
-        {1, DescriptorType::SampledImage, 1, ShaderStage::Fragment},
-        {3, DescriptorType::SampledImage, 1, ShaderStage::Fragment}};
-    GraphicPipelineConfig.pushConstants.size = sizeof(SimConfig);
-    GraphicPipelineConfig.pushConstants.stage = ShaderStage::Fragment;
-
-    auto graphicsPipeline =
-        device->createPipeline("grid_vs", "grid_fs", GraphicPipelineConfig);
+    float viewProj[16]; // 4x4 projection matrix initialization
+    // Map the screen
+    projMatrix(0.0f, static_cast<float>(GRID_WIDTH), 0.0f,
+               static_cast<float>(GRID_HEIGHT), viewProj);
+    // we have make the graphic pipeline
     std::unique_ptr<CommandList> commandList = device->createCommandList();
 
     // initialize textures
@@ -72,10 +89,6 @@ int main() {
     setupCmd->end();
     device->submit(setupCmd.get(), nullptr);
     device->waitIdle();
-
-    SimConfig simConfigData{};
-    simConfigData.gridWidth = GRID_WIDTH;
-    simConfigData.gridHeight = GRID_HEIGHT;
 
     std::cout << "main loop starts now...\n";
 
@@ -87,21 +100,18 @@ int main() {
       commandList->begin();
 
       // --- PHYSICS PASS ---
-      fluidSim.simulate(*commandList, 0.016f);
+      slimeSim.simulate(*commandList, 0.016f);
+      fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
+                        slimeSim.getParticleCount());
 
       // --- GRAPHICS PASS ---
       commandList->beginRendering(*swapchain);
-      commandList->bindPipeline(*graphicsPipeline);
-      commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
-                               static_cast<float>(HEIGHT));
-      commandList->setScissor(0, 0, WIDTH, HEIGHT);
-      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-
-      // Grab the textures directly from the physics system!
-      commandList->bindTexture(1, fluidSim.getRenderTexture());
-
-      commandList->draw(3, 1, 0, 0); // Fullscreen Triangle
+      fluidRenderer.draw(*commandList, fluidSim, WIDTH, HEIGHT);
+      slimeRenderer.draw(*commandList, slimeSim, WIDTH, HEIGHT, viewProj, 2.5f);
       commandList->endRendering(*swapchain);
+      commandList->transitionBuffer(slimeSim.getParticleBuffer(),
+                                    ResourceState::ShaderResource,
+                                    ResourceState::UnorderedAccess);
 
       commandList->end();
 
