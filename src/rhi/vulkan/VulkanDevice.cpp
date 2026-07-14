@@ -366,6 +366,7 @@ void VulkanDevice::createLogicalDevice() {
   features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   features13.dynamicRendering = VK_TRUE;
   features13.synchronization2 = VK_TRUE;
+  features13.shaderDemoteToHelperInvocation = VK_TRUE;
 
   // --- not needed for now but not to forget them later I add them now ---
   VkPhysicalDeviceVulkan12Features features12{};
