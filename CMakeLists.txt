@@ -3,9 +3,9 @@ project(Elemental_Engine)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# making option for vulkan and DX backend ON, OFF
+# making option for vulkan and DX backend
 set(ENABLE_VULKAN ON)
-set(ENABLE_DX12 ON)
+set(ENABLE_DX12 OFF)
 
 if(NOT ENABLE_VULKAN AND NOT ENABLE_DX12)
     message(FATAL_ERROR "At least one rendering backend (ENABLE_VULKAN or ENABLE_DX12) must be turned ON!")
@@ -13,16 +13,18 @@ endif()
 
 # dependencies and directories
 find_package(glfw3 REQUIRED)
-include_directories(src src/core src/rhi src/physics)
+include_directories(src src/core src/rhi src/physics src/renderer)
 
-# --- independent of backend scripts ---
+# everything independent of the backend
 set(ENGINE_SOURCES
     src/main.cpp
     src/core/Window.cpp
     src/core/FileHandling.cpp
     src/rhi/Device.cpp
     src/physics/stamFluid.cpp
-    #src/physics/PBFSlime.cpp
+    src/physics/PBFSlime.cpp
+    src/renderer/StamFluidRenderer.cpp
+    src/renderer/PBFSlimeRenderer.cpp
 )
 
 set(ENGINE_LIBS glfw)
@@ -45,7 +47,7 @@ if(ENABLE_VULKAN)
     list(APPEND ENGINE_LIBS Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
 endif()
 
-# DX12
+# DX12 backend
 if(ENABLE_DX12)
     find_package(D3D12MemoryAllocator CONFIG REQUIRED)
     
@@ -89,51 +91,69 @@ if(NOT DXC_EXECUTABLE)
 endif()
 
 set(ALL_SHADER_OUTPUTS "")
+set(SHADER_HEADERS 
+    "${CMAKE_SOURCE_DIR}/assets/shaders/clavet_common.hlsli"
+)
 
-# shaders fragment and vertex
-set(SHADER_GRID_VERT "${CMAKE_SOURCE_DIR}/assets/shaders/grid_vs.hlsl")
-set(SHADER_GRID_FRAG "${CMAKE_SOURCE_DIR}/assets/shaders/grid_fs.hlsl")
+set(GRAPHICS_SHADERS grid pbf_particle)
 
-if(ENABLE_VULKAN)
-    set(SPV_VERT_OUT "${CMAKE_BINARY_DIR}/grid_vs.spv")
-    set(SPV_FRAG_OUT "${CMAKE_BINARY_DIR}/grid_fs.spv")
+foreach(SHADER_NAME IN LISTS GRAPHICS_SHADERS)
+
+    # Vertex Shader (all will be ending in _vs)
+    set(VS_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}_vs.hlsl")
     
-    add_custom_command(
-        OUTPUT ${SPV_VERT_OUT}
-        COMMAND ${DXC_EXECUTABLE} -spirv -fspv-target-env=vulkan1.3 -T vs_6_0 -E VSMain ${SHADER_GRID_VERT} -Fo ${SPV_VERT_OUT}
-        DEPENDS ${SHADER_GRID_VERT}
-        COMMENT "Compiling HLSL Vertex Shader to SPIR-V..."
-    )
-    add_custom_command(
-        OUTPUT ${SPV_FRAG_OUT}
-        COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T ps_6_0 -E FSMain ${SHADER_GRID_FRAG} -Fo ${SPV_FRAG_OUT}
-        DEPENDS ${SHADER_GRID_FRAG}
-        COMMENT "Compiling HLSL Fragment Shader to SPIR-V..."
-    )
-    list(APPEND ALL_SHADER_OUTPUTS ${SPV_VERT_OUT} ${SPV_FRAG_OUT})
-endif()
+    if(ENABLE_VULKAN)
+        set(SPV_VS_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}_vs.spv")
+        add_custom_command(
+            OUTPUT ${SPV_VS_OUT}
+            COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T vs_6_0 -E VSMain ${VS_SRC} -Fo ${SPV_VS_OUT}
+            DEPENDS ${VS_SRC}
+            COMMENT "Compiling Vertex Shader (${SHADER_NAME}_vs) to SPIR-V..."
+        )
+        list(APPEND ALL_SHADER_OUTPUTS ${SPV_VS_OUT})
+    endif()
 
-if(ENABLE_DX12)
-    set(DXIL_VERT_OUT "${CMAKE_BINARY_DIR}/grid_vs.dxil")
-    set(DXIL_FRAG_OUT "${CMAKE_BINARY_DIR}/grid_fs.dxil")
+    if(ENABLE_DX12)
+        set(DXIL_VS_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}_vs.dxil")
+        add_custom_command(
+            OUTPUT ${DXIL_VS_OUT}
+            COMMAND ${DXC_EXECUTABLE} -T vs_6_0 -E VSMain ${VS_SRC} -Fo ${DXIL_VS_OUT}
+            DEPENDS ${VS_SRC}
+            COMMENT "Compiling Vertex Shader (${SHADER_NAME}_vs) to DXIL..."
+        )
+        list(APPEND ALL_SHADER_OUTPUTS ${DXIL_VS_OUT})
+    endif()
+
+    # Fragment Shader (all will be ending in _fs)
+    set(FS_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}_fs.hlsl")
     
-    add_custom_command(
-        OUTPUT ${DXIL_VERT_OUT}
-        COMMAND ${DXC_EXECUTABLE} -T vs_6_0 -E VSMain ${SHADER_GRID_VERT} -Fo ${DXIL_VERT_OUT}
-        DEPENDS ${SHADER_GRID_VERT}
-        COMMENT "Compiling HLSL Vertex Shader to DXIL..."
-    )
-    add_custom_command(
-        OUTPUT ${DXIL_FRAG_OUT}
-        COMMAND ${DXC_EXECUTABLE} -T ps_6_0 -E FSMain ${SHADER_GRID_FRAG} -Fo ${DXIL_FRAG_OUT}
-        DEPENDS ${SHADER_GRID_FRAG}
-        COMMENT "Compiling HLSL Fragment Shader to DXIL..."
-    )
-    list(APPEND ALL_SHADER_OUTPUTS ${DXIL_VERT_OUT} ${DXIL_FRAG_OUT})
-endif()
+    if(ENABLE_VULKAN)
+        set(SPV_FS_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}_fs.spv")
+        add_custom_command(
+            OUTPUT ${SPV_FS_OUT}
+            COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T ps_6_0 -E FSMain ${FS_SRC} -Fo ${SPV_FS_OUT}
+            DEPENDS ${FS_SRC}
+            COMMENT "Compiling Fragment Shader (${SHADER_NAME}_fs) to SPIR-V..."
+        )
+        list(APPEND ALL_SHADER_OUTPUTS ${SPV_FS_OUT})
+    endif()
+
+    if(ENABLE_DX12)
+        set(DXIL_FS_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}_fs.dxil")
+        add_custom_command(
+            OUTPUT ${DXIL_FS_OUT}
+            COMMAND ${DXC_EXECUTABLE} -T ps_6_0 -E FSMain ${FS_SRC} -Fo ${DXIL_FS_OUT}
+            DEPENDS ${FS_SRC}
+            COMMENT "Compiling Fragment Shader (${SHADER_NAME}_fs) to DXIL..."
+        )
+        list(APPEND ALL_SHADER_OUTPUTS ${DXIL_FS_OUT})
+    endif()
+endforeach()
 
 # compute Shaders
-set(COMPUTE_SHADERS advection divergence jacobi gradient)
+set(COMPUTE_SHADERS advection divergence jacobi gradient 
+    clavet_grid_construct clavet_grid_next_construct clavet_predicted clavet_springs
+    clavet_density clavet_relax clavet_integrate)
 
 foreach(SHADER_NAME IN LISTS COMPUTE_SHADERS)
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}.hlsl")
