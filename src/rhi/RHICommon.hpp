@@ -6,7 +6,12 @@ enum class GraphicsAPI { Vulkan, DirectX12 };
 
 enum class PipelineBindPoint { Graphics, Compute };
 
-enum class ResourceState { Undefined, UnorderedAccess, ShaderResource };
+enum class ResourceState {
+  Undefined,
+  UnorderedAccess,
+  ShaderResource,
+  TransferDst
+};
 
 struct DeviceConfig {
   bool enableValidationLayers = true;
