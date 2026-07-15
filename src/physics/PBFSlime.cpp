@@ -92,7 +92,7 @@ void PBFSlime::createPipelines() {
 }
 
 void PBFSlime::initializeParticles() {
-  std::vector<RHI::Particle> initialData(numParticles);
+  std::vector<Particle> initialData(numParticles);
   std::default_random_engine generator;
 
   // Widen the spawn cloud
@@ -111,7 +111,7 @@ void PBFSlime::initializeParticles() {
 
   void *mappedData = particleBuffer->map();
   std::memcpy(mappedData, initialData.data(),
-              initialData.size() * sizeof(RHI::Particle));
+              initialData.size() * sizeof(Particle));
   particleBuffer->unmap();
 }
 

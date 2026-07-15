@@ -4,8 +4,10 @@
 #include "Device.hpp"
 #include "Pipeline.hpp"
 #include "Texture.hpp"
+#include "UsedParameters.hpp"
 #include <cstdint>
 #include <memory>
+
 namespace elementalEngine::Physics {
 class StamFluid {
 public:
@@ -20,14 +22,14 @@ public:
                 uint32_t numParticles = 0);
 
   // getter
-  RHI::SimConfig getSimConfig() const { return simConfig; }
+  SimConfig getSimConfig() const { return simConfig; }
   RHI::Texture *getRenderTexture() const;
 
 private:
   RHI::Device &device;
   uint32_t gridWidth;
   uint32_t gridHeight;
-  RHI::SimConfig simConfig;
+  SimConfig simConfig;
 
   bool useBufferPingToRead = true;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Device.hpp"
+#include "UsedParameters.hpp"
 #include <cstdint>
 #include <memory>
 namespace elementalEngine::Physics {
@@ -18,7 +19,7 @@ public:
 private:
   RHI::Device &device;
   uint32_t numParticles;
-  RHI::ParticleSimulationParameters simParams;
+  ParticleSimulationParameters simParams;
   bool isFirstFrame = true;
 
   // resources
