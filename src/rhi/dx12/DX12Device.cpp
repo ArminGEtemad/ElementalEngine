@@ -14,6 +14,23 @@
 
 namespace elementalEngine::RHI {
 
+static void CALLBACK D3D12DebugMessageCallback(D3D12_MESSAGE_CATEGORY category,
+                                               D3D12_MESSAGE_SEVERITY severity,
+                                               D3D12_MESSAGE_ID id,
+                                               LPCSTR pDescription,
+                                               void *pContext) {
+  if (severity == D3D12_MESSAGE_SEVERITY_CORRUPTION ||
+      severity == D3D12_MESSAGE_SEVERITY_ERROR) {
+    std::cerr << "\n[D3D12 ERROR] " << pDescription << "\n\n";
+  } else if (severity == D3D12_MESSAGE_SEVERITY_WARNING) {
+    std::cerr << "\n[D3D12 WARNING] " << pDescription << "\n\n";
+  } else if (severity == D3D12_MESSAGE_SEVERITY_INFO) {
+    std::cout << "[D3D12 INFO] " << pDescription << "\n";
+  } else {
+    std::cout << "[D3D12 MESSAGE] " << pDescription << "\n";
+  }
+}
+
 DX12Device::DX12Device(const DeviceConfig &config, WindowHandling &window) {
   if (config.enableValidationLayers) {
     enableDebugLayer(config.enableGPUAssistedValidatioLayer);
@@ -41,14 +58,17 @@ std::unique_ptr<CommandList> DX12Device::createCommandList() {
 
 std::unique_ptr<Pipeline>
 DX12Device::createPipeline(const std::string &vertexShaderName,
-                           const std::string &fragmentShaderName) {
+                           const std::string &fragmentShaderName,
+                           const PipelineConfig &config) {
   return std::make_unique<DX12Pipeline>(*this, vertexShaderName,
-                                        fragmentShaderName);
+                                        fragmentShaderName, config);
 }
 
 std::unique_ptr<Pipeline>
-DX12Device::createComputePipeline(const std::string &computeShaderName) {
-  return std::make_unique<DX12ComputePipeline>(*this, computeShaderName);
+DX12Device::createComputePipeline(const std::string &computeShaderName,
+                                  const PipelineConfig &config) {
+  return std::make_unique<DX12ComputePipeline>(*this, computeShaderName,
+                                               config);
 }
 
 std::unique_ptr<Buffer> DX12Device::createBuffer(size_t size, BufferUsage usage,
@@ -130,6 +150,25 @@ void DX12Device::createLogicalDevice() {
   if (FAILED(D3D12CreateDevice(physicalDevice.Get(), D3D_FEATURE_LEVEL_12_2,
                                IID_PPV_ARGS(&device)))) {
     throw std::runtime_error("Failed to create logical DirectX 12 Device!");
+  }
+
+  // redirect debug
+  setupDebugMessageCallback();
+}
+
+void DX12Device::setupDebugMessageCallback() {
+  // ID3D12InfoQueue1 interface which supports callbacks
+  ComPtr<ID3D12InfoQueue1> infoQueue;
+  if (SUCCEEDED(device->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+    DWORD callbackCookie = 0;
+    HRESULT hr = infoQueue->RegisterMessageCallback(
+        D3D12DebugMessageCallback, D3D12_MESSAGE_CALLBACK_IGNORE_FILTERS,
+        nullptr, &callbackCookie);
+
+    if (SUCCEEDED(hr)) {
+      std::cout
+          << "Direct3D 12 message redirect to console enabled successfully.\n";
+    }
   }
 }
 

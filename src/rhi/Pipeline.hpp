@@ -1,13 +1,53 @@
 #pragma once
 
 #include "RHICommon.hpp"
+#include <cstdint>
+#include <vector>
+
 namespace elementalEngine::RHI {
-struct SimConfig {
-  uint32_t gridWidth;
-  uint32_t gridHeight;
-  float dt;
-  float forceY;
+enum class ShaderStage : uint32_t {
+  None = 0,
+  Vertex = 1 << 0,
+  Fragment = 1 << 1,
+  Compute = 1 << 2,
+  AllGraphics = Vertex | Fragment,
+  All = Vertex | Fragment | Compute,
 };
+
+inline ShaderStage operator|(ShaderStage a, ShaderStage b) {
+  return static_cast<ShaderStage>(static_cast<uint32_t>(a) |
+                                  static_cast<uint32_t>(b));
+}
+inline bool operator&(ShaderStage a, ShaderStage b) {
+  return (static_cast<uint32_t>(a) & static_cast<uint32_t>(b)) != 0;
+}
+
+enum class DescriptorType {
+  Sampler,
+  SampledImage,  // SRV
+  StorageImage,  // UAV
+  UniformBuffer, // CBV
+  StorageBuffer
+};
+
+struct DescriptorBinding {
+  uint32_t bindingSlot;
+  DescriptorType type;
+  uint32_t count = 1;
+  ShaderStage stage;
+};
+
+struct PushConstantConfig {
+  uint32_t size = 0;
+  uint32_t offset = 0;
+  ShaderStage stage = ShaderStage::None;
+};
+
+struct PipelineConfig {
+  std::vector<DescriptorBinding> bindings;
+  PushConstantConfig pushConstants;
+};
+
 class Pipeline {
 public:
   virtual ~Pipeline() = default;

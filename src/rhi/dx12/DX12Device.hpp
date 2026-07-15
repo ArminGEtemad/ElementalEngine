@@ -4,6 +4,7 @@
 #include "Buffer.hpp"
 #include "CommandList.hpp"
 #include "Device.hpp"
+#include "Pipeline.hpp"
 #include "Window.hpp"
 #include <D3D12MemAlloc.h>
 #include <d3d12.h>
@@ -30,10 +31,12 @@ public:
 
   std::unique_ptr<Pipeline>
   createPipeline(const std::string &vertexShaderName,
-                 const std::string &fragmentShaderName) override;
+                 const std::string &fragmentShaderName,
+                 const PipelineConfig &config) override;
 
   std::unique_ptr<Pipeline>
-  createComputePipeline(const std::string &computeShaderName) override;
+  createComputePipeline(const std::string &computeShaderName,
+                        const PipelineConfig &config) override;
 
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;
@@ -77,5 +80,8 @@ private:
   void createSyncObjects();
   void createAllocator();
   void createGlobalDescriptorHeap();
+
+  // redirect debugs to terminal
+  void setupDebugMessageCallback();
 };
 } // namespace elementalEngine::RHI

@@ -16,6 +16,7 @@ public:
   void end() override;
   void beginRendering(Swapchain &swapchain) override;
   void endRendering(Swapchain &swapchain) override;
+  void clearBuffer(Buffer *buffer, uint32_t value) override;
 
   void transitionBuffer(Buffer *buffer, ResourceState from,
                         ResourceState to) override;
@@ -32,7 +33,8 @@ public:
   void setScissor(int32_t x, int32_t y, uint32_t width,
                   uint32_t height) override;
   void bindVertexBuffer(Buffer *buffer, size_t stride) override;
-  void pushConstants(uint32_t offset, uint32_t size, const void *data) override;
+  void pushConstants(uint32_t offset, uint32_t size, const void *data,
+                     ShaderStage stage) override;
   void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) override;
   void dispatch(uint32_t groupCountX, uint32_t groupCountY,
                 uint32_t groupCountZ) override;

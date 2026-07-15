@@ -28,14 +28,18 @@ std::unique_ptr<CommandList> VulkanDevice::createCommandList() {
 
 std::unique_ptr<Pipeline>
 VulkanDevice::createPipeline(const std::string &vertexShaderName,
-                             const std::string &fragmentShaderName) {
+                             const std::string &fragmentShaderName,
+                             const PipelineConfig &config) {
   return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB,
-                                          vertexShaderName, fragmentShaderName);
+                                          vertexShaderName, fragmentShaderName,
+                                          config);
 }
 
 std::unique_ptr<Pipeline>
-VulkanDevice::createComputePipeline(const std::string &computeShaderName) {
-  return std::make_unique<VulkanComputePipeline>(*this, computeShaderName);
+VulkanDevice::createComputePipeline(const std::string &computeShaderName,
+                                    const PipelineConfig &config) {
+  return std::make_unique<VulkanComputePipeline>(*this, computeShaderName,
+                                                 config);
 }
 
 std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
@@ -362,6 +366,7 @@ void VulkanDevice::createLogicalDevice() {
   features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   features13.dynamicRendering = VK_TRUE;
   features13.synchronization2 = VK_TRUE;
+  features13.shaderDemoteToHelperInvocation = VK_TRUE;
 
   // --- not needed for now but not to forget them later I add them now ---
   VkPhysicalDeviceVulkan12Features features12{};
@@ -459,9 +464,10 @@ void VulkanDevice::createLinearSampler() {
   samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerInfo.magFilter = VK_FILTER_LINEAR; // hardware bilinear filter
   samplerInfo.minFilter = VK_FILTER_LINEAR;
-  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
   samplerInfo.anisotropyEnable = VK_FALSE;
   samplerInfo.unnormalizedCoordinates = VK_FALSE;
   samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;

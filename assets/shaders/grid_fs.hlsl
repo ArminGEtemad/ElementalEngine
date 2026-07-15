@@ -3,6 +3,8 @@ struct SimConfigStruct {
     uint gridHeight;
     float dt;
     float forceY;
+    uint numParticles; 
+    float3 pad;
 };
 
 #ifdef __SPIRV__
@@ -25,11 +27,10 @@ float4 FSMain(VSOut input) : SV_TARGET {
     // our of bounds
     gridX = clamp(gridX, 0, SimConfig.gridWidth - 1);
     gridY = clamp(gridY, 0, SimConfig.gridHeight - 1);
-    
+
     float density = ReadDensity[uint2(gridX, gridY)];
-    
+
     // poison gas 
     float3 gasColor = float3(0.1f, 0.9f, 0.2f);
-    
     return float4(gasColor * saturate(density), 1.0f);
 }

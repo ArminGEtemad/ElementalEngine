@@ -1,11 +1,13 @@
 #pragma once
 
+#include "Pipeline.hpp"
 #include "VulkanDevice.hpp"
 #include <vector>
 namespace elementalEngine::RHI {
 class VulkanComputePipeline : public Pipeline {
 public:
-  VulkanComputePipeline(VulkanDevice &device, const std::string &shaderName);
+  VulkanComputePipeline(VulkanDevice &device, const std::string &shaderName,
+                        const PipelineConfig &config);
   ~VulkanComputePipeline() override;
 
   PipelineBindPoint getBindPoint() const override {
@@ -21,7 +23,8 @@ private:
   VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
 
   VkShaderModule createShaderModule(const std::vector<char> &code);
-  void createPipeline(const std::string &shaderName);
+  void createPipeline(const std::string &shaderName,
+                      const PipelineConfig &config);
 };
 
 } // namespace elementalEngine::RHI

@@ -3,6 +3,8 @@ struct SimConfigStruct {
     uint gridHeight;
     float dt;
     float forceY;
+    uint numParticles; 
+    float3 pad;
 };
 
 #ifdef __SPIRV__

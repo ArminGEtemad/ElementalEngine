@@ -1,19 +1,39 @@
-#include "Texture.hpp"
+#include "physics/PBFSlime.hpp"
+#include "physics/StamFluid.hpp"
+#include "renderer/PBFSlimeRenderer.hpp"
+#include "renderer/StamFluidRenderer.hpp"
 #include "rhi/CommandList.hpp"
 #include "rhi/Device.hpp"
-#include "rhi/Pipeline.hpp"
 #include "rhi/RHICommon.hpp"
 #include "rhi/Swapchain.hpp"
-#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 
 using namespace elementalEngine;
 using namespace elementalEngine::RHI;
+using namespace elementalEngine::Physics;
+using namespace elementalEngine::Renderer;
+
+// build the projection matrix as combination of a translation and scaling for a
+// 2D screen. making the world screen understandable for device that neexs a
+// [-1,+1]x[-1,+1] coordinate
+void projMatrix(float left, float right, float bottom, float top,
+                float *resultMatrix) {
+  for (int i = 0; i < 16; ++i)
+    resultMatrix[i] = 0.0f;
+  resultMatrix[0] = 2.0f / (right - left);
+  resultMatrix[5] = 2.0f / (top - bottom);
+  resultMatrix[10] = 1.0f;
+  resultMatrix[12] = -(right + left) / (right - left);
+  resultMatrix[13] = -(bottom + top) / (top - bottom);
+  resultMatrix[15] = 1.0f;
+}
 
 int main() {
-  static constexpr int WIDTH{1000};
+  static constexpr int WIDTH{2000};
   static constexpr int HEIGHT{800};
+  static constexpr int GRID_WIDTH{2000};
+  static constexpr int GRID_HEIGHT{800};
 
   GraphicsAPI selectedBackend;
   int choice;
@@ -27,7 +47,7 @@ int main() {
   std::cout << "Enter your choice: ";
 
   std::cin >> choice;
-  // choice = 2;
+  // choice = 1;
   if (choice == 1) {
     selectedBackend = GraphicsAPI::Vulkan;
     std::cout << "Vulkan 1.3 Backend has been selected...\n";
@@ -47,238 +67,63 @@ int main() {
 
     std::unique_ptr<Device> device(
         RHIFilter::createDevice(selectedBackend, config, window));
-
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
-    // compute shaders
-    auto advectionPipeline = device->createComputePipeline("advection");
-    auto divPipeline = device->createComputePipeline("divergence");
-    auto jacobiPipeline = device->createComputePipeline("jacobi");
-    auto gradPipeline = device->createComputePipeline("gradient");
 
+    //  Physics Subsystem
+    StamFluid fluidSim(*device, GRID_WIDTH, GRID_HEIGHT);
+    StamFluidRenderer fluidRenderer(*device);
+    PBFSlime slimeSim(*device, 100);
+    PBFSlimeRenderer slimeRenderer(*device);
+
+    float viewProj[16]; // 4x4 projection matrix initialization
+    // Map the screen
+    projMatrix(0.0f, static_cast<float>(GRID_WIDTH), 0.0f,
+               static_cast<float>(GRID_HEIGHT), viewProj);
+    // we have make the graphic pipeline
     std::unique_ptr<CommandList> commandList = device->createCommandList();
-    // -----------------------------------------------------------------------------
-    // Test for compute eulerian grid
-    static constexpr uint32_t GRID_WIDTH{256};
-    static constexpr uint32_t GRID_HEIGHT{256};
 
-    TextureUsage rwTextureUsage = TextureUsage::ShaderResource |
-                                  TextureUsage::UnorderedAccess |
-                                  TextureUsage::TransferDst;
-
-    // -- ping pong texture
-    auto densityPing = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
-
-    auto densityPong = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
-
-    auto velocityPing = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32G32_FLOAT, rwTextureUsage);
-    auto velocityPong = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32G32_FLOAT, rwTextureUsage);
-
-    auto divergenceTexture = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
-
-    auto pressurePing = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
-    auto pressurePong = device->createTexture(
-        GRID_WIDTH, GRID_HEIGHT, TextureFormat::R32_FLOAT, rwTextureUsage);
-
-    bool useBufferPingToRead = true;
-
-    auto graphicsPipeline = device->createPipeline("grid_vs", "grid_fs");
-
-    SimConfig simConfigData{};
-    simConfigData.gridWidth = GRID_WIDTH;
-    simConfigData.gridHeight = GRID_HEIGHT;
-    simConfigData.dt = 0.016f; // for 60fps for now
-    simConfigData.forceY = 50.0f;
-
-    std::cout << "main loop starts now...\n";
+    // initialize textures
     auto setupCmd = device->createCommandList();
     setupCmd->begin();
-
-    // transition everything to unordered to initialize the writing
-    setupCmd->transitionTexture(densityPing.get(), ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-    setupCmd->transitionTexture(densityPong.get(), ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-    setupCmd->transitionTexture(velocityPing.get(), ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-    setupCmd->transitionTexture(velocityPong.get(), ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-    setupCmd->transitionTexture(pressurePing.get(), ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-    setupCmd->transitionTexture(pressurePong.get(), ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-    setupCmd->transitionTexture(divergenceTexture.get(),
-                                ResourceState::Undefined,
-                                ResourceState::UnorderedAccess);
-
-    // transition everything to shader resource
-    setupCmd->transitionTexture(densityPing.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-    setupCmd->transitionTexture(densityPong.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-    setupCmd->transitionTexture(velocityPing.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-    setupCmd->transitionTexture(velocityPong.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-    setupCmd->transitionTexture(pressurePing.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-    setupCmd->transitionTexture(pressurePong.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-    setupCmd->transitionTexture(divergenceTexture.get(),
-                                ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-
+    fluidSim.init(*setupCmd);
     setupCmd->end();
     device->submit(setupCmd.get(), nullptr);
     device->waitIdle();
 
+    std::cout << "main loop starts now...\n";
+
+    // 4. Main Loop
     while (!window.shouldClose()) {
       glfwPollEvents();
       swapchain->acquireNextImage();
 
-      Texture *densityRead =
-          useBufferPingToRead ? densityPing.get() : densityPong.get();
-      Texture *densityWrite =
-          useBufferPingToRead ? densityPong.get() : densityPing.get();
-
-      // velocity bounces within the frame. Ping is always the start state.
-      Texture *velocityStart = velocityPing.get();
-      Texture *velocityAdvected = velocityPong.get();
-
       commandList->begin();
 
-      // compute
-      // ADVECTION PASS
-      commandList->transitionTexture(densityWrite,
-                                     ResourceState::ShaderResource,
-                                     ResourceState::UnorderedAccess);
-      commandList->transitionTexture(velocityAdvected,
-                                     ResourceState::ShaderResource,
-                                     ResourceState::UnorderedAccess);
+      // --- PHYSICS PASS ---
+      slimeSim.simulate(*commandList, 0.016f);
+      fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
+                        slimeSim.getParticleCount());
 
-      commandList->bindPipeline(*advectionPipeline);
-      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-
-      commandList->bindTexture(1, densityRead);       // t1: Old Density
-      commandList->bindTexture(2, velocityStart);     // t2: Old Velocity
-      commandList->bindStorageImage(3, densityWrite); // u3: New Density
-      commandList->bindStorageImage(4,
-                                    velocityAdvected); // u4: Advected Velocity
-      commandList->bindSampler(5);                     // s5: linear sampler
-      commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
-
-      // DIVERGENCE PASS
-      commandList->transitionTexture(velocityAdvected,
-                                     ResourceState::UnorderedAccess,
-                                     ResourceState::ShaderResource);
-      commandList->transitionTexture(divergenceTexture.get(),
-                                     ResourceState::ShaderResource,
-                                     ResourceState::UnorderedAccess);
-
-      commandList->bindPipeline(*divPipeline);
-      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindTexture(1, velocityAdvected); // t1: Advected Velocity
-      commandList->bindStorageImage(
-          3, divergenceTexture.get()); // u3: Divergence Out
-      commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
-
-      // JACOBI SOLVER PASS
-      commandList->transitionTexture(divergenceTexture.get(),
-                                     ResourceState::UnorderedAccess,
-                                     ResourceState::ShaderResource);
-      commandList->bindPipeline(*jacobiPipeline);
-      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindTexture(2, divergenceTexture.get()); // t2: Divergence In
-
-      bool usePressurePing = true;
-      const int JACOBI_ITERATIONS = 20;
-
-      for (int i = 0; i < JACOBI_ITERATIONS; ++i) {
-        Texture *pRead =
-            usePressurePing ? pressurePing.get() : pressurePong.get();
-        Texture *pWrite =
-            usePressurePing ? pressurePong.get() : pressurePing.get();
-
-        if (i > 0) {
-          commandList->transitionTexture(pRead, ResourceState::UnorderedAccess,
-                                         ResourceState::ShaderResource);
-        }
-
-        commandList->transitionTexture(pWrite, ResourceState::ShaderResource,
-                                       ResourceState::UnorderedAccess);
-
-        commandList->bindTexture(1, pRead);       // t1: Pressure In
-        commandList->bindStorageImage(3, pWrite); // u3: Pressure Out
-        commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
-
-        usePressurePing = !usePressurePing;
-      }
-
-      // GRADIENT SUBTRACTION PASS
-      Texture *finalPressure =
-          usePressurePing ? pressurePing.get() : pressurePong.get();
-
-      commandList->transitionTexture(finalPressure,
-                                     ResourceState::UnorderedAccess,
-                                     ResourceState::ShaderResource);
-      commandList->transitionTexture(velocityStart,
-                                     ResourceState::ShaderResource,
-                                     ResourceState::UnorderedAccess);
-
-      commandList->bindPipeline(*gradPipeline);
-      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-      commandList->bindTexture(1, finalPressure);    // t1: Solved Pressure
-      commandList->bindTexture(2, velocityAdvected); // t2: Advected Velocity
-      commandList->bindStorageImage(
-          3, velocityStart); // u3: Corrected Velocity Out
-      commandList->dispatch(GRID_WIDTH / 8, GRID_HEIGHT / 8, 1);
-
-      // graphic
-      // GRAPHICS RENDER PASS
-      commandList->transitionTexture(densityWrite,
-                                     ResourceState::UnorderedAccess,
-                                     ResourceState::ShaderResource);
-      commandList->transitionTexture(velocityStart,
-                                     ResourceState::UnorderedAccess,
-                                     ResourceState::ShaderResource);
-
+      // --- GRAPHICS PASS ---
       commandList->beginRendering(*swapchain);
-      commandList->bindPipeline(*graphicsPipeline);
-      commandList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
-                               static_cast<float>(HEIGHT));
-      commandList->setScissor(0, 0, WIDTH, HEIGHT);
-      commandList->pushConstants(0, sizeof(SimConfig), &simConfigData);
-
-      // Ensure the graphics pipeline is reading using a Texture binding
-      commandList->bindTexture(1, densityWrite); // t1: Density
-
-      commandList->draw(3, 1, 0, 0);
+      fluidRenderer.draw(*commandList, fluidSim, WIDTH, HEIGHT);
+      slimeRenderer.draw(*commandList, slimeSim, WIDTH, HEIGHT, viewProj, 2.5f);
       commandList->endRendering(*swapchain);
+      commandList->transitionBuffer(slimeSim.getParticleBuffer(),
+                                    ResourceState::ShaderResource,
+                                    ResourceState::UnorderedAccess);
 
       commandList->end();
 
       device->submit(commandList.get(), swapchain.get());
       swapchain->present();
-      // Ping to Pong and pong to pind for the next frame
-      useBufferPingToRead = !useBufferPingToRead;
     }
+
     device->waitIdle();
 
   } catch (const std::exception &e) {
     std::cerr << e.what() << "\n";
     return EXIT_FAILURE;
   }
-
   return EXIT_SUCCESS;
 }

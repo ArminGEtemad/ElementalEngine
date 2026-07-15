@@ -4,6 +4,7 @@
 #include "Buffer.hpp"
 #include "CommandList.hpp"
 #include "Device.hpp"
+#include "Pipeline.hpp"
 #include "RHICommon.hpp"
 #include "Window.hpp"
 #include <memory>
@@ -28,9 +29,11 @@ public:
 
   std::unique_ptr<Pipeline>
   createPipeline(const std::string &vertexShaderName,
-                 const std::string &fragmentShaderName) override;
+                 const std::string &fragmentShaderName,
+                 const PipelineConfig &config) override;
   std::unique_ptr<Pipeline>
-  createComputePipeline(const std::string &computeShaderName) override;
+  createComputePipeline(const std::string &computeShaderName,
+                        const PipelineConfig &config) override;
 
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;

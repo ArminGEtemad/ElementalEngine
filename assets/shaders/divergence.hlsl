@@ -3,6 +3,8 @@ struct SimConfigStruct {
     uint gridHeight;
     float dt;
     float forceY;
+    uint numParticles; 
+    float3 pad;
 };
 
 #ifdef __SPIRV__
@@ -25,6 +27,7 @@ void CSMain(uint3 id : SV_DispatchThreadID) {
     uint top = id.y > 0 ? id.y - 1: id.y;
     uint bottom = id.y < SimConfig.gridHeight - 1 ? id.y + 1 : id.y;
 
+    // velocity is zero at the walls
     float vL = ReadVelocity[uint2(left, id.y)].x;
     float vR = ReadVelocity[uint2(right, id.y)].x;
     float vT = ReadVelocity[uint2(id.x, top)].y;
