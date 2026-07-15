@@ -80,5 +80,8 @@ private:
   void createSyncObjects();
   void createAllocator();
   void createGlobalDescriptorHeap();
+
+  // redirect debugs to terminal
+  void setupDebugMessageCallback();
 };
 } // namespace elementalEngine::RHI
