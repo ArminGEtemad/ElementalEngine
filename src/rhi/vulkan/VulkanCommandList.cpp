@@ -122,6 +122,56 @@ void VulkanCommandList::beginRendering(Swapchain &swapchain) {
 
   vkCmdBeginRendering(commandBuffer, &renderingInfo);
 }
+void VulkanCommandList::beginRendering(Texture *renderTarget) {
+  auto *vk13Texture = static_cast<VulkanTexture *>(renderTarget);
+  VkImage image = vk13Texture->getImage();
+  VkImageView imageView = vk13Texture->getImageView();
+
+  VkImageMemoryBarrier2 imageBarrier{};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.srcAccessMask = 0;
+  imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  imageBarrier.image = image;
+  imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageBarrier.subresourceRange.baseMipLevel = 0;
+  imageBarrier.subresourceRange.levelCount = 1;
+  imageBarrier.subresourceRange.baseArrayLayer = 0;
+  imageBarrier.subresourceRange.layerCount = 1;
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers = &imageBarrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+  // For a heightmap, we clear with 0.0f (representing 0 height)
+  VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 0.0f}}};
+
+  VkRenderingAttachmentInfo colorAttachment{};
+  colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  colorAttachment.imageView = imageView;
+  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.clearValue = clearColor;
+
+  VkRenderingInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = {vk13Texture->getWidth(),
+                                     vk13Texture->getHeight()};
+  renderingInfo.layerCount = 1;
+  renderingInfo.colorAttachmentCount = 1;
+  renderingInfo.pColorAttachments = &colorAttachment;
+
+  vkCmdBeginRendering(commandBuffer, &renderingInfo);
+}
+
 void VulkanCommandList::endRendering(Swapchain &swapchain) {
   auto &vkSwapchain = static_cast<VulkanSwapchain &>(swapchain);
   uint32_t frameIndex = vkSwapchain.getCurrentFrameIndex();
@@ -152,6 +202,37 @@ void VulkanCommandList::endRendering(Swapchain &swapchain) {
 
   vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 }
+void VulkanCommandList::endRendering(Texture *renderTarget) {
+  auto *vk13Texture = static_cast<VulkanTexture *>(renderTarget);
+  VkImage image = vk13Texture->getImage();
+
+  vkCmdEndRendering(commandBuffer);
+
+  // transition the texture so it is ready to be sampled by shaders in the
+  // next pass
+  VkImageMemoryBarrier2 imageBarrier{};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+  imageBarrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+  imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+  imageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageBarrier.image = image;
+  imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageBarrier.subresourceRange.baseMipLevel = 0;
+  imageBarrier.subresourceRange.levelCount = 1;
+  imageBarrier.subresourceRange.baseArrayLayer = 0;
+  imageBarrier.subresourceRange.layerCount = 1;
+
+  VkDependencyInfo depInfo{};
+  depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers = &imageBarrier;
+
+  vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+}
+
 void VulkanCommandList::setViewport(float x, float y, float width,
                                     float height) {
   VkViewport viewport{};

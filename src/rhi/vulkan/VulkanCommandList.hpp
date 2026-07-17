@@ -16,6 +16,9 @@ public:
   void end() override;
   void beginRendering(Swapchain &swapchain) override;
   void endRendering(Swapchain &swapchain) override;
+  void beginRendering(Texture *renderTarget) override;
+  void endRendering(Texture *renderTarget) override;
+
   void clearBuffer(Buffer *buffer, uint32_t value) override;
 
   void transitionBuffer(Buffer *buffer, ResourceState from,
