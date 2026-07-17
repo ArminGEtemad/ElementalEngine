@@ -95,7 +95,7 @@ set(SHADER_HEADERS
     "${CMAKE_SOURCE_DIR}/assets/shaders/clavet_common.hlsli"
 )
 
-set(GRAPHICS_SHADERS grid pbf_particle)
+set(GRAPHICS_SHADERS grid slime_heightmap slime_composite)
 
 foreach(SHADER_NAME IN LISTS GRAPHICS_SHADERS)
 
