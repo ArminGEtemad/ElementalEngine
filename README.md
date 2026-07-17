@@ -2,28 +2,28 @@
 
 > This project is my most ambitious project until now.
 >
+> The core idea is to have an engine to render different elements and their interaction
+>
 > Target: This engine must be finished around the time I finish my PhD.
 
-A real-time, high-performance **Systemic Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate complex parallel thermodynamic and chemical phase transitions directly on parallel GPU.
+A real-time, high-performance **Systemic Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate
 
-I will be writing the engine without any use of game engines. I will use **Hardware Abstraction Layer (HAL)** to not rewrite the whole code in both backends.
+- gas behavior
+- Liquid behavior
+- Thermodynamics (fire and explosion)
+- Electricity
 
-## Poison Gas (finished as isolated element)
+and their interaction.
 
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/vulkan smoke.png" width="800"/>
-  </div>
-
-</div>
+I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
+However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
 
 ## Core Architecture & Pipeline Layout
 
 I will be using two backends
 
-- **Vulkan 1.3 Backend**
-- **DirectX 12 Backend**
+- **Vulkan 1.3 Backend (Main Focus)**
+- **DirectX 12 Backend (Paused)**
 
 ### Used Hardware
 
@@ -31,11 +31,31 @@ I will be using two backends
 
 **Additionally:** I might add an ASUS handheld with AMD to make sure that Nvidia is not being merciful.
 
-## Simulation Framework (The GPU Kernels)
+## Finished Elements (Stam Fluid and Clevet)
 
-The element mechanics (Fire, Water, Electricity, Gas) are evaluated inside a 3D grid cell topology utilizing double-buffered GPU Structured Buffers. (Compute and Fragment Shader)
+<div style="display: flex; gap: 100px; align-items: flex-start;">
 
-My idea is that, the fire can make the gas explode, the water can turn off the fire, the electricity can electrify the water, the fire can evaporate the water etc.
+  <div>
+    <img src="PicturesAndGifs/StamAndClavet.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/StamAndClavet2.gif" width="800"/>
+  </div>
+
+</div>
+
+## Simulation Framework
+
+- Stam's Stable fluid (Poison Gas)
+- Clevet Particle-based Viscoelastic Fluid Simulation (Acidic Slime)
+- Macklin Position Based Fluids (An experimental case was developed at first for acidic bath but It wasn't the way I liked it. I save it for the Future updates but for water.)
+- Thermodynamics (Future updates)
+- Electricity (Future Updates)
 
 ## Moving Forward
 
@@ -46,13 +66,8 @@ The following is how I would like to move forward with the project
 - [x] Implement Compute Shader dispatching in the HAL. Set up structured buffers and read/write textures.
 - [x] Write a basic advection and diffusion compute shader to move generic "density" around.
 - [x] Fluid Dynamics (Poison Gas)
-
-I am changing some of the things I wanted to make.
-Instead of a generic gas I would like to add a liquid(acid) projectil that upon impact functions as a source for the poison gas.
-
-for this matter I think I need the followings:
-
-- [ ] Collision Geometry (Dirichlet boundary condition)
-- [ ] blob of acid buffer
-- [ ] right now I am using Joe Stam's algorithm but the projectile is not dissipative (I found another paper! if it works I will cite them!)
-- [ ] phase change compute pass
+- DX12 development is paused here.
+- [x] Collision Geometry (Dirichlet boundary condition)
+- [x] Added Acidic Slime using Clavet algorithm
+- [x] phase change compute pass
+- I now move to Thermodynamics :)
