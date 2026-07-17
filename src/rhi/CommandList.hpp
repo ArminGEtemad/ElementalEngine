@@ -21,6 +21,9 @@ public:
 
   virtual void beginRendering(Swapchain &swapchain) = 0;
   virtual void endRendering(Swapchain &swapchain) = 0;
+  virtual void beginRendering(Texture *renderTarget) = 0;
+  virtual void endRendering(Texture *renderTarget) = 0;
+
   virtual void clearBuffer(Buffer *buffer, uint32_t value) = 0;
 
   // preventing race condition transitions buffer from - to

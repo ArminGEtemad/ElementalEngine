@@ -18,13 +18,13 @@ PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
   simParams.interactionRadius = 20.0f;
   simParams.interactionRadius2 =
       simParams.interactionRadius * simParams.interactionRadius;
-  simParams.restDensity = 2.0f;
+  simParams.restDensity = 6.0f;
   simParams.stiffness = 25.0f;
   simParams.nearStiffness = 40.0f;
   simParams.linearViscosity = 2.0f;
   simParams.quadraticViscosity = 0.3f;
   simParams.springStiffness = 20.0f;
-  simParams.plasticity = 0.3f;
+  simParams.plasticity = 0.5f;
   simParams.yieldRatio = 0.2f;
   simParams.sticknessRadius = 2.0f;
 
@@ -96,14 +96,14 @@ void PBFSlime::initializeParticles() {
   std::default_random_engine generator;
 
   // Widen the spawn cloud
-  std::uniform_real_distribution<float> noiseX(-50.0f, 50.0f);
+  std::uniform_real_distribution<float> noiseX(-100.0f, 100.0f);
   std::uniform_real_distribution<float> spawnY(550.0f, 600.0f);
 
   for (uint32_t i = 0; i < numParticles; ++i) {
-    initialData[i].position[0] = 200.0f + noiseX(generator);
+    initialData[i].position[0] = 300.0f + noiseX(generator);
     initialData[i].position[1] = spawnY(generator);
 
-    initialData[i].velocity[0] = 150.0f;
+    initialData[i].velocity[0] = 100.0f;
     initialData[i].velocity[1] = 10.0f;
     initialData[i].predictedPosition[0] = initialData[i].position[0];
     initialData[i].predictedPosition[1] = initialData[i].position[1];

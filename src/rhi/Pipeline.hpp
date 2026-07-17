@@ -5,6 +5,12 @@
 #include <vector>
 
 namespace elementalEngine::RHI {
+
+enum class Blendmode {
+  None,
+  Additive,
+};
+
 enum class ShaderStage : uint32_t {
   None = 0,
   Vertex = 1 << 0,
@@ -46,6 +52,7 @@ struct PushConstantConfig {
 struct PipelineConfig {
   std::vector<DescriptorBinding> bindings;
   PushConstantConfig pushConstants;
+  Blendmode blendMode = Blendmode::None; // default to None
 };
 
 class Pipeline {

@@ -70,7 +70,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID) {
             newVelocity.y += (0.008f * SimConfig.forceY * SimConfig.dt);
         }
         // Outer faint gas trail
-        else if (dist < 15.0f) { 
+        else if (dist < 20.0f) { 
             newDensity += 0.00001f; 
         }
     }
