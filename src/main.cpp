@@ -46,8 +46,8 @@ int main() {
   std::cout << "  [2] DirectX 12\n";
   std::cout << "Enter your choice: ";
 
-  std::cin >> choice;
-  // choice = 1;
+  // std::cin >> choice;
+  choice = 1;
   if (choice == 1) {
     selectedBackend = GraphicsAPI::Vulkan;
     std::cout << "Vulkan 1.3 Backend has been selected...\n";
@@ -104,10 +104,12 @@ int main() {
       fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
                         slimeSim.getParticleCount());
 
+      slimeRenderer.drawHeightmap(*commandList, slimeSim, viewProj, 8.0f);
+
       // --- GRAPHICS PASS ---
       commandList->beginRendering(*swapchain);
       fluidRenderer.draw(*commandList, fluidSim, WIDTH, HEIGHT);
-      slimeRenderer.draw(*commandList, slimeSim, WIDTH, HEIGHT, viewProj, 2.5f);
+      slimeRenderer.drawComposite(*commandList, WIDTH, HEIGHT);
       commandList->endRendering(*swapchain);
       commandList->transitionBuffer(slimeSim.getParticleBuffer(),
                                     ResourceState::ShaderResource,
