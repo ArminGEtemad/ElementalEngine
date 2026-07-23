@@ -25,6 +25,7 @@ set(ENGINE_SOURCES
     src/physics/PBFSlime.cpp
     src/renderer/StamFluidRenderer.cpp
     src/renderer/PBFSlimeRenderer.cpp
+    src/renderer/MidpointLightningRenderer.cpp
 )
 
 set(ENGINE_LIBS glfw)
@@ -95,7 +96,7 @@ set(SHADER_HEADERS
     "${CMAKE_SOURCE_DIR}/assets/shaders/clavet_common.hlsli"
 )
 
-set(GRAPHICS_SHADERS grid slime_heightmap slime_composite)
+set(GRAPHICS_SHADERS grid slime_heightmap slime_composite midpoint_lightning)
 
 foreach(SHADER_NAME IN LISTS GRAPHICS_SHADERS)
 
