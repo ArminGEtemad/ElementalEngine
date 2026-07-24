@@ -14,7 +14,7 @@ LightningRenderer::LightningRenderer(RHI::Device &device) : device(device) {
   // initializing the randomizer
   std::random_device rd;
   randomizer.seed(rd());
-  timer = duration;
+  timer = totDuration;
   opacity = 0.0f;
 
   createLightningPipeline();
@@ -62,74 +62,94 @@ void LightningRenderer::generateJaggedPath(const V2 &startPoint,
 }
 
 void LightningRenderer::triggerLightning(float targetX, float targetY) {
+  strikes.clear();
+  timer = 0.0f;
+
   // Hardcoded the roof. TODO make it dynamic later
   V2 startPoint = {targetX, 800.0f};
   V2 endPoint = {targetX, targetY};
 
-  // first bolt
-  // recursive path generation
-  std::vector<V2> points1;
-  points1.push_back(startPoint);
-  generateJaggedPath(startPoint, endPoint, 220.0f, 0, 5, points1);
-  points1.push_back(endPoint);
-  pointCount1 = static_cast<uint32_t>(points1.size());
-  size_t bufferSize1 = points1.size() * sizeof(V2);
-  lightningBuffer1 = device.createBuffer(bufferSize1, RHI::BufferUsage::Storage,
-                                         RHI::MemoryProperty::CPUAccess);
-  void *mappedData1 = lightningBuffer1->map();
-  std::memcpy(mappedData1, points1.data(), bufferSize1);
-  lightningBuffer1->unmap();
+  // helper struct
+  struct StrikeConfig {
+    float triggerTime;
+    float duration;
+    float peakOpacity;
+    float thickness;
+    float displacement;
+    int maxGenerations;
+  };
 
-  // second bolt -> main powerful strike
-  std::vector<V2> points2;
-  points2.push_back(startPoint);
-  generateJaggedPath(startPoint, endPoint, 120.0f, 0, 6, points2);
-  points2.push_back(endPoint);
-  pointCount2 = static_cast<uint32_t>(points2.size());
-  size_t bufferSize2 = points2.size() * sizeof(V2);
-  lightningBuffer2 = device.createBuffer(bufferSize2, RHI::BufferUsage::Storage,
-                                         RHI::MemoryProperty::CPUAccess);
-  void *mappedData2 = lightningBuffer2->map();
-  std::memcpy(mappedData2, points2.data(), bufferSize2);
-  lightningBuffer2->unmap();
+  std::vector<StrikeConfig> configs = {{0.00f, 0.12f, 0.3f, 1.5f, 200.0f, 5},
+                                       {0.12f, 0.10f, 0.5f, 1.5f, 200.0f, 5},
+                                       {0.22f, 0.13f, 0.5f, 1.5f, 200.0f, 5},
+                                       {0.35f, 0.45f, 1.0f, 5.5f, 150.0f, 6}};
 
-  // Reset clock to run the two-bolt sequence
-  timer = 0.0f;
-  opacity = 0.0f;
+  totDuration = 0.0f;
+
+  for (const auto &config : configs) {
+    LightningStrike strike;
+    strike.triggerTime = config.triggerTime;
+    strike.duration = config.duration;
+    strike.peakOpacity = config.peakOpacity;
+    strike.thickness = config.thickness;
+
+    // every strike is unique
+    std::vector<V2> points;
+    points.push_back(startPoint);
+    generateJaggedPath(startPoint, endPoint, config.displacement, 0,
+                       config.maxGenerations, points);
+    points.push_back(endPoint);
+    strike.pointCount = static_cast<uint32_t>(points.size());
+
+    // Allocate storage buffer and upload vertices
+    size_t bufferSize = points.size() * sizeof(V2);
+    strike.strikeBuffer = device.createBuffer(
+        bufferSize, RHI::BufferUsage::Storage, RHI::MemoryProperty::CPUAccess);
+
+    void *mappedData = strike.strikeBuffer->map();
+    std::memcpy(mappedData, points.data(), bufferSize);
+    strike.strikeBuffer->unmap();
+
+    strikes.push_back(std::move(strike));
+
+    // Keep track of the longest segment to know when the entire animation
+    // finishes
+    float endOfStrike = config.triggerTime + config.duration;
+    if (endOfStrike > totDuration) {
+      totDuration = endOfStrike;
+    }
+  }
 }
 
 void LightningRenderer::update(float dt) {
-  if (timer < duration) {
+  if (timer < totDuration) {
     timer += dt;
     float t = timer;
 
-    auto lerp = [](float a, float b, float f) { return a + f * (b - a); };
+    // Reset default opacity
+    opacity = 0.0f;
 
-    // --- TWO-BOLT DISCHARGE TIMELINE ---
-    if (t < 0.20f) {
-      // first bolt that fades out quicker
-      if (t < 0.08f) {
-        opacity = lerp(0.0f, 0.45f, t / 0.08f); // raises to 45% brightness
-      } else {
-        opacity =
-            lerp(0.45f, 0.0f,
-                 (t - 0.08f) / 0.12f); // fades completely to dark at 0.20s
-      }
-    } else {
-      // Return Strike "the main bolt with brighter visuals"
-      float tReturn = t - 0.20f;
-      if (tReturn < 0.06f) {
-        opacity = lerp(0.0f, 1.0f, tReturn / 0.06f); // 100% brightness
-      } else {
-        opacity = lerp(1.0f, 0.0f,
-                       (tReturn - 0.06f) / 0.49f); // Slow trailing fadeout
+    // Check which strike in our collection is currently active on the
+    // timeline
+    for (const auto &strike : strikes) {
+      if (t >= strike.triggerTime && t < strike.triggerTime + strike.duration) {
+        float strikeAge = t - strike.triggerTime;
+        float progress = strikeAge / strike.duration;
+
+        //  fast rise, linear decay
+        if (progress < 0.20f) {
+          opacity = (progress / 0.20f) * strike.peakOpacity;
+        } else {
+          opacity = (1.0f - (progress - 0.20f) / 0.80f) * strike.peakOpacity;
+        }
+        break;
       }
     }
   } else {
     opacity = 0.0f;
-    timer = duration;
-    pointCount1 = 0;
-    pointCount2 = 0;
+    timer = totDuration;
+    // Free GPU buffers once the sequence completes
+    strikes.clear();
   }
 }
 
@@ -154,44 +174,32 @@ void LightningRenderer::createLightningPipeline() {
 
 void LightningRenderer::draw(RHI::CommandList &commandList,
                              const float *viewProjMatrix) {
-  // no drawing if no lightning active
-  if (opacity <= 0.0f) {
+  if (opacity <= 0.0f || strikes.empty()) {
     return;
   }
 
-  commandList.bindPipeline(*lightningPipeline);
+  // Iterate over our database to find and draw the currently active strike
+  for (const auto &strike : strikes) {
+    if (timer >= strike.triggerTime &&
+        timer < strike.triggerTime + strike.duration) {
+      if (strike.pointCount < 2)
+        continue;
 
-  MidpointLightningParams params{};
-  std::memcpy(params.viewProj, viewProjMatrix, sizeof(float) * 16);
-  params.opacity = opacity;
+      commandList.bindPipeline(*lightningPipeline);
 
-  // timed buffer switch with dynamical thickness
-  if (timer < 0.2f) {
-    if (pointCount1 < 2)
-      return;
+      MidpointLightningParams params{};
+      std::memcpy(params.viewProj, viewProjMatrix, sizeof(float) * 16);
+      params.opacity = opacity;
+      params.thickness = strike.thickness;
 
-    params.thickness = 2.0f;
-    commandList.pushConstants(0, sizeof(MidpointLightningParams), &params,
-                              RHI::ShaderStage::AllGraphics);
-    // (Set 0, Binding 0)
-    commandList.bindStorageBuffer(0, lightningBuffer1.get());
-    // (6 vertices per segment),
-    // (pointCount - 1) * 6 total vertices
-    uint32_t vertexCount = (pointCount1 - 1) * 6;
-    commandList.draw(vertexCount, 1, 0, 0);
-  } else {
-    if (pointCount2 < 2)
-      return;
+      commandList.pushConstants(0, sizeof(MidpointLightningParams), &params,
+                                RHI::ShaderStage::AllGraphics);
+      commandList.bindStorageBuffer(0, strike.strikeBuffer.get());
 
-    params.thickness = 5.0f;
-    commandList.pushConstants(0, sizeof(MidpointLightningParams), &params,
-                              RHI::ShaderStage::AllGraphics);
-    // (Set 0, Binding 0)
-    commandList.bindStorageBuffer(0, lightningBuffer2.get());
-    // (6 vertices per segment),
-    // (pointCount - 1) * 6 total vertices
-    uint32_t vertexCount = (pointCount2 - 1) * 6;
-    commandList.draw(vertexCount, 1, 0, 0);
+      uint32_t vertexCount = (strike.pointCount - 1) * 6;
+      commandList.draw(vertexCount, 1, 0, 0);
+      break; // Only draw the active strike, then exit
+    }
   }
 }
 
