@@ -1,7 +1,8 @@
 struct LightningRenderParams {
     float4x4 viewProj;
     float opacity;
-    float3 pad;
+    float thickness;
+    float2 pad;
 };
 
 #ifdef __SPIRV__

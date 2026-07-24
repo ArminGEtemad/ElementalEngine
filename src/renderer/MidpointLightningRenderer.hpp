@@ -18,7 +18,8 @@ struct V2 {
 struct MidpointLightningParams {
   float viewProj[16];
   float opacity;
-  float pad[3];
+  float thickness;
+  float pad[2];
 };
 
 class LightningRenderer {
@@ -36,15 +37,21 @@ public:
 
 private:
   RHI::Device &device;
-  uint32_t pointCount{0};
 
   // storage Buffer holds the lightning vertices
-  std::unique_ptr<RHI::Buffer> lightningBuffer;
+  // the number of lightnings are hardcoded for now maybe make it scalable later
+  std::unique_ptr<RHI::Buffer> lightningBuffer1;
+  std::unique_ptr<RHI::Buffer> lightningBuffer2;
+
+  uint32_t pointCount1{0};
+  uint32_t pointCount2{0};
+
   std::unique_ptr<RHI::Pipeline> lightningPipeline;
 
   // animation values
   float opacity = 0.0f;
-  const float fadeSpeed = 4.0f; // fades out completely
+  const float duration = 0.75f; // fades out completely after 2 strokes
+  float timer = 999.0f;
 
   // random jagged displacement
   std::default_random_engine randomizer;

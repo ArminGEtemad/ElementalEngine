@@ -1,7 +1,8 @@
 struct LightningRenderParams {
     float4x4 viewProj;
     float opacity;
-    float3 pad;
+    float thickness;
+    float2 pad;
 };
 
 #ifdef __SPIRV__
@@ -31,8 +32,8 @@ static float2 QUAD_OFFSETS[6] = {
 VSOut VSMain(uint vertexID : SV_VertexID) {
     VSOut output;
 
-    // main segment thickness
-    float thickness = 3.5f;
+    // dynamic thickness
+    float thickness = renderParams.thickness;
 
     uint segmentID = vertexID / 6;
     uint localVertexID = vertexID % 6;
