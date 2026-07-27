@@ -51,6 +51,9 @@ public:
 
   void draw(RHI::CommandList &commandList, const float *viewProjMatrix);
 
+  // getter
+  float getOpacity() const { return opacity; }
+
 private:
   RHI::Device &device;
 

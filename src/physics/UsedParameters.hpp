@@ -53,6 +53,12 @@ struct ParticleSimulationParameters {
   float sticknessMultiplier; // mu
   float cellSpacing;
   uint32_t hashGridSize;
+
+  // interactivity with the lightining strike
+  float strikeX;
+  float strikeY;
+  float lightningOpacity;
+  float pad;
 };
 
 struct Spring {
