@@ -20,12 +20,17 @@ LightningRenderer::LightningRenderer(RHI::Device &device) : device(device) {
   createLightningPipeline();
 }
 
-void LightningRenderer::generateJaggedPath(const V2 &startPoint,
-                                           const V2 &endPoint, float displace,
-                                           int generation, int maxGenerated,
-                                           std::vector<V2> &outPoints) {
+void LightningRenderer::generateJaggedPaths(
+    const V2 &startPoint, const V2 &endPoint, float displace, int generation,
+    int maxGenerated, float scale, std::vector<Segments> &outSegments) {
   // when reaching the max stop generating
   if (generation >= maxGenerated) {
+    Segments seg;
+    seg.p0 = startPoint;
+    seg.p1 = endPoint;
+    seg.scale = scale;
+    seg.pad0 = 0.0f;
+    outSegments.push_back(seg);
     return;
   }
 
@@ -51,14 +56,47 @@ void LightningRenderer::generateJaggedPath(const V2 &startPoint,
   mid.x += perpendicular.x * midPointOffset;
   mid.y += perpendicular.y * midPointOffset;
 
-  // do the same for the first half
-  generateJaggedPath(startPoint, mid, displace * 0.5f, generation + 1,
-                     maxGenerated, outPoints);
-  outPoints.push_back(mid);
+  // forking logic and allow branching
+  if (generation == 2 || generation == 3) {
+    float forkRoll = (normalDist(randomizer) + 1.0f) * 0.5f;
+    if (forkRoll < 0.50f) { // 50% chance to fork a sister branch
+      // direction vector
+      float tDx = endPoint.x - mid.x;
+      float tDy = endPoint.y - mid.y;
+      float tLen = std::sqrt(tDx * tDx + tDy * tDy);
 
-  // do the same for the second half
-  generateJaggedPath(mid, endPoint, displace * 0.5f, generation + 1,
-                     maxGenerated, outPoints);
+      if (tLen > 1.0f) {
+        V2 mainDir = {tDx / tLen, tDy / tLen};
+
+        // choosing a random downward angle
+        float angleSign = (normalDist(randomizer) > 0.0f) ? 1.0f : -1.0f;
+        float angle = angleSign *
+                      (20.0f + (normalDist(randomizer) + 1.0f) * 0.5f * 0.25f) *
+                      3.1415f / 180.0f;
+
+        // rotation matrix
+        float cosAngle = std::cos(angle);
+        float sinAngle = std::sin(angle);
+        V2 branchDir;
+        branchDir.x = mainDir.x * cosAngle - mainDir.y * sinAngle;
+        branchDir.y = mainDir.x * sinAngle + mainDir.y * cosAngle;
+
+        V2 branchEnd;
+        branchEnd.x = mid.x + branchDir.x * tLen;
+        branchEnd.y = mid.y + branchDir.y * tLen;
+        // Recursively generate segments for the branch (dimmer scale, smaller
+        // displacement)
+        generateJaggedPaths(mid, branchEnd, displace * 0.5f, generation + 1,
+                            maxGenerated, scale * 0.35f, outSegments);
+      }
+    }
+  }
+
+  // Generate main trunk segments recursively
+  generateJaggedPaths(startPoint, mid, displace * 0.5f, generation + 1,
+                      maxGenerated, scale, outSegments);
+  generateJaggedPaths(mid, endPoint, displace * 0.5f, generation + 1,
+                      maxGenerated, scale, outSegments);
 }
 
 void LightningRenderer::triggerLightning(float targetX, float targetY) {
@@ -79,10 +117,10 @@ void LightningRenderer::triggerLightning(float targetX, float targetY) {
     int maxGenerations;
   };
 
-  std::vector<StrikeConfig> configs = {{0.00f, 0.12f, 0.3f, 1.5f, 200.0f, 5},
-                                       {0.12f, 0.10f, 0.5f, 1.5f, 200.0f, 5},
-                                       {0.22f, 0.13f, 0.5f, 1.5f, 200.0f, 5},
-                                       {0.35f, 0.45f, 1.0f, 5.5f, 150.0f, 6}};
+  std::vector<StrikeConfig> configs = {{0.00f, 0.12f, 0.3f, 1.5f, 180.0f, 8},
+                                       {0.12f, 0.10f, 0.5f, 2.5f, 200.0f, 8},
+                                       {0.22f, 0.13f, 0.5f, 2.5f, 200.0f, 8},
+                                       {0.55f, 0.45f, 1.0f, 5.5f, 150.0f, 6}};
 
   totDuration = 0.0f;
 
@@ -94,20 +132,18 @@ void LightningRenderer::triggerLightning(float targetX, float targetY) {
     strike.thickness = config.thickness;
 
     // every strike is unique
-    std::vector<V2> points;
-    points.push_back(startPoint);
-    generateJaggedPath(startPoint, endPoint, config.displacement, 0,
-                       config.maxGenerations, points);
-    points.push_back(endPoint);
-    strike.pointCount = static_cast<uint32_t>(points.size());
+    std::vector<Segments> segments;
+    generateJaggedPaths(startPoint, endPoint, config.displacement, 0,
+                        config.maxGenerations, 1.0f, segments);
+    strike.segmentCount = static_cast<uint32_t>(segments.size());
 
     // Allocate storage buffer and upload vertices
-    size_t bufferSize = points.size() * sizeof(V2);
+    size_t bufferSize = segments.size() * sizeof(Segments);
     strike.strikeBuffer = device.createBuffer(
         bufferSize, RHI::BufferUsage::Storage, RHI::MemoryProperty::CPUAccess);
 
     void *mappedData = strike.strikeBuffer->map();
-    std::memcpy(mappedData, points.data(), bufferSize);
+    std::memcpy(mappedData, segments.data(), bufferSize);
     strike.strikeBuffer->unmap();
 
     strikes.push_back(std::move(strike));
@@ -182,7 +218,7 @@ void LightningRenderer::draw(RHI::CommandList &commandList,
   for (const auto &strike : strikes) {
     if (timer >= strike.triggerTime &&
         timer < strike.triggerTime + strike.duration) {
-      if (strike.pointCount < 2)
+      if (strike.segmentCount == 0)
         continue;
 
       commandList.bindPipeline(*lightningPipeline);
@@ -196,7 +232,7 @@ void LightningRenderer::draw(RHI::CommandList &commandList,
                                 RHI::ShaderStage::AllGraphics);
       commandList.bindStorageBuffer(0, strike.strikeBuffer.get());
 
-      uint32_t vertexCount = (strike.pointCount - 1) * 6;
+      uint32_t vertexCount = strike.segmentCount * 6;
       commandList.draw(vertexCount, 1, 0, 0);
       break; // Only draw the active strike, then exit
     }

@@ -22,13 +22,20 @@ struct MidpointLightningParams {
   float pad[2];
 };
 
+struct Segments {
+  V2 p0;
+  V2 p1;
+  float scale;
+  float pad0;
+};
+
 struct LightningStrike {
   float triggerTime; // when strike starts relative to the sequence launch
   float duration;    // total lifespan of an individual strike
   float peakOpacity;
   float thickness;
   std::unique_ptr<RHI::Buffer> strikeBuffer;
-  uint32_t pointCount;
+  uint32_t segmentCount = 0; // number of segments in a path
 };
 
 class LightningRenderer {
@@ -61,8 +68,8 @@ private:
 
   void createLightningPipeline();
 
-  void generateJaggedPath(const V2 &startPoint, const V2 &endPoint,
-                          float displace, int generation, int maxGenerated,
-                          std::vector<V2> &outPoints);
+  void generateJaggedPaths(const V2 &startPoint, const V2 &endPoint,
+                           float displace, int generation, int maxGenerated,
+                           float scale, std::vector<Segments> &outSegments);
 };
 } // namespace elementalEngine::Renderer
