@@ -11,7 +11,8 @@ public:
   ~PBFSlime() = default;
 
   // called every frame
-  void simulate(RHI::CommandList &cmdList, float dt);
+  void simulate(RHI::CommandList &cmdList, float dt, float strikeX,
+                float strikeY, float lightningOpacity);
 
   RHI::Buffer *getParticleBuffer() const { return particleBuffer.get(); }
   uint32_t getParticleCount() const { return numParticles; }

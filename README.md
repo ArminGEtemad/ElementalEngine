@@ -6,12 +6,12 @@
 >
 > Target: This engine must be finished around the time I finish my PhD.
 
-A real-time, high-performance **Systemic Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate
+A real-time **Systemic Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate
 
 - gas behavior
 - Liquid behavior
-- Thermodynamics (fire and explosion)
 - Electricity
+- Thermodynamics (fire and explosion)
 
 and their interaction.
 
@@ -31,7 +31,15 @@ I will be using two backends
 
 **Additionally:** I might add an ASUS handheld with AMD to make sure that Nvidia is not being merciful.
 
-## Finished Elements (Stam Fluid and Clevet)
+## Finished Elements (Stam Fluid-Clavet-Midpoint Displacement)
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/StamAndClavetAndMidpoint.gif" width="800"/>
+  </div>
+
+</div>
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
@@ -54,8 +62,9 @@ I will be using two backends
 - Stam's Stable fluid (Poison Gas)
 - Clevet Particle-based Viscoelastic Fluid Simulation (Acidic Slime)
 - Macklin Position Based Fluids (An experimental case was developed at first for acidic bath but It wasn't the way I liked it. I save it for the Future updates but for water.)
+- Electricity using midpoint displacement
+- For the electricity I started first by trying space colonization algorithm. Which was too slow. I then moved to midpoint displacement.
 - Thermodynamics (Future updates)
-- Electricity (Future Updates)
 
 ## Moving Forward
 
@@ -70,4 +79,7 @@ The following is how I would like to move forward with the project
 - [x] Collision Geometry (Dirichlet boundary condition)
 - [x] Added Acidic Slime using Clavet algorithm
 - [x] phase change compute pass
+- [x] Add lightning strike (electricity)
+- [x] Add interactivity between lightning strike and slime
 - I now move to Thermodynamics :)
+- Post-processing, move to 3D?

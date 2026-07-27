@@ -22,12 +22,14 @@ float4 FSMain(VSOut input) : SV_Target {
     // sample neighbors to calculatee surface derivatives
     float hLeft = HeightmapTex.Sample(LinearSampler, input.uv + float2(-texelSize.x, 0.0f)).r;
     float hRight = HeightmapTex.Sample(LinearSampler, input.uv + float2(texelSize.x, 0.0f)).r;
-    float hDown = HeightmapTex.Sample(LinearSampler, input.uv + float2(0.0f, -texelSize.y)).r;
-    float hUp = HeightmapTex.Sample(LinearSampler, input.uv + float2(0.0f, texelSize.y)).r;
+    float hDown = HeightmapTex.Sample(LinearSampler, input.uv + float2(0.0f, texelSize.y)).r;
+    float hUp = HeightmapTex.Sample(LinearSampler, input.uv + float2(0.0f, -texelSize.y)).r;
 
-    // surface normal
-    float normalScale = 0.4f; 
-    float3 normal = normalize(float3(hLeft - hRight, hDown - hUp, normalScale));
+    // to make the slime more fake-ish 3D
+    float slopeStrength = 50.0f;
+    float3 normal = normalize(float3((hLeft - hRight) * slopeStrength, 
+                                     (hDown - hUp) * slopeStrength, 
+                                      1.0));
 
     // volumetric coloring
     // center is darker, thin outer edges are bright translucent green
@@ -35,15 +37,20 @@ float4 FSMain(VSOut input) : SV_Target {
     float3 deepColor = float3(0.01f, 0.22f, 0.01f); 
     float3 slimeColor = lerp(baseColor, deepColor, saturate(hCenter));
 
-    float3 lightDir = normalize(float3(0.3f, 0.5f, 1.2f)); // Light source position
+    float3 lightDir = normalize(float3(1.0f, 0.8f, 0.3f)); // Light source position
     float3 viewDir = float3(0.0f, 0.0f, 1.0f);            // Camera direction
     float3 halfDir = normalize(lightDir + viewDir);
 
     float diffuse = max(dot(normal, lightDir), 0.0f);
     float specular = pow(max(dot(normal, halfDir), 0.0f), 64.0f); // High exponent for wet shine
 
+    // frensel term for more shiny edges
+    float fresnel = pow(1.0f - max(dot(normal, viewDir), 0.0f), 4.0f);
+    float3 rimColor = float3(0.5f, 0.8f, 1.0f);
+
     // Combine diffuse, ambient (0.3f to keep it looking translucent), and shiny highlights
-    float3 finalColor = slimeColor * (diffuse + 0.3f) + float3(0.8f, 1.0f, 0.3f) * specular;
+    float3 finalColor = slimeColor * (diffuse + 0.3f) + float3(0.8f, 1.0f, 0.2f) * specular;
+    finalColor += rimColor * (fresnel * 0.1f);
     
     // Smoothly fade the outer edges of the silhouette
     float alpha = saturate((hCenter - 0.15f) * 4.0f);

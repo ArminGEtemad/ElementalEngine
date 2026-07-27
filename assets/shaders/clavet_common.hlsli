@@ -42,6 +42,12 @@ struct ParticleSimulationParameters {
   float sticknessMultiplier; // mu
   float cellSpacing;
   uint hashGridSize;
+
+  // lightning strike parameters that add force
+  float strikeX;
+  float strikeY;
+  float lightningOpacity;
+  float pad;
 };
 
 #ifdef __SPIRV__

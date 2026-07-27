@@ -14,7 +14,8 @@ float4 FSMain(VSOut input) : SV_Target {
          discard;
     }
 
-    float height = sqrt(1.0 - distSq);
+    // rounder more smooth particles
+    float height = (1.0 - distSq) * (1.0 - distSq);
 
     // output the height directly to the Red channel.
     // additive blending -> these heights will stack smoothly where particles overlap

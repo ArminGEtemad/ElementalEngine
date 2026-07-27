@@ -115,9 +115,13 @@ void PBFSlime::initializeParticles() {
   particleBuffer->unmap();
 }
 
-void PBFSlime::simulate(RHI::CommandList &cmdList, float dt) {
+void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
+                        float strikeY, float lightningOpacity) {
   using namespace RHI;
   simParams.dt = dt;
+  simParams.strikeX = strikeX;
+  simParams.strikeY = strikeY;
+  simParams.lightningOpacity = lightningOpacity;
 
   uint32_t groupX = (numParticles + 255) / 256;
   if (isFirstFrame) {

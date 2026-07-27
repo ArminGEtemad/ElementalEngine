@@ -21,6 +21,32 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
     // apply gravity
     p.velocity += GRAVITY * particleParams.dt;
 
+    // apply lightning strike force
+    if (particleParams.lightningOpacity > 0.0001f) {
+        float2 strikePos = float2(particleParams.strikeX, particleParams.strikeY);
+        float2 toParticle = p.position - strikePos;
+        float dist2 = dot(toParticle, toParticle);
+
+        // explosive blast radius 
+        float blastRadius = 50.0f; 
+        float blastRadius2 = blastRadius * blastRadius;
+
+        if (dist2 < blastRadius2 && dist2 > 1e-4f) {
+            float dist = sqrt(dist2);
+            float2 forceDir = toParticle / dist; // Radial vector pointing away from impact
+            
+            // Linear falloff: Maximum force at center, 0 force at the blast edge
+            float falloff = 1.0f - (dist / blastRadius);
+            
+            // Impulse magnitude
+            float forceStrength = 1000.0f;
+            float impulseMag = forceStrength * falloff * particleParams.lightningOpacity;
+            
+            // Apply velocity boost outward
+            p.velocity += forceDir * impulseMag * particleParams.dt;
+        }
+    }
+
     // apply viscosity
     float2 viscosityImpulse = float2(0, 0);
     int2 centerCell = getGridCell(p.position);

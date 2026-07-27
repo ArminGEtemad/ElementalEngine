@@ -1,5 +1,6 @@
 #include "physics/PBFSlime.hpp"
 #include "physics/StamFluid.hpp"
+#include "renderer/MidpointLightningRenderer.hpp"
 #include "renderer/PBFSlimeRenderer.hpp"
 #include "renderer/StamFluidRenderer.hpp"
 #include "rhi/CommandList.hpp"
@@ -47,7 +48,7 @@ int main() {
   std::cout << "Enter your choice: ";
 
   // std::cin >> choice;
-  choice = 1;
+  choice = 1; // since the DX12 development is on hold
   if (choice == 1) {
     selectedBackend = GraphicsAPI::Vulkan;
     std::cout << "Vulkan 1.3 Backend has been selected...\n";
@@ -72,8 +73,9 @@ int main() {
     //  Physics Subsystem
     StamFluid fluidSim(*device, GRID_WIDTH, GRID_HEIGHT);
     StamFluidRenderer fluidRenderer(*device);
-    PBFSlime slimeSim(*device, 100);
+    PBFSlime slimeSim(*device, 200);
     PBFSlimeRenderer slimeRenderer(*device);
+    LightningRenderer lightningRenderer(*device);
 
     float viewProj[16]; // 4x4 projection matrix initialization
     // Map the screen
@@ -92,17 +94,46 @@ int main() {
 
     std::cout << "main loop starts now...\n";
 
-    // 4. Main Loop
+    bool wasClicked = false; // checking if the lightning is triggered
+    // mouse click where the lightning strikes
+    float lastStrikeX = 0.0f;
+    float lastStrikeY = 0.0f;
+
     while (!window.shouldClose()) {
       glfwPollEvents();
       swapchain->acquireNextImage();
 
       commandList->begin();
 
+      // --- MOUSE CLICK INPUT ---
+      int mouseState =
+          glfwGetMouseButton(window.getGLFWwindow(), GLFW_MOUSE_BUTTON_LEFT);
+      if (mouseState == GLFW_PRESS) {
+        if (!wasClicked) {
+          double xpos, ypos;
+          glfwGetCursorPos(window.getGLFWwindow(), &xpos, &ypos);
+
+          float mappedX = static_cast<float>(xpos);
+          float mappedY = static_cast<float>(HEIGHT) - static_cast<float>(ypos);
+
+          lastStrikeX = mappedX;
+          lastStrikeY = mappedY;
+
+          lightningRenderer.triggerLightning(mappedX, mappedY);
+
+          wasClicked = true;
+        }
+      } else if (mouseState == GLFW_RELEASE) {
+        wasClicked = false;
+      }
+
       // --- PHYSICS PASS ---
-      slimeSim.simulate(*commandList, 0.016f);
+      slimeSim.simulate(*commandList, 0.016f, lastStrikeX, lastStrikeY,
+                        lightningRenderer.getOpacity());
       fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
                         slimeSim.getParticleCount());
+
+      lightningRenderer.update(0.016f);
 
       slimeRenderer.drawHeightmap(*commandList, slimeSim, viewProj, 8.0f);
 
@@ -110,6 +141,7 @@ int main() {
       commandList->beginRendering(*swapchain);
       fluidRenderer.draw(*commandList, fluidSim, WIDTH, HEIGHT);
       slimeRenderer.drawComposite(*commandList, WIDTH, HEIGHT);
+      lightningRenderer.draw(*commandList, viewProj);
       commandList->endRendering(*swapchain);
       commandList->transitionBuffer(slimeSim.getParticleBuffer(),
                                     ResourceState::ShaderResource,
