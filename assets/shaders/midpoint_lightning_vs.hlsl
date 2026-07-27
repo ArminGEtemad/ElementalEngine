@@ -5,17 +5,25 @@ struct LightningRenderParams {
     float2 pad;
 };
 
+struct Segments {
+    float2 p0;
+    float2 p1;
+    float scale;
+    float pad;
+};
+
 #ifdef __SPIRV__
 [[vk::push_constant]] LightningRenderParams renderParams;
 #else
 ConstantBuffer<LightningRenderParams> renderParams : register(b0);
 #endif
 
-StructuredBuffer<float2> points : register(t0);
+StructuredBuffer<Segments> segments : register(t0);
 
 struct VSOut {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
+    float scale : TEXCOORD1;
 };
 
 static float2 QUAD_OFFSETS[6] = {
@@ -38,9 +46,10 @@ VSOut VSMain(uint vertexID : SV_VertexID) {
     uint segmentID = vertexID / 6;
     uint localVertexID = vertexID % 6;
 
-    // Fetch segment endpoints
-    float2 p0 = float2(points[segmentID].x, points[segmentID].y);
-    float2 p1 = float2(points[segmentID + 1].x, points[segmentID + 1].y);
+    Segments s = segments[segmentID];
+    float2 p0 = s.p0;
+    float2 p1 = s.p1;
+    output.scale = s.scale;
 
     // Calculate segment direction and its perpendicular normal
     float2 dir = p1 - p0;
@@ -57,6 +66,6 @@ VSOut VSMain(uint vertexID : SV_VertexID) {
 
     output.position = mul(renderParams.viewProj, float4(worldPos, 0.0f, 1.0f));
     output.uv = offsetMode;
-
+    
     return output;
 }

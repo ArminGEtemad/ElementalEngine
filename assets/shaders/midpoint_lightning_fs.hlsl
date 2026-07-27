@@ -14,6 +14,7 @@ ConstantBuffer<LightningRenderParams> renderParams : register(b0);
 struct VSOut {
     float4 position : SV_Position;
     float2 uv : TEXCOORD0;
+    float scale : TEXCOORD1;
 };
 
 float4 FSMain(VSOut input) : SV_Target {
@@ -25,11 +26,13 @@ float4 FSMain(VSOut input) : SV_Target {
 
     // Electric neon
     float3 coreColor = float3(1.0f, 1.0f, 1.0f); // white core
-    float3 outerGlowColor = float3(0.584f, 0.0f, 1.0f); // cyan electric should I do violet neon?
+    float3 outerGlowColor = float3(0.584f, 0.0f, 1.0f); // neon violet
 
-    // Interpolate from white core to blue glow
+    // Interpolate from white core to violet glow
     float3 finalColor = lerp(outerGlowColor, coreColor, glow);
+
+    float finalOpacity = glow * renderParams.opacity * input.scale;
     
     // Multiply color by the glow intensity and the fade opacity push constant
-    return float4(finalColor * glow, glow * renderParams.opacity);
+    return float4(finalColor * glow, finalOpacity);
 }
