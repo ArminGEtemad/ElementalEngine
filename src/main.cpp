@@ -73,7 +73,7 @@ int main() {
     //  Physics Subsystem
     StamFluid fluidSim(*device, GRID_WIDTH, GRID_HEIGHT);
     StamFluidRenderer fluidRenderer(*device);
-    PBFSlime slimeSim(*device, 100);
+    PBFSlime slimeSim(*device, 200);
     PBFSlimeRenderer slimeRenderer(*device);
     LightningRenderer lightningRenderer(*device);
 
@@ -95,6 +95,9 @@ int main() {
     std::cout << "main loop starts now...\n";
 
     bool wasClicked = false; // checking if the lightning is triggered
+    // mouse click where the lightning strikes
+    float lastStrikeX = 0.0f;
+    float lastStrikeY = 0.0f;
 
     while (!window.shouldClose()) {
       glfwPollEvents();
@@ -113,6 +116,9 @@ int main() {
           float mappedX = static_cast<float>(xpos);
           float mappedY = static_cast<float>(HEIGHT) - static_cast<float>(ypos);
 
+          lastStrikeX = mappedX;
+          lastStrikeY = mappedY;
+
           lightningRenderer.triggerLightning(mappedX, mappedY);
 
           wasClicked = true;
@@ -122,7 +128,8 @@ int main() {
       }
 
       // --- PHYSICS PASS ---
-      slimeSim.simulate(*commandList, 0.016f);
+      slimeSim.simulate(*commandList, 0.016f, lastStrikeX, lastStrikeY,
+                        lightningRenderer.getOpacity());
       fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
                         slimeSim.getParticleCount());
 
