@@ -28,7 +28,10 @@ struct Particle {
 
   float pressure;
   float nearPressure;
-  uint32_t pad[2];
+
+  // fire interaction logic
+  float health; // 1.0 healthy -- 0.0 consumed by fire
+  float pad;
 };
 
 // particle simulation parameters
