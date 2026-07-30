@@ -12,13 +12,15 @@ float4 FSMain(VSOut input) : SV_Target {
     HeightmapTex.GetDimensions(width, height);
     float2 texelSize = float2(1.0f / width, 1.0f / height);
 
-    // sampler the center of the height
-    float hCenter = HeightmapTex.Sample(LinearSampler, input.uv).r;
+    // sampler the center of the height / health
+    float2 hCenterAndHealth = HeightmapTex.Sample(LinearSampler, input.uv).rg;
+    float hCenter = hCenterAndHealth.r;
 
     if (hCenter < 0.15f) {
         discard;
     }
 
+    float avgHealth = saturate(hCenterAndHealth.g / max(hCenter, 0.001f));
     // sample neighbors to calculatee surface derivatives
     float hLeft = HeightmapTex.Sample(LinearSampler, input.uv + float2(-texelSize.x, 0.0f)).r;
     float hRight = HeightmapTex.Sample(LinearSampler, input.uv + float2(texelSize.x, 0.0f)).r;
@@ -35,7 +37,24 @@ float4 FSMain(VSOut input) : SV_Target {
     // center is darker, thin outer edges are bright translucent green
     float3 baseColor = float3(0.08f, 0.45f, 0.04f); 
     float3 deepColor = float3(0.01f, 0.22f, 0.01f); 
-    float3 slimeColor = lerp(baseColor, deepColor, saturate(hCenter));
+    float3 slimeColorOrig = lerp(baseColor, deepColor, saturate(hCenter));
+
+    // burning and health based coloring
+    float3 burningOrange = float3(1.0f, 0.42f, 0.02f); // Hot ember glow
+    float3 charredSoot   = float3(0.05f, 0.04f, 0.04f); // Soot black
+
+    float3 slimeColor;
+    if (avgHealth >= 0.95f) {
+        slimeColor = slimeColorOrig; // Healthy slime
+    } else if (avgHealth > 0.35f) {
+        // Active Combustion: Green -> Hot Incandescent Orange
+        float t = (avgHealth - 0.35f) / 0.60f;
+        slimeColor = lerp(burningOrange, slimeColorOrig, t);
+    } else {
+        // Dying/Charred: Orange -> Soot Black
+        float t = avgHealth / 0.35f;
+        slimeColor = lerp(charredSoot, burningOrange, t);
+    }
 
     float3 lightDir = normalize(float3(1.0f, 0.8f, 0.3f)); // Light source position
     float3 viewDir = float3(0.0f, 0.0f, 1.0f);            // Camera direction

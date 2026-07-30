@@ -1,6 +1,7 @@
 struct VSOut {
     float4 pos : SV_Position;
     float2 uv : TEXCOORD0;
+    float health : TEXCOORD1;
 };
 
 float4 FSMain(VSOut input) : SV_Target {
@@ -19,5 +20,6 @@ float4 FSMain(VSOut input) : SV_Target {
 
     // output the height directly to the Red channel.
     // additive blending -> these heights will stack smoothly where particles overlap
-    return float4(height, 0.0f, 0.0f, 1.0f);
+    // health writes into green channel causing change in coloring so we know damage is being spread
+    return float4(height, height * saturate(input.health), 0.0f, 1.0f);
 }
