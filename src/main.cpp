@@ -1,5 +1,7 @@
+#include "physics/FireSystem.hpp"
 #include "physics/PBFSlime.hpp"
 #include "physics/StamFluid.hpp"
+#include "renderer/FireRenderer.hpp"
 #include "renderer/MidpointLightningRenderer.hpp"
 #include "renderer/PBFSlimeRenderer.hpp"
 #include "renderer/StamFluidRenderer.hpp"
@@ -76,6 +78,10 @@ int main() {
     PBFSlime slimeSim(*device, 200);
     PBFSlimeRenderer slimeRenderer(*device);
     LightningRenderer lightningRenderer(*device);
+    FireSystem fireSim(*device, 1500);
+    FireRenderer fireRenderer(*device);
+
+    fireSim.setEmitterPosition(1000.0f, 60.0f);
 
     float viewProj[16]; // 4x4 projection matrix initialization
     // Map the screen
@@ -132,6 +138,7 @@ int main() {
                         lightningRenderer.getOpacity());
       fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
                         slimeSim.getParticleCount());
+      fireSim.simulate(*commandList, 0.016f);
 
       lightningRenderer.update(0.016f);
 
@@ -140,6 +147,7 @@ int main() {
       // --- GRAPHICS PASS ---
       commandList->beginRendering(*swapchain);
       fluidRenderer.draw(*commandList, fluidSim, WIDTH, HEIGHT);
+      fireRenderer.draw(*commandList, fireSim, WIDTH, HEIGHT, viewProj);
       slimeRenderer.drawComposite(*commandList, WIDTH, HEIGHT);
       lightningRenderer.draw(*commandList, viewProj);
       commandList->endRendering(*swapchain);
