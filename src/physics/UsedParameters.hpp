@@ -65,4 +65,27 @@ struct Spring {
   uint32_t neighborID; // INVALID_ID if empty
   float restLength;
 };
+
+// everything related to the fire particles
+struct FireParticles {
+  float position[2];
+  float velocity[2];
+
+  float life;
+  float maxLife;
+  float temperature; // core 1.0, 0.0 cold (should I transition to smoke?)
+  float particleRadius;
+};
+
+struct FireSimParameters {
+  float dt;
+  uint32_t numParticles;
+  float buoyancy; // upward thermal lift
+  float drag;     // damping factor
+
+  float coolingRate;
+  float expansionRate; // hotgas expands particle radius
+  float pad[2];
+};
+
 } // namespace elementalEngine::Physics
