@@ -21,11 +21,13 @@ set(ENGINE_SOURCES
     src/core/Window.cpp
     src/core/FileHandling.cpp
     src/rhi/Device.cpp
-    src/physics/stamFluid.cpp
+    src/physics/StamFluid.cpp
     src/physics/PBFSlime.cpp
+    src/physics/FireSystem.cpp
     src/renderer/StamFluidRenderer.cpp
     src/renderer/PBFSlimeRenderer.cpp
     src/renderer/MidpointLightningRenderer.cpp
+    src/renderer/FireRenderer.cpp
 )
 
 set(ENGINE_LIBS glfw)
@@ -96,7 +98,7 @@ set(SHADER_HEADERS
     "${CMAKE_SOURCE_DIR}/assets/shaders/clavet_common.hlsli"
 )
 
-set(GRAPHICS_SHADERS grid slime_heightmap slime_composite midpoint_lightning)
+set(GRAPHICS_SHADERS grid slime_heightmap slime_composite midpoint_lightning fire)
 
 foreach(SHADER_NAME IN LISTS GRAPHICS_SHADERS)
 
@@ -154,7 +156,7 @@ endforeach()
 # compute Shaders
 set(COMPUTE_SHADERS advection divergence jacobi gradient 
     clavet_grid_construct clavet_grid_next_construct clavet_predicted clavet_springs
-    clavet_density clavet_relax clavet_integrate)
+    clavet_density clavet_relax clavet_integrate fire_compute)
 
 foreach(SHADER_NAME IN LISTS COMPUTE_SHADERS)
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}.hlsl")
