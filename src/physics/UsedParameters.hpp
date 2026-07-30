@@ -85,7 +85,11 @@ struct FireSimParameters {
 
   float coolingRate;
   float expansionRate; // hotgas expands particle radius
-  float pad[2];
+  float emitterX;      // X position for respawning in GPU
+  float emitterY;      // Y position for respawning in GPU
+
+  uint32_t isBurning;
+  float pad[3];
 };
 
 } // namespace elementalEngine::Physics
