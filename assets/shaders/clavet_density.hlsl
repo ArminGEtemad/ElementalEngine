@@ -40,12 +40,27 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
                         
                         // rho_near += (1 - q)^3
                         nearDensity += (oneMinusQ * oneMinusQ * oneMinusQ);
+
+                        // heat transfare after lightning strike
+                        // the first strike drops the health under 0.95
+                        if (n.health < 0.95 && n.health > 0.0f) {
+                            float heatTransfer = 0.005 * oneMinusQ * particleParams.dt;
+                            p.health -= heatTransfer;
+                        }
                     }
                 }
                 currNeighbor = gridNextBuffer[currNeighbor];
             }
         }
     }
+
+    // burn until nothing is left 
+    float burnRate = 0.001f;
+    if (p.health < 0.95 && p.health > 0.0f) {
+        p.health -= burnRate *  particleParams.dt;
+    }
+
+    p.health = max(p.health, 0.0f);
 
     // Compute Pressures
     p.density = density;

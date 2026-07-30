@@ -44,6 +44,12 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
             
             // Apply velocity boost outward
             p.velocity += forceDir * impulseMag * particleParams.dt;
+
+            // ignition
+            // direct hit by the lightning causes a damage of:
+            float ignitionDamage =  falloff * particleParams.lightningOpacity * particleParams.dt;
+            p.health -= ignitionDamage;
+            p.health = max(p.health, 0.0f);
         }
     }
 
