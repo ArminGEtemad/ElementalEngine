@@ -33,7 +33,7 @@ private:
   RHI::Device &device;
   uint32_t maxParticles;
   bool isBurning{true};
-  float emitterX{500.0f};
+  float emitterX{1000.0f};
   float emitterY{0.0f};
 
   FireSimParameters simParams;
@@ -42,14 +42,13 @@ private:
   std::unique_ptr<RHI::Pipeline> simulatePipeline;
 
   std::default_random_engine randomEngine;
-  std::uniform_real_distribution<float> baseSpreadX{-15.0f, 15.0f};
-  std::uniform_real_distribution<float> initialSpeedY{120.0f, 200.0f};
-  std::uniform_real_distribution<float> initialSpeedX{-10.0f, 10.0f};
-  std::uniform_real_distribution<float> lifeDist{0.1f, 2.0f};
+  std::uniform_real_distribution<float> baseSpreadX{-35.0f, 35.0f};
+  std::uniform_real_distribution<float> initialSpeedY{20.0f, 150.0f};
+  std::uniform_real_distribution<float> initialSpeedX{-20.0f, 20.0f};
+  std::uniform_real_distribution<float> lifeDist{0.1f, 3.0f};
 
   void createPipeline();
   void createResource();
-  void respawnParticle(FireParticles &p);
 };
 
 } // namespace elementalEngine::Physics

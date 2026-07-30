@@ -17,29 +17,13 @@ FireSystem::FireSystem(RHI::Device &device, uint32_t maxParticles)
   std::random_device rd;
   randomEngine.seed(rd());
 
-  simParams.buoyancy = 10.0f;
+  simParams.buoyancy = 20.0f;
   simParams.drag = 0.8f;
   simParams.coolingRate = 0.70f;
-  simParams.expansionRate = 12.0f;
+  simParams.expansionRate = 8.0f;
 
   createResource();
   createPipeline();
-}
-
-void FireSystem::respawnParticle(FireParticles &p) {
-  // spawn at the flame base
-  p.position[0] = emitterX + baseSpreadX(randomEngine);
-  p.position[1] = emitterY;
-
-  // initial main velocity updawards
-  p.velocity[0] = initialSpeedX(randomEngine);
-  p.velocity[1] = initialSpeedY(randomEngine);
-
-  float lifeTime = lifeDist(randomEngine);
-  p.life = lifeTime;
-  p.maxLife = lifeTime;
-  p.temperature = 1.0f;
-  p.particleRadius = 3.0f;
 }
 
 void FireSystem::createResource() {
@@ -47,17 +31,22 @@ void FireSystem::createResource() {
 
   particleBuffer = device.createBuffer(
       bufferSize, RHI::BufferUsage::Storage | RHI::BufferUsage::Vertex,
-      RHI::MemoryProperty::CPUAccess);
+      RHI::MemoryProperty::GPULocal);
 
   std::vector<FireParticles> initialData(maxParticles);
-  for (auto &p : initialData) {
-    respawnParticle(p);
-    p.life = lifeDist(randomEngine); // so they don't die at the same time
-  }
+  for (uint32_t i = 0; i < maxParticles; i++) {
+    initialData[i].position[0] = emitterX;
+    initialData[i].position[1] = emitterY;
 
-  void *mapped = particleBuffer->map();
-  std::memcpy(mapped, initialData.data(), bufferSize);
-  particleBuffer->unmap();
+    initialData[i].velocity[0] = initialSpeedX(randomEngine);
+    initialData[i].velocity[1] = initialSpeedY(randomEngine);
+
+    float lifeTime = lifeDist(randomEngine);
+    initialData[i].life = (static_cast<float>(i) / maxParticles) * lifeTime;
+    initialData[i].maxLife = lifeTime;
+    initialData[i].temperature = 1.0f;
+    initialData[i].particleRadius = 5.0f;
+  }
 }
 
 void FireSystem::createPipeline() {
@@ -75,18 +64,11 @@ void FireSystem::createPipeline() {
 }
 
 void FireSystem::simulate(RHI::CommandList &commandList, float dt) {
-  void *mapped = particleBuffer->map();
-  auto *particles = static_cast<FireParticles *>(mapped);
-
-  for (uint32_t i = 0; i < maxParticles; ++i) {
-    if (particles[i].life < 0.0f && isBurning) {
-      respawnParticle(particles[i]);
-    }
-  }
-  particleBuffer->unmap();
-
   simParams.dt = dt;
   simParams.numParticles = maxParticles;
+  simParams.emitterX = emitterX;
+  simParams.emitterY = emitterY;
+  simParams.isBurning = isBurning ? 1 : 0;
   commandList.bindPipeline(*simulatePipeline);
   commandList.bindStorageBuffer(0, particleBuffer.get());
   commandList.pushConstants(0, sizeof(simParams), &simParams,
