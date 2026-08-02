@@ -1,8 +1,8 @@
 struct LightningRenderParams {
-    float4x4 viewProj;
-    float opacity;
-    float thickness;
-    float2 pad;
+  float4x4 viewProj;
+  float opacity;
+  float thickness;
+  float2 pad;
 };
 
 #ifdef __SPIRV__
@@ -12,27 +12,27 @@ ConstantBuffer<LightningRenderParams> renderParams : register(b0);
 #endif
 
 struct VSOut {
-    float4 position : SV_Position;
-    float2 uv : TEXCOORD0;
-    float scale : TEXCOORD1;
+  float4 position : SV_Position;
+  float2 uv : TEXCOORD0;
+  float scale : TEXCOORD1;
 };
 
 float4 FSMain(VSOut input) : SV_Target {
-    // Calculate the distance of the pixel from the center of the ribbon
-    float distFromCenter = abs(input.uv.y);
-    
-    // Exponential falloff for a soft electric glow
-    float glow = exp(-distFromCenter * distFromCenter * 5.0f); 
+  // Calculate the distance of the pixel from the center of the ribbon
+  float distFromCenter = abs(input.uv.y);
 
-    // Electric neon
-    float3 coreColor = float3(1.0f, 1.0f, 1.0f); // white core
-    float3 outerGlowColor = float3(0.584f, 0.0f, 1.0f); // neon violet
+  // Exponential falloff for a soft electric glow
+  float glow = exp(-distFromCenter * distFromCenter * 5.0f);
 
-    // Interpolate from white core to violet glow
-    float3 finalColor = lerp(outerGlowColor, coreColor, glow);
+  // Electric neon
+  float3 coreColor = float3(1.0f, 1.0f, 1.0f);        // white core
+  float3 outerGlowColor = float3(0.584f, 0.0f, 1.0f); // neon violet
 
-    float finalOpacity = glow * renderParams.opacity * input.scale;
-    
-    // Multiply color by the glow intensity and the fade opacity push constant
-    return float4(finalColor * glow, finalOpacity);
+  // Interpolate from white core to violet glow
+  float3 finalColor = lerp(outerGlowColor, coreColor, glow);
+
+  float finalOpacity = glow * renderParams.opacity * input.scale;
+
+  // Multiply color by the glow intensity and the fade opacity push constant
+  return float4(finalColor * glow, finalOpacity);
 }
