@@ -74,6 +74,8 @@ void VulkanCommandList::end() {
   }
 }
 
+// begin rendering function is overloaded once with the swapchain argument and
+// once texture arguments
 void VulkanCommandList::beginRendering(Swapchain &swapchain) {
   auto &vk13Swapchain = static_cast<VulkanSwapchain &>(swapchain);
   uint32_t frameIndex = vk13Swapchain.getCurrentFrameIndex();

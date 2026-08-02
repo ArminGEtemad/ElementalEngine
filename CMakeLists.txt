@@ -3,14 +3,6 @@ project(Elemental_Engine)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# making option for vulkan and DX backend
-set(ENABLE_VULKAN ON)
-set(ENABLE_DX12 OFF)
-
-if(NOT ENABLE_VULKAN AND NOT ENABLE_DX12)
-    message(FATAL_ERROR "At least one rendering backend (ENABLE_VULKAN or ENABLE_DX12) must be turned ON!")
-endif()
-
 # dependencies and directories
 find_package(glfw3 REQUIRED)
 include_directories(src src/core src/rhi src/physics src/renderer)
@@ -21,62 +13,27 @@ set(ENGINE_SOURCES
     src/core/Window.cpp
     src/core/FileHandling.cpp
     src/rhi/Device.cpp
-    src/physics/StamFluid.cpp
-    src/physics/PBFSlime.cpp
-    src/physics/FireSystem.cpp
-    src/renderer/StamFluidRenderer.cpp
-    src/renderer/PBFSlimeRenderer.cpp
-    src/renderer/MidpointLightningRenderer.cpp
-    src/renderer/FireRenderer.cpp
 )
 
 set(ENGINE_LIBS glfw)
+find_package(Vulkan REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
-# Vulkan backend
-if(ENABLE_VULKAN)
-    find_package(Vulkan REQUIRED)
-    find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-    
-    list(APPEND ENGINE_SOURCES
-        src/rhi/vulkan/VulkanDevice.cpp
-        src/rhi/vulkan/VulkanSwapchain.cpp
-        src/rhi/vulkan/VulkanCommandList.cpp
-        src/rhi/vulkan/VulkanPipeline.cpp
-        src/rhi/vulkan/VulkanComputePipeline.cpp
-        src/rhi/vulkan/VulkanBuffer.cpp
-        src/rhi/vulkan/VulkanAllocator.cpp
-        src/rhi/vulkan/VulkanTexture.cpp
-    )
-    list(APPEND ENGINE_LIBS Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
-endif()
-
-# DX12 backend
-if(ENABLE_DX12)
-    find_package(D3D12MemoryAllocator CONFIG REQUIRED)
-    
-    list(APPEND ENGINE_SOURCES
-        src/rhi/dx12/DX12Device.cpp
-        src/rhi/dx12/DX12Swapchain.cpp
-        src/rhi/dx12/DX12CommandList.cpp
-        src/rhi/dx12/DX12Pipeline.cpp
-        src/rhi/dx12/DX12ComputePipeline.cpp
-        src/rhi/dx12/DX12Buffer.cpp
-        src/rhi/dx12/DX12Texture.cpp
-    )
-    list(APPEND ENGINE_LIBS d3d12 dxgi dxguid GPUOpen::D3D12MemoryAllocator)
-endif()
+list(APPEND ENGINE_SOURCES
+    src/rhi/vulkan/VulkanDevice.cpp
+    src/rhi/vulkan/VulkanSwapchain.cpp
+    src/rhi/vulkan/VulkanCommandList.cpp
+    src/rhi/vulkan/VulkanPipeline.cpp
+    src/rhi/vulkan/VulkanComputePipeline.cpp
+    src/rhi/vulkan/VulkanBuffer.cpp
+    src/rhi/vulkan/VulkanAllocator.cpp
+    src/rhi/vulkan/VulkanTexture.cpp
+)
+list(APPEND ENGINE_LIBS Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
 
 # executables
 add_executable(ElementalEngine ${ENGINE_SOURCES})
 target_link_libraries(ElementalEngine PRIVATE ${ENGINE_LIBS})
-
-# macro in code
-if(ENABLE_VULKAN)
-    target_compile_definitions(ElementalEngine PRIVATE RHI_VULKAN_ENABLED)
-endif()
-if(ENABLE_DX12)
-    target_compile_definitions(ElementalEngine PRIVATE RHI_DX12_ENABLED)
-endif()
 
 # shader compiling directories
 find_program(DXC_EXECUTABLE 
@@ -98,7 +55,7 @@ set(SHADER_HEADERS
     "${CMAKE_SOURCE_DIR}/assets/shaders/clavet_common.hlsli"
 )
 
-set(GRAPHICS_SHADERS grid slime_heightmap slime_composite midpoint_lightning fire)
+set(GRAPHICS_SHADERS)
 
 foreach(SHADER_NAME IN LISTS GRAPHICS_SHADERS)
 
@@ -154,9 +111,7 @@ foreach(SHADER_NAME IN LISTS GRAPHICS_SHADERS)
 endforeach()
 
 # compute Shaders
-set(COMPUTE_SHADERS advection divergence jacobi gradient 
-    clavet_grid_construct clavet_grid_next_construct clavet_predicted clavet_springs
-    clavet_density clavet_relax clavet_integrate fire_compute)
+set(COMPUTE_SHADERS)
 
 foreach(SHADER_NAME IN LISTS COMPUTE_SHADERS)
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/assets/shaders/${SHADER_NAME}.hlsl")

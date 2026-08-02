@@ -2,7 +2,6 @@
 
 #include <cstdint>
 namespace elementalEngine::RHI {
-enum class GraphicsAPI { Vulkan, DirectX12 };
 
 enum class PipelineBindPoint { Graphics, Compute };
 
