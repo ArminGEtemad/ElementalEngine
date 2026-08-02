@@ -23,7 +23,8 @@ public:
   void startFire() { isBurning = true; }
   void endFire() { isBurning = false; }
 
-  void simulate(RHI::CommandList &commadList, float dt);
+  void simulate(RHI::CommandList &commadList, float dt,
+                RHI::Buffer *slimeBuffer, uint32_t slimeParticleCount);
 
   // getters
   RHI::Buffer *getParticleBuffer() const { return particleBuffer.get(); }

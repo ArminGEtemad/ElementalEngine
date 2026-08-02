@@ -53,8 +53,11 @@ void FireSystem::createPipeline() {
   using namespace RHI;
   PipelineConfig config;
 
+  // 0 fire particles
+  // 1 slime particles
   config.bindings = {
-      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Compute}};
+      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Compute},
+      {1, DescriptorType::StorageBuffer, 1, ShaderStage::Compute}};
 
   config.pushConstants.size = sizeof(FireSimParameters);
   config.pushConstants.offset = 0;
@@ -63,14 +66,27 @@ void FireSystem::createPipeline() {
   simulatePipeline = device.createComputePipeline("fire_compute", config);
 }
 
-void FireSystem::simulate(RHI::CommandList &commandList, float dt) {
+void FireSystem::simulate(RHI::CommandList &commandList, float dt,
+                          RHI::Buffer *slimeBuffer,
+                          uint32_t slimeParticleCount) {
+
+  if (slimeBuffer) {
+    commandList.transitionBuffer(slimeBuffer,
+                                 RHI::ResourceState::UnorderedAccess,
+                                 RHI::ResourceState::ShaderResource);
+  }
   simParams.dt = dt;
   simParams.numParticles = maxParticles;
   simParams.emitterX = emitterX;
   simParams.emitterY = emitterY;
   simParams.isBurning = isBurning ? 1 : 0;
+  simParams.slimeParticleCount = slimeParticleCount;
+
   commandList.bindPipeline(*simulatePipeline);
   commandList.bindStorageBuffer(0, particleBuffer.get());
+  if (slimeBuffer) {
+    commandList.bindStorageBuffer(1, slimeBuffer);
+  }
   commandList.pushConstants(0, sizeof(simParams), &simParams,
                             RHI::ShaderStage::Compute);
 
@@ -80,6 +96,12 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt) {
   commandList.transitionBuffer(particleBuffer.get(),
                                RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::UnorderedAccess);
+
+  if (slimeBuffer) {
+    commandList.transitionBuffer(slimeBuffer,
+                                 RHI::ResourceState::ShaderResource,
+                                 RHI::ResourceState::UnorderedAccess);
+  }
 }
 
 } // namespace elementalEngine::Physics

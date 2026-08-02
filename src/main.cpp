@@ -78,7 +78,7 @@ int main() {
     PBFSlime slimeSim(*device, 200);
     PBFSlimeRenderer slimeRenderer(*device);
     LightningRenderer lightningRenderer(*device);
-    FireSystem fireSim(*device, 1500);
+    FireSystem fireSim(*device, 2500);
     FireRenderer fireRenderer(*device);
 
     fireSim.setEmitterPosition(1000.0f, 60.0f);
@@ -138,7 +138,8 @@ int main() {
                         lightningRenderer.getOpacity());
       fluidSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
                         slimeSim.getParticleCount());
-      fireSim.simulate(*commandList, 0.016f);
+      fireSim.simulate(*commandList, 0.016f, slimeSim.getParticleBuffer(),
+                       slimeSim.getParticleCount());
 
       lightningRenderer.update(0.016f);
 

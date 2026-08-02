@@ -92,7 +92,8 @@ struct FireSimParameters {
   float emitterY;      // Y position for respawning in GPU
 
   uint32_t isBurning;
-  float pad[3];
+  uint32_t slimeParticleCount;
+  float pad[2];
 };
 
 } // namespace elementalEngine::Physics
