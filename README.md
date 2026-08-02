@@ -67,5 +67,9 @@ The following is how I would like to move forward with the project
 - [x] Add interactivity between lightning strike and slime
 - [x] Ingnition logic when lightning strikes the slime
 - [x] Rendering fire when the slime burns
-- [ ] Post-processing, move to 3D?
+- [ ] Moving towards 3D
+- [ ] 3D Clavet and slime physics
+- [ ] Camera
+- [ ] Moving other elements to 3D
+- [ ] Post-processing
 - [ ] Optimization
