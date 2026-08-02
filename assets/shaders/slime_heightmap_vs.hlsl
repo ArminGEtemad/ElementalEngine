@@ -8,7 +8,8 @@ struct Particle {
 
     float pressure;
     float nearPressure;
-    uint2 pad;
+    float health;
+    float pad;
 };
 
 struct PBFRenderParams {
@@ -30,6 +31,7 @@ StructuredBuffer<Particle> particles : register(t0);
 struct VSOut {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
+    float health : TEXCOORD1;
 };
 
 
@@ -50,9 +52,13 @@ VSOut VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
     float2 localPos = QUAD_VERTS[vertexID];
     output.uv = QUAD_UVS[vertexID];
 
-    float2 worldPos = p.position + (localPos * renderParams.particleRadius);
+    float activeRadius = renderParams.particleRadius * saturate(p.health);
+
+    float2 worldPos = p.position + (localPos * activeRadius);
 
     output.position = mul(renderParams.viewProj, float4(worldPos, 0.0f, 1.0f));
+
+    output.health = p.health;
 
     return output;
 }

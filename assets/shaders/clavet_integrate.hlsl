@@ -87,6 +87,15 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
         pos.x += impulse * particleParams.dt;
     }
 
+    // deactivate fully consumed slime particles 
+    if (p.health <= 0.0f) {
+        p.position = float2(-9999.0f, -9999.0f);
+        p.predictedPosition = float2(-9999.0f, -9999.0f);
+        p.velocity = float2(0.0f, 0.0f);
+        particles[id] = p;
+        return;
+    }
+
     // Do the movement
     p.velocity = (pos - prevPos) / particleParams.dt;
     p.position = pos;

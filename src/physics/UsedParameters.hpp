@@ -28,7 +28,10 @@ struct Particle {
 
   float pressure;
   float nearPressure;
-  uint32_t pad[2];
+
+  // fire interaction logic
+  float health; // 1.0 healthy -- 0.0 consumed by fire
+  float pad;
 };
 
 // particle simulation parameters
@@ -89,7 +92,8 @@ struct FireSimParameters {
   float emitterY;      // Y position for respawning in GPU
 
   uint32_t isBurning;
-  float pad[3];
+  uint32_t slimeParticleCount;
+  float pad[2];
 };
 
 } // namespace elementalEngine::Physics
