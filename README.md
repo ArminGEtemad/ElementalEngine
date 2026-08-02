@@ -6,7 +6,7 @@
 >
 > Target: This engine must be finished around the time I finish my PhD.
 
-A real-time **Systemic Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate
+A real-time **Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate
 
 - gas behavior
 - Liquid behavior
@@ -14,6 +14,14 @@ A real-time **Systemic Multi-Element Reactivity Engine** built from scratch in m
 - Thermodynamics (fire and explosion)
 
 and their interaction.
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/StamAndClavetAndMidpointAndFire.gif" width="800"/>
+  </div>
+
+</div>
 
 I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
 However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
@@ -27,35 +35,7 @@ I will be using two backends
 
 ### Used Hardware
 
-**Development Device:** Intel Core CPU / NVIDIA RTX 4070 Ti Super (Pop!\_OS Linux & Windows 11)
-
-**Additionally:** I might add an ASUS handheld with AMD to make sure that Nvidia is not being merciful.
-
-## Finished Elements (Stam Fluid-Clavet-Midpoint Displacement)
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/StamAndClavetAndMidpoint.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/StamAndClavet.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/StamAndClavet2.gif" width="800"/>
-  </div>
-
-</div>
+**Development Device:** Intel Core CPU / NVIDIA RTX 4070 Ti Super / Windows 11
 
 ## Simulation Framework
 
@@ -64,7 +44,11 @@ I will be using two backends
 - Macklin Position Based Fluids (An experimental case was developed at first for acidic bath but It wasn't the way I liked it. I save it for the Future updates but for water.)
 - Electricity using midpoint displacement
 - For the electricity I started first by trying space colonization algorithm. Which was too slow. I then moved to midpoint displacement.
-- Thermodynamics (Future updates)
+- Thermodynamics
+
+## Dependencies
+
+I used VMA (Vulkan Memory Allocator) for memory allocations. You can find it [here](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) and install it.
 
 ## Moving Forward
 
@@ -81,5 +65,7 @@ The following is how I would like to move forward with the project
 - [x] phase change compute pass
 - [x] Add lightning strike (electricity)
 - [x] Add interactivity between lightning strike and slime
-- I now move to Thermodynamics :)
-- Post-processing, move to 3D?
+- [x] Ingnition logic when lightning strikes the slime
+- [x] Rendering fire when the slime burns
+- [ ] Post-processing, move to 3D?
+- [ ] Optimization
