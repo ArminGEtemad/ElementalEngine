@@ -6,6 +6,7 @@
 #include "Window.hpp"
 #include <cstdint>
 #include <memory>
+#include <string>
 
 namespace elementalEngine::RHI {
 
