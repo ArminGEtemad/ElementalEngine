@@ -1,6 +1,7 @@
 #include "VulkanSwapchain.hpp"
 #include "VulkanDevice.hpp"
 #include "Window.hpp"
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
@@ -28,10 +29,7 @@ VulkanSwapchain::~VulkanSwapchain() {
                        nullptr);
   }
 
-  for (auto imageView : swapchainImageViews) {
-    vkDestroyImageView(device.getLogicalDevice(), imageView, nullptr);
-  }
-  vkDestroySwapchainKHR(device.getLogicalDevice(), swapchain, nullptr);
+  cleanupSwapchain();
 }
 
 // surface format for swap chain
@@ -226,18 +224,52 @@ void VulkanSwapchain::createSyncObjects() {
   }
 }
 
-void VulkanSwapchain::acquireNextImage() {
+void VulkanSwapchain::cleanupSwapchain() {
+  for (auto imageView : swapchainImageViews) {
+    vkDestroyImageView(device.getLogicalDevice(), imageView, nullptr);
+  }
+  swapchainImageViews.clear();
+  if (swapchain != VK_NULL_HANDLE) {
+    vkDestroySwapchainKHR(device.getLogicalDevice(), swapchain, nullptr);
+    swapchain = VK_NULL_HANDLE;
+  }
+}
+
+void VulkanSwapchain::recreate(WindowHandling &window) {
+  int width = 0;
+  int height = 0;
+  glfwGetFramebufferSize(window.getGLFWwindow(), &width, &height);
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window.getGLFWwindow(), &width, &height);
+    glfwWaitEvents();
+  }
+  device.waitIdle();
+  cleanupSwapchain();
+  createSwapchain(window);
+  createImageViews();
+}
+
+bool VulkanSwapchain::acquireNextImage() {
   vkWaitForFences(device.getLogicalDevice(), 1, &inFlightFence[currentFrame],
                   VK_TRUE, UINT64_MAX);
 
-  vkResetFences(device.getLogicalDevice(), 1, &inFlightFence[currentFrame]);
+  VkResult result =
+      vkAcquireNextImageKHR(device.getLogicalDevice(), swapchain, UINT64_MAX,
+                            imageAvailableSemaphore[currentFrame],
+                            VK_NULL_HANDLE, &currentImageIndex);
 
-  vkAcquireNextImageKHR(device.getLogicalDevice(), swapchain, UINT64_MAX,
-                        imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE,
-                        &currentImageIndex);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    return false;
+  } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    throw std::runtime_error("Failed to acquire swapchain image!");
+  }
+
+  // if acquire succeeded reset the fence
+  vkResetFences(device.getLogicalDevice(), 1, &inFlightFence[currentFrame]);
+  return true;
 }
 
-void VulkanSwapchain::present() {
+bool VulkanSwapchain::present() {
   VkPresentInfoKHR presentInfo{};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   VkSemaphore signalSemaphore[] = {renderFinishedSemaphore[currentFrame]};
@@ -247,10 +279,15 @@ void VulkanSwapchain::present() {
   presentInfo.pSwapchains = &swapchain;
   presentInfo.pImageIndices = &currentImageIndex;
 
-  if (vkQueuePresentKHR(device.getPresentQueue(), &presentInfo) != VK_SUCCESS) {
-    throw std::runtime_error("Swapchain failed to present!");
-  }
+  VkResult result = vkQueuePresentKHR(device.getPresentQueue(), &presentInfo);
   currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
   vkQueueWaitIdle(device.getPresentQueue());
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    return false; // which has to trigger recreate in the main loop
+  } else if (result != VK_SUCCESS) {
+    throw std::runtime_error("Swapchain failed to present!");
+  }
+
+  return true;
 }
 } // namespace elementalEngine::RHI

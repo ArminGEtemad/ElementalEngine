@@ -11,7 +11,7 @@ using namespace elementalEngine;
 using namespace elementalEngine::RHI;
 
 int main() {
-  static constexpr int WIDTH{2000};
+  static constexpr int WIDTH{800};
   static constexpr int HEIGHT{800};
 
   std::cout << "-----------------------------------\n";
@@ -31,20 +31,42 @@ int main() {
 
     while (!window.shouldClose()) {
       glfwPollEvents();
-      swapchain->acquireNextImage();
+
+      // skip frame generation if minimized
+      if (window.isMinimized()) {
+        continue;
+      }
+
+      // check window resize
+      if (window.isResized() || !swapchain->acquireNextImage()) {
+        window.resetResizedFlag();
+        swapchain->recreate(window);
+        continue;
+      }
+
       cmdList->begin();
       cmdList->beginRendering(*swapchain);
 
-      cmdList->setViewport(0.0f, 0.0f, static_cast<float>(WIDTH),
-                           static_cast<float>(HEIGHT));
-      cmdList->setScissor(0, 0, WIDTH, HEIGHT);
+      // current swapchain dimensions
+      const float currentWidth = static_cast<float>(swapchain->getWidth());
+      const float currentHeight = static_cast<float>(swapchain->getHeight());
+
+      cmdList->setViewport(0.0f, 0.0f, currentWidth, currentHeight);
+      cmdList->setScissor(0, 0, swapchain->getWidth(), swapchain->getHeight());
 
       cmdList->endRendering(*swapchain);
       cmdList->end();
 
       device->submit(cmdList.get(), swapchain.get());
-      swapchain->present();
+
+      // present frame and recreate swapchain if suboptimal or out of date
+      if (!swapchain->present() || window.isResized()) {
+        window.resetResizedFlag();
+        swapchain->recreate(window);
+      }
     }
+
+    device->waitIdle();
 
   } catch (const std::exception &e) {
     std::cerr << e.what() << "\n";

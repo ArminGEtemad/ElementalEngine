@@ -1,4 +1,5 @@
 #pragma once
+#include "Window.hpp"
 #include <cstdint>
 
 namespace elementalEngine::RHI {
@@ -9,9 +10,13 @@ public:
   Swapchain(const Swapchain &) = delete;
   Swapchain &operator=(const Swapchain &) = delete;
 
-  virtual void present() = 0;
-  virtual void acquireNextImage() = 0;
+  virtual bool present() = 0;
+  virtual bool acquireNextImage() = 0;
+  virtual void recreate(WindowHandling &window) = 0;
+
   virtual uint32_t getCurrentFrameIndex() const = 0;
+  virtual uint32_t getWidth() const = 0;
+  virtual uint32_t getHeight() const = 0;
 
 protected:
   Swapchain() = default;
