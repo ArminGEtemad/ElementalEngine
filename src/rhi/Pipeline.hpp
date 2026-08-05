@@ -1,10 +1,30 @@
 #pragma once
 
 #include "RHICommon.hpp"
+#include "Texture.hpp"
 #include <cstdint>
 #include <vector>
 
 namespace elementalEngine::RHI {
+
+enum class CullMode { None, Front, Back };
+
+enum class CompareOp {
+  Never,
+  Less,
+  Equal,
+  LessOrEqual,
+  Greater,
+  GreaterOrEqual,
+  NotEqual,
+  Always
+};
+
+struct DepthState {
+  bool depthTestEnable = true;
+  bool depthWriteEnable = true;
+  CompareOp depthCompareOp = CompareOp::Less;
+};
 
 enum class Blendmode {
   None,
@@ -52,7 +72,12 @@ struct PushConstantConfig {
 struct PipelineConfig {
   std::vector<DescriptorBinding> bindings;
   PushConstantConfig pushConstants;
-  Blendmode blendMode = Blendmode::None; // default to None
+  Blendmode blendMode = Blendmode::None; // default to None TODO Typo m -> M
+  CullMode cullMode = CullMode::None;
+  DepthState depthState{};
+  TextureFormat colorFormat = TextureFormat::B8G8R8A8_SRGB;
+  TextureFormat depthFomat = TextureFormat::D32_FLOAT;
+  bool hasDepthAttachment = true;
 };
 
 class Pipeline {

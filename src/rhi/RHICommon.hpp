@@ -9,8 +9,14 @@ enum class ResourceState {
   Undefined,
   UnorderedAccess,
   ShaderResource,
-  TransferDst
+  TransferDst,
+  TransferSrc,
+  DepthStencilWrite,
+  DepthStencilReadOnly,
+  Present
 };
+
+enum class IndexType { Uint16, Uint32 };
 
 struct DeviceConfig {
   bool enableValidationLayers = true;
