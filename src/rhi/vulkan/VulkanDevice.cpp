@@ -30,9 +30,9 @@ std::unique_ptr<Pipeline>
 VulkanDevice::createPipeline(const std::string &vertexShaderName,
                              const std::string &fragmentShaderName,
                              const PipelineConfig &config) {
-  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB,
-                                          vertexShaderName, fragmentShaderName,
-                                          config);
+  VkFormat vkColorFormat = VulkanTexture::mapFormat(config.colorFormat);
+  return std::make_unique<VulkanPipeline>(
+      *this, vkColorFormat, vertexShaderName, fragmentShaderName, config);
 }
 
 std::unique_ptr<Pipeline>

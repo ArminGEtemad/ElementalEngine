@@ -20,6 +20,10 @@ public:
   VkImageView getImageView() const { return imageView; }
   VkFormat getVkFormat() const { return vkFormat; }
 
+  // helper functions
+  static VkFormat mapFormat(TextureFormat format);
+  static VkImageUsageFlags mapUsage(TextureUsage usage);
+
 private:
   VulkanDevice &device;
   uint32_t width;
@@ -31,10 +35,6 @@ private:
   VkImage image{VK_NULL_HANDLE};
   VmaAllocation allocation{VK_NULL_HANDLE};
   VkImageView imageView{VK_NULL_HANDLE};
-
-  // helper functions
-  VkFormat mapFormat(TextureFormat format);
-  VkImageUsageFlags mapUsage(TextureUsage usage);
 };
 
 } // namespace elementalEngine::RHI

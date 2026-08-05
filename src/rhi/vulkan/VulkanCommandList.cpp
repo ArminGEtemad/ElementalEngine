@@ -10,6 +10,7 @@
 #include "VulkanTexture.hpp"
 #include <cstdint>
 #include <stdexcept>
+#include <vector>
 
 namespace elementalEngine::RHI {
 
@@ -174,6 +175,94 @@ void VulkanCommandList::beginRendering(Texture *renderTarget) {
   vkCmdBeginRendering(commandBuffer, &renderingInfo);
 }
 
+void VulkanCommandList::beginRendering(const RenderingInfo &info) {
+  std::vector<VkRenderingAttachmentInfo> colorAttachments;
+  colorAttachments.reserve(info.colorAttachments.size());
+
+  // transition and setting up the color attachment
+  for (const auto &att : info.colorAttachments) {
+    auto *vkTex = static_cast<VulkanTexture *>(att.texture);
+
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.srcAccessMask = 0;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barrier.image = vkTex->getImage();
+    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &barrier;
+
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+    VkRenderingAttachmentInfo vkAtt{};
+    vkAtt.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    vkAtt.imageView = vkTex->getImageView();
+    vkAtt.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    vkAtt.loadOp =
+        att.clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+    vkAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    vkAtt.clearValue.color = {{att.clearColor[0], att.clearColor[1],
+                               att.clearColor[2], att.clearColor[3]}};
+    colorAttachments.push_back(vkAtt);
+  }
+
+  // transition and setting up depth attachment if present
+  VkRenderingAttachmentInfo depthAttachmentInfo{};
+  bool hasDepth = info.depthAttachment.has_value();
+
+  if (hasDepth) {
+    const auto &depthAtt = info.depthAttachment.value();
+    auto *vkDepthTex = static_cast<VulkanTexture *>(depthAtt.texture);
+
+    VkImageMemoryBarrier2 depthBarrier{};
+    depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    depthBarrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                                VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    depthBarrier.srcAccessMask = 0;
+    depthBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                                VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    depthBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthBarrier.image = vkDepthTex->getImage();
+    depthBarrier.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &depthBarrier;
+
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+
+    depthAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachmentInfo.imageView = vkDepthTex->getImageView();
+    depthAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachmentInfo.loadOp = depthAtt.clear ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                                                : VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachmentInfo.clearValue.depthStencil = {depthAtt.clearDepth,
+                                                   depthAtt.clearStencil};
+  }
+
+  VkRenderingInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea = {{0, 0}, {info.renderWidth, info.renderHeight}};
+  renderingInfo.layerCount = 1;
+  renderingInfo.colorAttachmentCount =
+      static_cast<uint32_t>(colorAttachments.size());
+  renderingInfo.pColorAttachments = colorAttachments.data();
+  renderingInfo.pDepthAttachment = hasDepth ? &depthAttachmentInfo : nullptr;
+
+  vkCmdBeginRendering(commandBuffer, &renderingInfo);
+}
+
 void VulkanCommandList::endRendering(Swapchain &swapchain) {
   auto &vkSwapchain = static_cast<VulkanSwapchain &>(swapchain);
   uint32_t frameIndex = vkSwapchain.getCurrentFrameIndex();
@@ -234,6 +323,8 @@ void VulkanCommandList::endRendering(Texture *renderTarget) {
 
   vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 }
+
+void VulkanCommandList::endRendering() { vkCmdEndRendering(commandBuffer); }
 
 void VulkanCommandList::setViewport(float x, float y, float width,
                                     float height) {
@@ -326,6 +417,23 @@ void VulkanCommandList::bindSampler(uint32_t bindingSlot) {
     pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
              graphicsPiplineLayout, 0, 1, &writeDesc);
   }
+}
+
+void VulkanCommandList::bindIndexBuffer(Buffer *buffer, IndexType indexType,
+                                        size_t offset) {
+  auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
+  VkIndexType vkIndexType = (indexType == IndexType::Uint16)
+                                ? VK_INDEX_TYPE_UINT16
+                                : VK_INDEX_TYPE_UINT32;
+  vkCmdBindIndexBuffer(commandBuffer, vkBuffer->getVkBuffer(), offset,
+                       vkIndexType);
+}
+
+void VulkanCommandList::drawIndexed(uint32_t indexCount, uint32_t instanceCount,
+                                    uint32_t firstIndex, int32_t vertexOffset,
+                                    uint32_t firstInstance) {
+  vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex,
+                   vertexOffset, firstInstance);
 }
 
 void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,

@@ -14,10 +14,14 @@ public:
 
   void begin() override;
   void end() override;
+
   void beginRendering(Swapchain &swapchain) override;
-  void endRendering(Swapchain &swapchain) override;
   void beginRendering(Texture *renderTarget) override;
+  void beginRendering(const RenderingInfo &info) override;
+
+  void endRendering(Swapchain &swapchain) override;
   void endRendering(Texture *renderTarget) override;
+  void endRendering() override;
 
   void clearBuffer(Buffer *buffer, uint32_t value) override;
 
@@ -29,6 +33,8 @@ public:
   void bindTexture(uint32_t bindingSlot, Texture *texture) override;
   void bindStorageImage(uint32_t bindingSlot, Texture *texture) override;
   void bindSampler(uint32_t bindingSlot) override;
+  void bindIndexBuffer(Buffer *buffer, IndexType indexType,
+                       size_t offset = 0) override;
 
   void bindPipeline(Pipeline &pipeline) override;
 
@@ -43,6 +49,9 @@ public:
                 uint32_t groupCountZ) override;
   void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
             uint32_t firstInstance) override;
+  void drawIndexed(uint32_t indexCount, uint32_t instanceCount,
+                   uint32_t firstIndex, int32_t vertexOffset,
+                   uint32_t firstInstance) override;
 
   VkCommandBuffer getNativeCommandBuffer() const { return commandBuffer; }
 
