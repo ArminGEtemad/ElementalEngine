@@ -76,7 +76,7 @@ struct PipelineConfig {
   CullMode cullMode = CullMode::None;
   DepthState depthState{};
   TextureFormat colorFormat = TextureFormat::B8G8R8A8_SRGB;
-  TextureFormat depthFomat = TextureFormat::D32_FLOAT;
+  TextureFormat depthFormat = TextureFormat::D32_FLOAT;
   bool hasDepthAttachment = true;
 };
 
