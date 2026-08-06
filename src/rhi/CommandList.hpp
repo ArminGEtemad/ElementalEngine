@@ -3,7 +3,6 @@
 #include "Buffer.hpp"
 #include "Pipeline.hpp"
 #include "RHICommon.hpp"
-#include "Swapchain.hpp"
 #include "Texture.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -42,12 +41,7 @@ public:
   virtual void
   end() = 0; // closes the command list, readying for the submission
 
-  virtual void beginRendering(Swapchain &swapchain) = 0;
-  virtual void beginRendering(Texture *renderTarget) = 0;
   virtual void beginRendering(const RenderingInfo &info) = 0;
-
-  virtual void endRendering(Swapchain &swapchain) = 0;
-  virtual void endRendering(Texture *renderTarget) = 0;
   virtual void endRendering() = 0;
 
   virtual void clearBuffer(Buffer *buffer, uint32_t value) = 0;
@@ -81,6 +75,8 @@ public:
 
   // compute commands
   virtual void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) = 0;
+  virtual void bindUniformBuffer(uint32_t bindingSlot, Buffer *buffer,
+                                 size_t offset = 0, size_t range = 0) = 0;
   virtual void pushConstants(uint32_t offset, uint32_t size, const void *data,
                              ShaderStage stage) = 0;
   virtual void dispatch(uint32_t groupCountX, uint32_t groupCountY,

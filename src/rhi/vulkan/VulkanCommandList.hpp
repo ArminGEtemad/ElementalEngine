@@ -2,7 +2,6 @@
 
 #include "CommandList.hpp"
 #include "Pipeline.hpp"
-#include "Swapchain.hpp"
 #include "Texture.hpp"
 #include "VulkanDevice.hpp"
 
@@ -15,12 +14,7 @@ public:
   void begin() override;
   void end() override;
 
-  void beginRendering(Swapchain &swapchain) override;
-  void beginRendering(Texture *renderTarget) override;
   void beginRendering(const RenderingInfo &info) override;
-
-  void endRendering(Swapchain &swapchain) override;
-  void endRendering(Texture *renderTarget) override;
   void endRendering() override;
 
   void clearBuffer(Buffer *buffer, uint32_t value) override;
@@ -41,10 +35,13 @@ public:
   void setViewport(float x, float y, float width, float height) override;
   void setScissor(int32_t x, int32_t y, uint32_t width,
                   uint32_t height) override;
+
   void bindVertexBuffer(Buffer *buffer, size_t stride) override;
   void pushConstants(uint32_t offset, uint32_t size, const void *data,
                      ShaderStage stage) override;
   void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) override;
+  void bindUniformBuffer(uint32_t bindingSlot, Buffer *buffer,
+                         size_t offset = 0, size_t range = 0) override;
   void dispatch(uint32_t groupCountX, uint32_t groupCountY,
                 uint32_t groupCountZ) override;
   void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
