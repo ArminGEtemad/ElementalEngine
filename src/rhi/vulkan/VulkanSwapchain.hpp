@@ -2,6 +2,7 @@
 
 #include "Swapchain.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanTexture.hpp"
 #include "Window.hpp"
 #include <cstdint>
 
@@ -19,6 +20,9 @@ public:
   uint32_t getCurrentFrameIndex() const override { return currentImageIndex; }
   uint32_t getWidth() const override { return swapchainExtent.width; }
   uint32_t getHeight() const override { return swapchainExtent.height; }
+  Texture *getCurrentBackBuffer() override {
+    return backBuffers[currentImageIndex].get();
+  }
 
   VkImage getImage(uint32_t index) const { return swapchainImages[index]; }
   VkImageView getImageView(uint32_t index) const {
@@ -50,6 +54,7 @@ private:
   VkFormat swapchainImageFormat;
   VkExtent2D swapchainExtent;
   std::vector<VkImageView> swapchainImageViews;
+  std::vector<std::unique_ptr<VulkanTexture>> backBuffers;
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
   std::vector<VkFence> inFlightFence;
