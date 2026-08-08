@@ -204,7 +204,7 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
   rasterizer.cullMode = mapCullMode(config.cullMode);
-  rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
   // depth stencil
   VkPipelineDepthStencilStateCreateInfo depthStencil{};
