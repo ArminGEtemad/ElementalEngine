@@ -1,4 +1,5 @@
 #pragma once
+#include "Texture.hpp"
 #include "Window.hpp"
 #include <cstdint>
 
@@ -17,6 +18,8 @@ public:
   virtual uint32_t getCurrentFrameIndex() const = 0;
   virtual uint32_t getWidth() const = 0;
   virtual uint32_t getHeight() const = 0;
+
+  virtual Texture *getCurrentBackBuffer() = 0;
 
 protected:
   Swapchain() = default;

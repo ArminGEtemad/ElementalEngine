@@ -9,10 +9,11 @@ enum class ResourceState {
   Undefined,
   UnorderedAccess,
   ShaderResource,
-  TransferDst,
-  TransferSrc,
+  RenderTarget,
   DepthStencilWrite,
   DepthStencilReadOnly,
+  TransferDst,
+  TransferSrc,
   Present
 };
 
@@ -46,8 +47,15 @@ inline bool operator&(BufferUsage a, BufferUsage b) {
 // placed memory
 enum class MemoryProperty { GPULocal, CPUAccess };
 
-// test Vertex
-struct Vertex {
+// 3D vertecies
+struct Vertex3D {
+  float position[3];
+  float normal[3];
+  float uv[2];
+};
+
+// legacy 2D version
+struct Vertex2D {
   float position[2];
   float color[3];
 };
