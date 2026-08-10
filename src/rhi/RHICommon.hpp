@@ -49,10 +49,10 @@ enum class MemoryProperty { GPULocal, CPUAccess };
 
 // 3D vertecies
 struct Vertex3D {
-  float position[3];
-  float normal[3];
-  float uv[2];
-};
+  float position[4]; // 16 bytes (x, y, z, 1.0)
+  float normal[4];   // 16 bytes (x, y, z, 0.0)
+  float uv[4];       // 16 bytes (u, v, 0.0, 0.0)
+}; // easier for 16 byte alignment
 
 // legacy 2D version
 struct Vertex2D {
