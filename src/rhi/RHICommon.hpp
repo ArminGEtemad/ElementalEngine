@@ -9,8 +9,15 @@ enum class ResourceState {
   Undefined,
   UnorderedAccess,
   ShaderResource,
-  TransferDst
+  RenderTarget,
+  DepthStencilWrite,
+  DepthStencilReadOnly,
+  TransferDst,
+  TransferSrc,
+  Present
 };
+
+enum class IndexType { Uint16, Uint32 };
 
 struct DeviceConfig {
   bool enableValidationLayers = true;
@@ -40,8 +47,15 @@ inline bool operator&(BufferUsage a, BufferUsage b) {
 // placed memory
 enum class MemoryProperty { GPULocal, CPUAccess };
 
-// test Vertex
-struct Vertex {
+// 3D vertecies
+struct Vertex3D {
+  float position[4]; // 16 bytes (x, y, z, 1.0)
+  float normal[4];   // 16 bytes (x, y, z, 0.0)
+  float uv[4];       // 16 bytes (u, v, 0.0, 0.0)
+}; // easier for 16 byte alignment
+
+// legacy 2D version
+struct Vertex2D {
   float position[2];
   float color[3];
 };

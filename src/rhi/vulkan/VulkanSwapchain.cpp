@@ -173,6 +173,10 @@ void VulkanSwapchain::createSwapchain(WindowHandling &window) {
 
 void VulkanSwapchain::createImageViews() {
   swapchainImageViews.resize(swapchainImages.size());
+  backBuffers.reserve(swapchainImages.size());
+
+  TextureFormat engineFormat =
+      VulkanTexture::reverseMapFormat(swapchainImageFormat);
 
   for (size_t i = 0; i < swapchainImages.size(); i++) {
     VkImageViewCreateInfo createInfo{};
@@ -196,6 +200,12 @@ void VulkanSwapchain::createImageViews() {
                           &swapchainImageViews[i]) != VK_SUCCESS) {
       throw std::runtime_error("Failed to create image views!");
     }
+
+    // Wrap into VulkanTexture instances
+    backBuffers.push_back(std::make_unique<VulkanTexture>(
+        device, swapchainImages[i], swapchainImageViews[i],
+        swapchainExtent.width, swapchainExtent.height, engineFormat,
+        TextureUsage::RenderTarget));
   }
 }
 
@@ -225,6 +235,9 @@ void VulkanSwapchain::createSyncObjects() {
 }
 
 void VulkanSwapchain::cleanupSwapchain() {
+  // clear RHI texture wrappers first to avoid referencing destroyed image views
+  backBuffers.clear();
+
   for (auto imageView : swapchainImageViews) {
     vkDestroyImageView(device.getLogicalDevice(), imageView, nullptr);
   }

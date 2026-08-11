@@ -1,8 +1,10 @@
 #include "CommandList.hpp"
+#include "CubeTestPass.hpp"
 #include "Device.hpp"
 #include "Swapchain.hpp"
 #include "Window.hpp"
 #include "rhi/RHICommon.hpp"
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -19,50 +21,76 @@ int main() {
   std::cout << "-----------------------------------\n";
 
   try {
-    WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
+    WindowHandling window{WIDTH, HEIGHT, "Elemental Engine - 3D Cube"};
     DeviceConfig config{};
     config.enableValidationLayers = true;
     config.enableGPUAssistedValidatioLayer = false;
+
     std::unique_ptr<Device> device(RHIFilter::createDevice(config, window));
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
     std::unique_ptr<CommandList> cmdList = device->createCommandList();
+
+    // make a cube
+    Graphics::CubeTestPass cubePass(*device, *swapchain);
+
+    // time tracking instead of hardcoding dt
+    auto startTime = std::chrono::high_resolution_clock::now();
+    auto lastTime = startTime;
 
     std::cout << "main loop starts now...\n";
 
     while (!window.shouldClose()) {
       glfwPollEvents();
 
-      // skip frame generation if minimized
+      // skip frame generation if window is minimized
       if (window.isMinimized()) {
         continue;
       }
 
-      // check window resize
+      // Handle window resize & swapchain image acquisition
       if (window.isResized() || !swapchain->acquireNextImage()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
+        cubePass.onResize(swapchain->getWidth(), swapchain->getHeight());
         continue;
       }
 
+      // calculate dt & totalTime
+      auto currentTime = std::chrono::high_resolution_clock::now();
+      float deltaTime =
+          std::chrono::duration<float, std::chrono::seconds::period>(
+              currentTime - lastTime)
+              .count();
+      float totalTime =
+          std::chrono::duration<float, std::chrono::seconds::period>(
+              currentTime - startTime)
+              .count();
+      lastTime = currentTime;
+
+      // Update Camera Matrices & GPU Uniform Buffer
+      cubePass.update(deltaTime, totalTime);
+
+      // record render comnmand
       cmdList->begin();
-      cmdList->beginRendering(*swapchain);
 
-      // current swapchain dimensions
-      const float currentWidth = static_cast<float>(swapchain->getWidth());
-      const float currentHeight = static_cast<float>(swapchain->getHeight());
+      // Runs 3D Render Pass
+      cubePass.render(*cmdList, swapchain->getCurrentBackBuffer(),
+                      swapchain->getWidth(), swapchain->getHeight());
 
-      cmdList->setViewport(0.0f, 0.0f, currentWidth, currentHeight);
-      cmdList->setScissor(0, 0, swapchain->getWidth(), swapchain->getHeight());
-
-      cmdList->endRendering(*swapchain);
+      // Transition Backbuffer to Present
+      cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
+                                 RHI::ResourceState::RenderTarget,
+                                 RHI::ResourceState::Present);
       cmdList->end();
 
+      // submit Command Buffer to GPU
       device->submit(cmdList.get(), swapchain.get());
 
-      // present frame and recreate swapchain if suboptimal or out of date
+      // Present Frame
       if (!swapchain->present() || window.isResized()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
+        cubePass.onResize(swapchain->getWidth(), swapchain->getHeight());
       }
     }
 
