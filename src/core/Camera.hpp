@@ -3,6 +3,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
 
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -63,12 +64,18 @@ public:
   const CameraFrameData &getFrameData() const { return frameData; }
   const glm::vec3 &getPosition() const { return position; }
   const glm::quat &getOrientation() const { return orientation; }
+  void processKeyboardInput(GLFWwindow *window, float deltaTime);
+  void orbit(float deltaYaw, float deltaPitch, float deltaZoom);
 
 private:
   void updateMatrices();
 
-  glm::vec3 position{0.0f, 0.0f, 5.0f};
-  glm::quat orientation{1.0f, 0.0f, 0.0f, 0.0f}; // identity
+  glm::vec3 position{0.0f, 15.0f, 20.0f};
+  glm::quat orientation{1.0f, 0.0f, 0.0f, 0.0f};
+
+  void orbitYaw(float angleRadians);
+  void orbitPitch(float angleRadians);
+  void zoom(float deltaDistance);
 
   float fov{glm::radians(50.0f)};
   float aspect{16.0f / 9.0f};
