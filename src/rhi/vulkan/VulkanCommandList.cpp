@@ -175,7 +175,7 @@ void VulkanCommandList::setViewport(float x, float y, float width,
                                     float height) {
   VkViewport viewport{};
   viewport.x = x;
-  viewport.y = height;
+  viewport.y = y + height;
   viewport.width = width;
   viewport.height = -height;
   viewport.minDepth = 0.0f;
