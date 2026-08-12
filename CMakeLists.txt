@@ -29,7 +29,7 @@ list(APPEND ENGINE_SOURCES
     src/rhi/vulkan/VulkanBuffer.cpp
     src/rhi/vulkan/VulkanAllocator.cpp
     src/rhi/vulkan/VulkanTexture.cpp
-    src/graphics/CubeTestPass.cpp # just test for now
+    src/graphics/TerrainPass.cpp
 )
 list(APPEND ENGINE_LIBS Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
 
@@ -55,7 +55,7 @@ endif()
 set(ALL_SHADER_OUTPUTS "")
 
 # --- Graphics Shaders ---
-set(GRAPHICS_SHADERS Cube)
+set(GRAPHICS_SHADERS Terrain)
 
 foreach(SHADER_NAME ${GRAPHICS_SHADERS})
     # Vertex Shader all must end in _vs

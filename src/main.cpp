@@ -1,7 +1,7 @@
 #include "CommandList.hpp"
-#include "CubeTestPass.hpp"
 #include "Device.hpp"
 #include "Swapchain.hpp"
+#include "TerrainPass.hpp"
 #include "Window.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
@@ -21,7 +21,7 @@ int main() {
   std::cout << "-----------------------------------\n";
 
   try {
-    WindowHandling window{WIDTH, HEIGHT, "Elemental Engine - 3D Cube"};
+    WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
     DeviceConfig config{};
     config.enableValidationLayers = true;
     config.enableGPUAssistedValidatioLayer = false;
@@ -30,8 +30,8 @@ int main() {
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
     std::unique_ptr<CommandList> cmdList = device->createCommandList();
 
-    // make a cube
-    Graphics::CubeTestPass cubePass(*device, *swapchain);
+    // make the terrain
+    Graphics::TerrainPass terrainPass(*device, *swapchain);
 
     // time tracking instead of hardcoding dt
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -51,7 +51,7 @@ int main() {
       if (window.isResized() || !swapchain->acquireNextImage()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
-        cubePass.onResize(swapchain->getWidth(), swapchain->getHeight());
+        terrainPass.onResize(swapchain->getWidth(), swapchain->getHeight());
         continue;
       }
 
@@ -68,14 +68,14 @@ int main() {
       lastTime = currentTime;
 
       // Update Camera Matrices & GPU Uniform Buffer
-      cubePass.update(deltaTime, totalTime);
+      terrainPass.update(window, deltaTime, totalTime);
 
       // record render comnmand
       cmdList->begin();
 
       // Runs 3D Render Pass
-      cubePass.render(*cmdList, swapchain->getCurrentBackBuffer(),
-                      swapchain->getWidth(), swapchain->getHeight());
+      terrainPass.render(*cmdList, swapchain->getCurrentBackBuffer(),
+                         swapchain->getWidth(), swapchain->getHeight());
 
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
@@ -90,7 +90,7 @@ int main() {
       if (!swapchain->present() || window.isResized()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
-        cubePass.onResize(swapchain->getWidth(), swapchain->getHeight());
+        terrainPass.onResize(swapchain->getWidth(), swapchain->getHeight());
       }
     }
 
