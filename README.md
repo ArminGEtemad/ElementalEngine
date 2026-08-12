@@ -61,6 +61,8 @@ The following is how I would like to move forward with the project
 - [x] Rendering fire when the slime burns
 - [x] Camera
 - [x] Moving towards 3D (stencil and depth buffers)
+- [x] Key bindings to control the camera
+- [x] a 2D plane as ground for the simulations
 - [ ] 3D Clavet and slime physics
 - [ ] Moving other elements to 3D
 - [ ] Post-processing
