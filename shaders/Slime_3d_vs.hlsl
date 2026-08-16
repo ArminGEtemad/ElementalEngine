@@ -1,14 +1,12 @@
 struct Particle {
-  float2 position;
-  float2 velocity;
+  float4 position;
+  float4 velocity;
+  float4 predictedPosition;
 
-  float2 predictedPosition;
   float density;
   float nearDensity;
-
   float pressure;
   float nearPressure;
-  float2 pad;
 };
 
 // Storage Buffer containing physics particles
@@ -34,19 +32,14 @@ struct VSOutput {
 // Entry point named VSMain to match CMake -E VSMain
 VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   VSOutput output;
-  float2 pos2D = Particles[instanceID].position;
+  float3 pos3D = Particles[instanceID].position.xyz;
 
   // scale from 2D to 3D domain
-  float scale = pushConstants.WorldSizeX / pushConstants.DomainWidth;
+  float scaleX = pushConstants.WorldSizeX / pushConstants.DomainWidth;
 
-  //  2D X to 3D X (-10.0 to +10.0)
-  float worldX = -pushConstants.WorldSizeX * 0.5f + (pos2D.x * scale);
-
-  // Map 2D Y (Physics Height) to 3D Y (Render Height). Gravity now pulls
-  // them down! This could be an issue for the illusion because the liquid is
-  // rendered in a vertival plane
-  float worldY = pos2D.y * scale;
-  float worldZ = 0.0f; // <- for now until the everything is wired correctly
+  float worldX = pos3D.x * scaleX;
+  float worldY = pos3D.y * scaleX;
+  float worldZ = pos3D.z * scaleX;
 
   float3 centerWorld = float3(worldX, worldY, worldZ);
 

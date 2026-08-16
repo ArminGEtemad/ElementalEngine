@@ -28,7 +28,7 @@ float4 FSMain(VSOutput input) : SV_TARGET {
 
   // Vibrant Slime Green Color
   float3 slimeColor =
-      float3(0.15, 0.85, 0.25) * NdotL + float3(0.8, 1.0, 0.8) * spec;
+      float3(0.01f, 0.22f, 0.01f) * NdotL + float3(0.8, 1.0, 0.8) * spec;
 
   return float4(slimeColor, 1.0);
 }
