@@ -13,22 +13,22 @@ namespace elementalEngine::Physics {
 PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
     : device(device), numParticles(particleNumberMax) {
 
-  simParams.dt = 0.016f;
+  simParams.dt = 0.008f;
   simParams.numParticles = particleNumberMax;
-  simParams.interactionRadius = 20.0f;
+  simParams.interactionRadius = 40.0f;
   simParams.interactionRadius2 =
       simParams.interactionRadius * simParams.interactionRadius;
   simParams.restDensity = 6.0f;
-  simParams.stiffness = 25.0f;
-  simParams.nearStiffness = 40.0f;
-  simParams.linearViscosity = 2.0f;
-  simParams.quadraticViscosity = 0.3f;
+  simParams.stiffness = 35.0f;
+  simParams.nearStiffness = 25.0f;
+  simParams.linearViscosity = 2.5f;
+  simParams.quadraticViscosity = 0.1f;
   simParams.springStiffness = 20.0f;
-  simParams.plasticity = 0.5f;
+  simParams.plasticity = 0.4f;
   simParams.yieldRatio = 0.2f;
   simParams.sticknessRadius = 2.0f;
 
-  simParams.sticknessRadius = 2.0f;
+  simParams.sticknessRadius = 5.0f;
   simParams.sticknessMultiplier = 2.0f;
   simParams.cellSpacing = simParams.interactionRadius;
   simParams.hashGridSize = 700 * 300;
@@ -96,17 +96,24 @@ void PBFSlime::initializeParticles() {
   std::default_random_engine generator;
 
   // Widen the spawn cloud
-  std::uniform_real_distribution<float> noiseX(-100.0f, 100.0f);
-  std::uniform_real_distribution<float> spawnY(550.0f, 600.0f);
+  std::uniform_real_distribution<float> noiseXZ(-150.0f, 150.0f);
+  std::uniform_real_distribution<float> spawnY(100.0f, 150.0f);
 
   for (uint32_t i = 0; i < numParticles; ++i) {
-    initialData[i].position[0] = 300.0f + noiseX(generator);
-    initialData[i].position[1] = spawnY(generator);
+    initialData[i].position[0] = noiseXZ(generator); // X
+    initialData[i].position[1] = spawnY(generator);  // Y (Height)
+    initialData[i].position[2] = noiseXZ(generator); // Z (Depth)
+    initialData[i].position[3] = 0.0f;               // pad
 
-    initialData[i].velocity[0] = 100.0f;
-    initialData[i].velocity[1] = 10.0f;
+    initialData[i].velocity[0] = 1000.0f; // Move slightly right
+    initialData[i].velocity[1] = 250.0f;  // Shoot UP
+    initialData[i].velocity[2] = 450.0f;  // Shoot FORWARD
+    initialData[i].velocity[3] = 0.0f;    // pad
+
     initialData[i].predictedPosition[0] = initialData[i].position[0];
     initialData[i].predictedPosition[1] = initialData[i].position[1];
+    initialData[i].predictedPosition[2] = initialData[i].position[2];
+    initialData[i].predictedPosition[3] = 0.0f;
   }
 
   void *mappedData = particleBuffer->map();

@@ -5,19 +5,18 @@
 #include <memory>
 namespace elementalEngine::Physics {
 
-static constexpr uint32_t MAX_SPRINGS = 16;
+static constexpr uint32_t MAX_SPRINGS = 64;
 
 struct Particle {
-  float position[2];
-  float velocity[2];
+  float position[4]; // I can use the 4's state for AIR, GROUND flagfor now
+                     // padding thoug
+  float velocity[4]; // 4's state is just padding
+  float predictedPosition[4]; //  4's state is just padding
 
-  float predictedPosition[2];
   float density;
   float nearDensity;
-
   float pressure;
   float nearPressure;
-  float pad[2];
 };
 
 struct ParticleSimulationParameters {
@@ -43,8 +42,9 @@ struct ParticleSimulationParameters {
 
   // I used these parameters in my 2D versions so for now I keep them
   float domainWidth = 2000.0f;
-  float domainHeight = 800.0f;
-  float pad[2];
+  float domainDepth = 2000.0f;
+  float domainHeight = 2000.0f;
+  float pad;
 };
 
 struct Spring {
