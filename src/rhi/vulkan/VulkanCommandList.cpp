@@ -82,24 +82,6 @@ void VulkanCommandList::beginRendering(const RenderingInfo &info) {
   for (const auto &att : info.colorAttachments) {
     auto *vkTex = static_cast<VulkanTexture *>(att.texture);
 
-    VkImageMemoryBarrier2 barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    barrier.srcAccessMask = 0;
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    barrier.image = vkTex->getImage();
-    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &barrier;
-
-    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
-
     VkRenderingAttachmentInfo vkAtt{};
     vkAtt.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     vkAtt.imageView = vkTex->getImageView();
@@ -119,33 +101,6 @@ void VulkanCommandList::beginRendering(const RenderingInfo &info) {
   if (hasDepth) {
     const auto &depthAtt = info.depthAttachment.value();
     auto *vkDepthTex = static_cast<VulkanTexture *>(depthAtt.texture);
-    TextureFormat depthFormat = vkDepthTex->getFormat();
-
-    VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-    if (depthFormat == TextureFormat::D24_UNORM_S8_UINT) {
-      aspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
-    }
-
-    VkImageMemoryBarrier2 depthBarrier{};
-    depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-    depthBarrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-                                VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    depthBarrier.srcAccessMask = 0;
-    depthBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-                                VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    depthBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                 VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthBarrier.image = vkDepthTex->getImage();
-    depthBarrier.subresourceRange = {aspectFlags, 0, 1, 0, 1};
-
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &depthBarrier;
-
-    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
     depthAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     depthAttachmentInfo.imageView = vkDepthTex->getImageView();
@@ -317,7 +272,7 @@ void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,
                             : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.srcStageMask = (from == ResourceState::Undefined)
-                               ? VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT
+                               ? VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT
                                : VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     barrier.srcAccessMask =
         (from == ResourceState::Undefined) ? 0 : VK_ACCESS_2_SHADER_READ_BIT;
