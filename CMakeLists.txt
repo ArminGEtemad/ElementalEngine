@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # dependencies and directories
 find_package(glfw3 REQUIRED)
-include_directories(src src/core src/rhi src/compute src/graphics)
+include_directories(src src/core src/rhi src/physics src/graphics)
 
 # everything independent of the backend
 set(ENGINE_SOURCES
@@ -29,8 +29,15 @@ list(APPEND ENGINE_SOURCES
     src/rhi/vulkan/VulkanBuffer.cpp
     src/rhi/vulkan/VulkanAllocator.cpp
     src/rhi/vulkan/VulkanTexture.cpp
-    src/graphics/TerrainPass.cpp
 )
+
+# whatever has to do with graphics and compute passes
+list(APPEND ENGINE_SOURCES
+    src/graphics/TerrainPass.cpp
+    src/graphics/PBFSlimeRenderer.cpp
+    src/physics/PBFSlime.cpp
+)
+
 list(APPEND ENGINE_LIBS Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
 
 # executables
@@ -53,9 +60,12 @@ if(NOT DXC_EXECUTABLE)
 endif()
 
 set(ALL_SHADER_OUTPUTS "")
+set(SHADER_HEADERS 
+    "${CMAKE_SOURCE_DIR}/shaders/clavet_common.hlsli"
+)
 
 # --- Graphics Shaders ---
-set(GRAPHICS_SHADERS Terrain)
+set(GRAPHICS_SHADERS Terrain Slime_3d)
 
 foreach(SHADER_NAME ${GRAPHICS_SHADERS})
     # Vertex Shader all must end in _vs
@@ -84,7 +94,8 @@ endforeach()
 
 
 # --- Compute Shaders ---
-set(COMPUTE_SHADERS) # No compute shader for now but they will be added here later on
+set(COMPUTE_SHADERS clavet_grid_construct clavet_grid_next_construct clavet_predicted clavet_springs
+    clavet_density clavet_relax clavet_integrate)
 
 foreach(SHADER_NAME ${COMPUTE_SHADERS})
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/shaders/${SHADER_NAME}.hlsl")
