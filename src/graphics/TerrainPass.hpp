@@ -28,6 +28,10 @@ public:
 
   Core::Camera &getCamera() { return camera; }
 
+  // getter
+  // this now communicates with Clavet
+  RHI::Texture *getDepthTexture() const { return depthTexture.get(); }
+
 private:
   void createDepthTarget(uint32_t width, uint32_t height);
   void createBuffers();

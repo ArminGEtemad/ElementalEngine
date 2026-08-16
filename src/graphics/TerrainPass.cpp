@@ -1,4 +1,5 @@
 #include "TerrainPass.hpp"
+#include "PBFSlimeRenderer.hpp"
 #include "TerrainMesh.hpp"
 #include <cstring>
 
@@ -113,31 +114,6 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
 void TerrainPass::render(RHI::CommandList &commandList,
                          RHI::Texture *targetColorTexture, uint32_t width,
                          uint32_t height) {
-  // Construct dynamic rendering info
-  RHI::RenderingInfo renderingInfo{};
-  renderingInfo.renderWidth = width;
-  renderingInfo.renderHeight = height;
-
-  // beckground color
-  RHI::RenderPassAttachment colorAttachment{};
-  colorAttachment.texture = targetColorTexture;
-  colorAttachment.clear = true;
-  colorAttachment.clearColor[0] = 0.3f;
-  colorAttachment.clearColor[1] = 0.7f;
-  colorAttachment.clearColor[2] = 0.6f;
-  colorAttachment.clearColor[3] = 1.0f;
-  renderingInfo.colorAttachments.push_back(colorAttachment);
-
-  // Depth Attachment
-  RHI::DepthAttachment depthAttachment{};
-  depthAttachment.texture = depthTexture.get();
-  depthAttachment.clear = true;
-  depthAttachment.clearDepth = 1.0f;
-  depthAttachment.clearStencil = 0;
-  renderingInfo.depthAttachment = depthAttachment;
-
-  // begin rendering
-  commandList.beginRendering(renderingInfo);
 
   // Viewport & Scissor not hardcoded like before since the window can change
   // size now
@@ -154,9 +130,6 @@ void TerrainPass::render(RHI::CommandList &commandList,
   // bind index buffer
   commandList.bindIndexBuffer(indexBuffer.get(), RHI::IndexType::Uint32, 0);
   commandList.drawIndexed(indexCount, 1, 0, 0, 0);
-
-  // end rendering
-  commandList.endRendering();
 }
 
 } // namespace elementalEngine::Graphics
