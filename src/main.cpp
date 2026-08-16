@@ -1,11 +1,14 @@
 #include "CommandList.hpp"
-#include "CubeTestPass.hpp"
 #include "Device.hpp"
+#include "PBFSlime.hpp"
+#include "PBFSlimeRenderer.hpp"
 #include "Swapchain.hpp"
+#include "TerrainPass.hpp"
 #include "Window.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <memory>
 
@@ -13,15 +16,15 @@ using namespace elementalEngine;
 using namespace elementalEngine::RHI;
 
 int main() {
-  static constexpr int WIDTH{800};
-  static constexpr int HEIGHT{800};
+  static constexpr int WIDTH{2000};
+  static constexpr int HEIGHT{1000};
 
   std::cout << "-----------------------------------\n";
   std::cout << "   .:: ELEMENTAL ENGINE ::.\n";
   std::cout << "-----------------------------------\n";
 
   try {
-    WindowHandling window{WIDTH, HEIGHT, "Elemental Engine - 3D Cube"};
+    WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
     DeviceConfig config{};
     config.enableValidationLayers = true;
     config.enableGPUAssistedValidatioLayer = false;
@@ -30,8 +33,13 @@ int main() {
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
     std::unique_ptr<CommandList> cmdList = device->createCommandList();
 
-    // make a cube
-    Graphics::CubeTestPass cubePass(*device, *swapchain);
+    // make the terrain
+    Graphics::TerrainPass terrainPass(*device, *swapchain);
+
+    // make slime
+    uint32_t numParticles = 2800;
+    Physics::PBFSlime slimeSim(*device, numParticles);
+    Renderer::PBFSlimeRenderer slimeRenderer(*device);
 
     // time tracking instead of hardcoding dt
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -51,16 +59,27 @@ int main() {
       if (window.isResized() || !swapchain->acquireNextImage()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
-        cubePass.onResize(swapchain->getWidth(), swapchain->getHeight());
+        terrainPass.onResize(swapchain->getWidth(), swapchain->getHeight());
         continue;
       }
 
       // calculate dt & totalTime
+      // now there is a problem I realized when changind the window size. maybe
+      // the dt has to be hardcoded so that we are actually not dependent on the
+      // rate? because soe times the visuals can run faster and sometimes
+      // slower?
       auto currentTime = std::chrono::high_resolution_clock::now();
       float deltaTime =
           std::chrono::duration<float, std::chrono::seconds::period>(
               currentTime - lastTime)
               .count();
+      // changing the window size and moving the window broke the physics. this
+      // is just a safety net. We won't have this problem if the dt is
+      // hardcoded.
+      if (deltaTime > 0.05f) {
+        deltaTime = 0.05f;
+      }
+
       float totalTime =
           std::chrono::duration<float, std::chrono::seconds::period>(
               currentTime - startTime)
@@ -68,15 +87,54 @@ int main() {
       lastTime = currentTime;
 
       // Update Camera Matrices & GPU Uniform Buffer
-      cubePass.update(deltaTime, totalTime);
+      terrainPass.update(window, deltaTime, totalTime);
 
       // record render comnmand
       cmdList->begin();
+      float fixedDt = 0.008f;
 
+      // run slime physics
+      slimeSim.simulate(*cmdList, fixedDt, 0.0f, 0.0f, 0.0f);
+
+      // Transition acquired image to Render Target before drawing
+      cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
+                                 RHI::ResourceState::Undefined,
+                                 RHI::ResourceState::RenderTarget);
+
+      cmdList->transitionTexture(terrainPass.getDepthTexture(),
+                                 RHI::ResourceState::Undefined,
+                                 RHI::ResourceState::DepthStencilWrite);
+      RHI::RenderingInfo renderingInfo{};
+      renderingInfo.renderWidth = swapchain->getWidth();
+      renderingInfo.renderHeight = swapchain->getHeight();
+
+      RHI::RenderPassAttachment colorAttachment{};
+      colorAttachment.texture = swapchain->getCurrentBackBuffer();
+      colorAttachment.clear = true;
+      colorAttachment.clearColor[0] = 0.01f;
+      colorAttachment.clearColor[1] = 0.01f;
+      colorAttachment.clearColor[2] = 0.1f;
+      colorAttachment.clearColor[3] = 1.0f;
+      renderingInfo.colorAttachments.push_back(colorAttachment);
+
+      RHI::DepthAttachment depthAttachment{};
+      depthAttachment.texture = terrainPass.getDepthTexture();
+      depthAttachment.clear = true;
+      depthAttachment.clearDepth = 1.0f;
+      depthAttachment.clearStencil = 0;
+      renderingInfo.depthAttachment = depthAttachment;
+
+      cmdList->beginRendering(renderingInfo);
       // Runs 3D Render Pass
-      cubePass.render(*cmdList, swapchain->getCurrentBackBuffer(),
-                      swapchain->getWidth(), swapchain->getHeight());
+      terrainPass.render(*cmdList, swapchain->getCurrentBackBuffer(),
+                         swapchain->getWidth(), swapchain->getHeight());
 
+      const float *viewProj =
+          glm::value_ptr(terrainPass.getCamera().getFrameData().viewProjection);
+
+      slimeRenderer.render3D(*cmdList, swapchain->getWidth(),
+                             swapchain->getHeight(), slimeSim, viewProj, 0.1f);
+      cmdList->endRendering();
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
                                  RHI::ResourceState::RenderTarget,
@@ -90,7 +148,7 @@ int main() {
       if (!swapchain->present() || window.isResized()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
-        cubePass.onResize(swapchain->getWidth(), swapchain->getHeight());
+        terrainPass.onResize(swapchain->getWidth(), swapchain->getHeight());
       }
     }
 

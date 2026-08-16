@@ -52,4 +52,67 @@ void Camera::updateMatrices() {
   frameData.cameraPosition = glm::vec4(position, 1.0f);
 }
 
+void Camera::orbitYaw(float angleRadians) {
+  // Delta rotation around world Y-axis (0, 1, 0)
+  glm::quat deltaYaw =
+      glm::angleAxis(angleRadians, glm::vec3(0.0f, 1.0f, 0.0f));
+
+  // Rotate both position vector and orientation quaternion
+  position = deltaYaw * position;
+  orientation = glm::normalize(deltaYaw * orientation);
+  isDirty = true;
+}
+
+void Camera::orbitPitch(float angleRadians) {
+  // Delta rotation around local Camera Right vector
+  glm::quat deltaPitch = glm::angleAxis(angleRadians, getRightVector());
+
+  // Rotate both position vector and orientation quaternion
+  position = deltaPitch * position;
+  orientation = glm::normalize(deltaPitch * orientation);
+  isDirty = true;
+}
+
+void Camera::zoom(float deltaDistance) {
+  // Translate along camera forward vector (positive delta moves forward,
+  // negative moves backward)
+  position += getForwardVector() * deltaDistance;
+  isDirty = true;
+}
+
+void Camera::orbit(float deltaYaw, float deltaPitch, float deltaZoom) {
+  if (deltaYaw != 0.0f)
+    orbitYaw(deltaYaw);
+  if (deltaPitch != 0.0f)
+    orbitPitch(deltaPitch);
+  if (deltaZoom != 0.0f)
+    zoom(deltaZoom);
+}
+
+void Camera::processKeyboardInput(GLFWwindow *window, float deltaTime) {
+  float rotateSpeed = 1.5f * deltaTime;
+  float zoomSpeed = 15.0f * deltaTime;
+
+  float deltaYaw = 0.0f;
+  float deltaPitch = 0.0f;
+  float deltaZoom = 0.0f;
+
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    deltaYaw -= rotateSpeed;
+  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    deltaYaw += rotateSpeed;
+  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    deltaPitch -= rotateSpeed;
+  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    deltaPitch += rotateSpeed;
+  if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    deltaZoom += zoomSpeed; // Zoom In
+  if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    deltaZoom -= zoomSpeed; // Zoom Out
+
+  if (deltaYaw != 0.0f || deltaPitch != 0.0f || deltaZoom != 0.0f) {
+    orbit(deltaYaw, deltaPitch, deltaZoom);
+  }
+}
+
 } // namespace elementalEngine::Core
