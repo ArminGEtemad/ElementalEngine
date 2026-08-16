@@ -12,7 +12,7 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   if (id >= particleParams.numParticles)
     return;
 
-  uint hash = hashGridCell(getGridCell(particles[id].position));
+  uint hash = hashGridCell(getGridCell(particles[id].position.xyz));
 
   uint originalStart;
   InterlockedExchange(gridHeadBuffer[hash], id, originalStart);

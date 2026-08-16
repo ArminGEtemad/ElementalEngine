@@ -11,7 +11,7 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   if (id >= particleParams.numParticles)
     return;
 
-  uint hash = hashGridCell(getGridCell(particles[id].predictedPosition));
+  uint hash = hashGridCell(getGridCell(particles[id].predictedPosition.xyz));
 
   uint originalStart;
   InterlockedExchange(gridHeadBuffer[hash], id, originalStart);

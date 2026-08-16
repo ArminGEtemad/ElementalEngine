@@ -1,19 +1,19 @@
 static const uint THREAD_GROUP_SIZE = 256;
-static const uint MAX_SPRINGS = 16;
+static const uint MAX_SPRINGS = 64;
 static const uint INVALID_ID = 0xFFFFFFFF;
-static const float2 GRID_ORIGIN = float2(0.0, 0.0);
-static const float2 GRAVITY = float2(0.0f, -981.0f);
+static const float3 GRID_ORIGIN = float3(0.0, 0.0, 0.0);
+static const float3 GRAVITY = float3(0.0f, -9.81f, 0.0f);
 
 struct Particle {
-  float2 position;
-  float2 velocity;
-  float2 predictedPosition;
+  float4
+      position; // 4th state for the AIR and GROUND FLAG for now padding though
+  float4 velocity;
+  float4 predictedPosition;
+
   float density;
   float nearDensity;
   float pressure;
   float nearPressure;
-  float health;
-  float pad;
 };
 
 struct Spring {
@@ -43,8 +43,9 @@ struct ParticleSimulationParameters {
   uint hashGridSize;
 
   float domainWidth;
+  float domainDepth;
   float domainHeight;
-  float2 pad;
+  float pad;
 };
 
 #ifdef __SPIRV__
@@ -54,14 +55,15 @@ ConstantBuffer<ParticleSimulationParameters> particleParams : register(b0);
 #endif
 
 // spacial Hashing
-int2 getGridCell(float2 pos) {
-  return int2(floor((pos - GRID_ORIGIN) / particleParams.cellSpacing));
+int3 getGridCell(float3 pos) {
+  return int3(floor((pos - GRID_ORIGIN) / particleParams.cellSpacing));
 }
 
-uint hashGridCell(int2 cell) {
+uint hashGridCell(int3 cell) {
   const uint p1 = 73856093;
   const uint p2 = 19349663;
-  int n = cell.x * p1 ^ cell.y * p2;
+  const uint p3 = 83492791;
+  int n = cell.x * p1 ^ cell.y * p2 ^ cell.z * p3;
   n %= (int)particleParams.hashGridSize;
   return (uint)(n < 0 ? n + (int)particleParams.hashGridSize : n);
 }

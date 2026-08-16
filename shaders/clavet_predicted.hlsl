@@ -21,56 +21,58 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   Particle p = particles[id];
 
   // apply gravity
-  p.velocity += GRAVITY * particleParams.dt;
+  p.velocity.xyz += GRAVITY * particleParams.dt;
 
   // apply viscosity
-  float2 viscosityImpulse = float2(0, 0);
-  int2 centerCell = getGridCell(p.position);
+  float3 viscosityImpulse = float3(0, 0, 0);
+  int3 centerCell = getGridCell(p.position.xyz);
 
-  // Search 3x3 neighbor cells
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
-      uint hash = hashGridCell(centerCell + int2(x, y));
-      uint currNeighbor = gridHeadBuffer[hash];
+  // Search 3x3x3 neighbor cells
+  for (int z = -1; z <= 1; z++) {
+    for (int y = -1; y <= 1; y++) {
+      for (int x = -1; x <= 1; x++) {
+        uint hash = hashGridCell(centerCell + int3(x, y, z));
+        uint currNeighbor = gridHeadBuffer[hash];
 
-      // Traverse the linked list of particles in this cell
-      while (currNeighbor != INVALID_ID) {
-        // no self interaction
-        if (currNeighbor != id) {
-          Particle n = particles[currNeighbor];
-          float2 r_ij = n.position - p.position;
-          float dist2 = dot(r_ij, r_ij);
+        // Traverse the linked list of particles in this cell
+        while (currNeighbor != INVALID_ID) {
+          // no self interaction
+          if (currNeighbor != id) {
+            Particle n = particles[currNeighbor];
+            float3 r_ij = n.position.xyz - p.position.xyz;
+            float dist2 = dot(r_ij, r_ij);
 
-          if (dist2 < particleParams.interactionRadius2 && dist2 > 1e-7f) {
-            float dist = sqrt(dist2);
-            float2 rHat = r_ij / dist;
-            float q = dist / particleParams.interactionRadius;
+            if (dist2 < particleParams.interactionRadius2 && dist2 > 1e-7f) {
+              float dist = sqrt(dist2);
+              float3 rHat = r_ij / dist;
+              float q = dist / particleParams.interactionRadius;
 
-            // Inward radial velocity
-            float u = dot(p.velocity - n.velocity, rHat);
+              // Inward radial velocity
+              float u = dot(p.velocity.xyz - n.velocity.xyz, rHat);
 
-            if (u > 0.0f) {
-              // apply linear and quadratic impulses
-              //  I = dt * (1-q) * (sigma*u + beta*u^2) * rHat
-              float impulseMag = particleParams.dt * (1.0f - q) *
-                                 (particleParams.linearViscosity * u +
-                                  particleParams.quadraticViscosity * u * u);
+              if (u > 0.0f) {
+                // apply linear and quadratic impulses
+                //  I = dt * (1-q) * (sigma*u + beta*u^2) * rHat
+                float impulseMag = particleParams.dt * (1.0f - q) *
+                                   (particleParams.linearViscosity * u +
+                                    particleParams.quadraticViscosity * u * u);
 
-              // Paper: v_i = v_i - I/2. We accumulate this.
-              viscosityImpulse -= (impulseMag * 0.5f) * rHat;
+                // Paper: v_i = v_i - I/2. We accumulate this.
+                viscosityImpulse -= (impulseMag * 0.5f) * rHat;
+              }
             }
           }
+          currNeighbor = gridNextBuffer[currNeighbor]; // Move to next particle
         }
-        currNeighbor = gridNextBuffer[currNeighbor]; // Move to next particle
       }
     }
   }
 
   // Apply accumulated viscosity
-  p.velocity += viscosityImpulse;
+  p.velocity.xyz += viscosityImpulse;
 
   //  advance to predicted position
-  p.predictedPosition = p.position + p.velocity * particleParams.dt;
+  p.predictedPosition.xyz = p.position.xyz + p.velocity.xyz * particleParams.dt;
 
   particles[id] = p;
   // then we move to add and remove springs and change rest lenght in the next

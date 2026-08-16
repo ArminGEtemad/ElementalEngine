@@ -6,11 +6,6 @@
 
 RWStructuredBuffer<Particle> particles : register(u0);
 
-static const float BOUND_X_MIN = 0.0f;
-static const float BOUND_X_MAX = 2000.0f;
-static const float BOUND_Y_MIN = 0.0f;
-static const float BOUND_Y_MAX = 2000.0f;
-
 // Wall friction (0.0 = ice/slip, 1.0 = strict no-slip)
 static const float WALL_FRICTION = 0.2f;
 
@@ -21,21 +16,31 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
     return;
 
   Particle p = particles[id];
-  float2 pos = p.predictedPosition;
-  float2 prevPos = p.position;
+  float3 pos = p.predictedPosition.xyz;
+  float3 prevPos = p.position.xyz;
 
   // Use half the interaction radius as the physical collision boundary
   float margin = particleParams.interactionRadius * 0.5f;
   // same equation for stickiness and friction for all the walls
+
+  float halfWidth = particleParams.domainWidth * 0.5f;
+  float halfDepth = particleParams.domainDepth * 0.5f;
+  float BOUND_Y_MIN = 0.0f;
+  float BOUND_Y_MAX = particleParams.domainHeight;
+  float BOUND_X_MIN = -halfWidth;
+  float BOUND_X_MAX = halfWidth;
+  float BOUND_Z_MIN = -halfDepth;
+  float BOUND_Z_MAX = halfDepth;
 
   // Check Floor (Y_MIN)
   float distFloor = pos.y - (BOUND_Y_MIN + margin);
   if (distFloor <= 0.0f) {
     pos.y = BOUND_Y_MIN + margin;
 
-    float2 vel = (pos - prevPos) / particleParams.dt;
+    float3 vel = (pos - prevPos) / particleParams.dt;
     vel.x *= (1.0f - WALL_FRICTION);
-    pos.x = prevPos.x + vel.x * particleParams.dt;
+    vel.z *= (1.0f - WALL_FRICTION);
+    pos.xz = prevPos.xz + vel.xz * particleParams.dt;
 
     // Cancel the normal velocity component
     prevPos.y = pos.y;
@@ -51,9 +56,10 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   float distCeil = (BOUND_Y_MAX - margin) - pos.y;
   if (distCeil <= 0.0f) {
     pos.y = BOUND_Y_MAX - margin;
-    float2 vel = (pos - prevPos) / particleParams.dt;
+    float3 vel = (pos - prevPos) / particleParams.dt;
     vel.x *= (1.0f - WALL_FRICTION);
-    pos.x = prevPos.x + vel.x * particleParams.dt;
+    vel.z *= (1.0f - WALL_FRICTION);
+    pos.xz = prevPos.xz + vel.xz * particleParams.dt;
     prevPos.y = pos.y;
   } else if (distCeil < particleParams.sticknessRadius) {
     float q = distCeil / particleParams.sticknessRadius;
@@ -66,9 +72,10 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   float distLeft = pos.x - (BOUND_X_MIN + margin);
   if (distLeft <= 0.0f) {
     pos.x = BOUND_X_MIN + margin;
-    float2 vel = (pos - prevPos) / particleParams.dt;
+    float3 vel = (pos - prevPos) / particleParams.dt;
     vel.y *= (1.0f - WALL_FRICTION);
-    pos.y = prevPos.y + vel.y * particleParams.dt;
+    vel.z *= (1.0f - WALL_FRICTION);
+    pos.yz = prevPos.yz + vel.yz * particleParams.dt;
     prevPos.x = pos.x;
   } else if (distLeft < particleParams.sticknessRadius) {
     float q = distLeft / particleParams.sticknessRadius;
@@ -81,9 +88,10 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   float distRight = (BOUND_X_MAX - margin) - pos.x;
   if (distRight <= 0.0f) {
     pos.x = BOUND_X_MAX - margin;
-    float2 vel = (pos - prevPos) / particleParams.dt;
+    float3 vel = (pos - prevPos) / particleParams.dt;
     vel.y *= (1.0f - WALL_FRICTION);
-    pos.y = prevPos.y + vel.y * particleParams.dt;
+    vel.z *= (1.0f - WALL_FRICTION);
+    pos.yz = prevPos.yz + vel.yz * particleParams.dt;
     prevPos.x = pos.x;
   } else if (distRight < particleParams.sticknessRadius) {
     float q = distRight / particleParams.sticknessRadius;
@@ -92,10 +100,42 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
     pos.x += impulse * particleParams.dt;
   }
 
+  // Check Front Wall (Z_MIN)
+  float distFront = pos.z - (BOUND_Z_MIN + margin);
+  if (distFront <= 0.0f) {
+    pos.z = BOUND_Z_MIN + margin;
+    float3 vel = (pos - prevPos) / particleParams.dt;
+    vel.x *= (1.0f - WALL_FRICTION);
+    vel.y *= (1.0f - WALL_FRICTION);
+    pos.xy = prevPos.xy + vel.xy * particleParams.dt;
+    prevPos.z = pos.z;
+  } else if (distFront < particleParams.sticknessRadius) {
+    float q = distFront / particleParams.sticknessRadius;
+    float impulse = particleParams.dt * particleParams.sticknessMultiplier *
+                    distFront * (1.0f - q) * (1.0f - q);
+    pos.z -= impulse * particleParams.dt;
+  }
+
+  // Check Back Wall (Z_MAX)
+  float distBack = (BOUND_Z_MAX - margin) - pos.z;
+  if (distBack <= 0.0f) {
+    pos.z = BOUND_Z_MAX - margin;
+    float3 vel = (pos - prevPos) / particleParams.dt;
+    vel.x *= (1.0f - WALL_FRICTION);
+    vel.y *= (1.0f - WALL_FRICTION);
+    pos.xy = prevPos.xy + vel.xy * particleParams.dt;
+    prevPos.z = pos.z;
+  } else if (distBack < particleParams.sticknessRadius) {
+    float q = distBack / particleParams.sticknessRadius;
+    float impulse = particleParams.dt * particleParams.sticknessMultiplier *
+                    distBack * (1.0f - q) * (1.0f - q);
+    pos.z += impulse * particleParams.dt;
+  }
+
   // Do the movement
-  p.velocity = (pos - prevPos) / particleParams.dt;
-  p.position = pos;
-  p.predictedPosition = pos;
+  p.velocity.xyz = (pos - prevPos) / particleParams.dt;
+  p.position.xyz = pos;
+  p.predictedPosition.xyz = pos;
 
   particles[id] = p;
 }

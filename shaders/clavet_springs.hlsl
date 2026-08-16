@@ -12,7 +12,7 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
     return;
 
   Particle p = particles[id];
-  float2 springDisplacement = float2(0, 0);
+  float3 springDisplacement = float3(0, 0, 0);
   uint springOffset = id * MAX_SPRINGS;
 
   // Process existing springs (Plasticity & Elasticity)
@@ -27,7 +27,7 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
     if (s.neighborID != INVALID_ID) {
       Particle n = particles[s.neighborID];
 
-      float2 r_ij = n.predictedPosition - p.predictedPosition;
+      float3 r_ij = n.predictedPosition.xyz - p.predictedPosition.xyz;
       float distSq = dot(r_ij, r_ij);
 
       // making sure there is no division by 0
@@ -61,7 +61,7 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
                                 particleParams.springStiffness * fade *
                                 (s.restLength - dist);
 
-        float2 rHat = r_ij / dist;
+        float3 rHat = r_ij / dist;
 
         //  x_i = x_i - D/2
         // and like before no need for the calculation for j since we are doing
@@ -76,57 +76,60 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
 
   // Part 2: Add new springs
   // alg 4 (Lines 1-5)
-  int2 centerCell = getGridCell(p.predictedPosition);
+  int3 centerCell = getGridCell(p.predictedPosition.xyz);
 
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
-      uint hash = hashGridCell(centerCell + int2(x, y));
-      uint currNeighbor = gridHeadBuffer[hash];
+  for (int z = -1; z <= 1; z++) {
+    for (int y = -1; y <= 1; y++) {
+      for (int x = -1; x <= 1; x++) {
+        uint hash = hashGridCell(centerCell + int3(x, y, z));
+        uint currNeighbor = gridHeadBuffer[hash];
 
-      while (currNeighbor != INVALID_ID) {
-        if (currNeighbor != id) {
-          Particle n = particles[currNeighbor];
+        while (currNeighbor != INVALID_ID) {
+          if (currNeighbor != id) {
+            Particle n = particles[currNeighbor];
 
-          float2 r_ij = n.predictedPosition - p.predictedPosition;
-          float dist2 = dot(r_ij, r_ij);
+            float3 r_ij = n.predictedPosition.xyz - p.predictedPosition.xyz;
+            float dist2 = dot(r_ij, r_ij);
 
-          if (dist2 < particleParams.interactionRadius2 && dist2 > 1e-7f) {
-            float dist = sqrt(dist2);
+            if (dist2 < particleParams.interactionRadius2 && dist2 > 1e-7f) {
+              float dist = sqrt(dist2);
 
-            // Check if a spring already exists
-            bool springExists = false;
-            int emptySlot = -1;
+              // Check if a spring already exists
+              bool springExists = false;
+              int emptySlot = -1;
 
-            for (uint k = 0; k < MAX_SPRINGS; k++) {
-              uint sIdx = springOffset + k;
-              if (springs[sIdx].neighborID == currNeighbor) {
-                springExists = true;
-                break;
-              } else if (springs[sIdx].neighborID == INVALID_ID &&
-                         emptySlot == -1) {
-                emptySlot = (int)k; // Track the first available empty slot
+              for (uint k = 0; k < MAX_SPRINGS; k++) {
+                uint sIdx = springOffset + k;
+                if (springs[sIdx].neighborID == currNeighbor) {
+                  springExists = true;
+                  break;
+                } else if (springs[sIdx].neighborID == INVALID_ID &&
+                           emptySlot == -1) {
+                  emptySlot = (int)k; // Track the first available empty slot
+                }
+              }
+
+              // If no spring exists and we have space, add it!
+              if (!springExists && emptySlot != -1) {
+                Spring newSpring;
+                newSpring.neighborID = currNeighbor;
+                // ::this is not from the paper::
+                // in the paper the restLength is h at this point but it did not
+                // show the behavior I liked when rendering. using dist instead
+                // of h worked more like the gooey and jelly that I wanted.
+                newSpring.restLength = dist;
+                // newSpring.restLength = particleParams.interactionRadius;
+                springs[springOffset + emptySlot] = newSpring;
               }
             }
-
-            // If no spring exists and we have space, add it!
-            if (!springExists && emptySlot != -1) {
-              Spring newSpring;
-              newSpring.neighborID = currNeighbor;
-              // ::this is not from the paper::
-              // in the paper the restLength is h at this point but it did not
-              // show the behavior I liked when rendering. using dist instead of
-              // h worked more like the gooey and jelly that I wanted.
-              newSpring.restLength = dist;
-              springs[springOffset + emptySlot] = newSpring;
-            }
           }
+          currNeighbor = gridNextBuffer[currNeighbor]; // Traverse linked list
         }
-        currNeighbor = gridNextBuffer[currNeighbor]; // Traverse linked list
       }
     }
   }
 
   // Apply accumulated spring displacements to predicted position
-  p.predictedPosition += springDisplacement;
+  p.predictedPosition.xyz += springDisplacement;
   particles[id] = p;
 }
