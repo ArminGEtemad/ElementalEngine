@@ -16,8 +16,8 @@ using namespace elementalEngine;
 using namespace elementalEngine::RHI;
 
 int main() {
-  static constexpr int WIDTH{800};
-  static constexpr int HEIGHT{800};
+  static constexpr int WIDTH{2000};
+  static constexpr int HEIGHT{1000};
 
   std::cout << "-----------------------------------\n";
   std::cout << "   .:: ELEMENTAL ENGINE ::.\n";
@@ -37,7 +37,7 @@ int main() {
     Graphics::TerrainPass terrainPass(*device, *swapchain);
 
     // make slime
-    uint32_t numParticles = 300;
+    uint32_t numParticles = 2800;
     Physics::PBFSlime slimeSim(*device, numParticles);
     Renderer::PBFSlimeRenderer slimeRenderer(*device);
 
@@ -73,13 +73,13 @@ int main() {
           std::chrono::duration<float, std::chrono::seconds::period>(
               currentTime - lastTime)
               .count();
-      deltaTime *= 2.0f;
       // changing the window size and moving the window broke the physics. this
       // is just a safety net. We won't have this problem if the dt is
       // hardcoded.
       if (deltaTime > 0.05f) {
         deltaTime = 0.05f;
       }
+
       float totalTime =
           std::chrono::duration<float, std::chrono::seconds::period>(
               currentTime - startTime)
@@ -91,9 +91,10 @@ int main() {
 
       // record render comnmand
       cmdList->begin();
+      float fixedDt = 0.008f;
 
       // run slime physics
-      slimeSim.simulate(*cmdList, deltaTime, 0.0f, 0.0f, 0.0f);
+      slimeSim.simulate(*cmdList, fixedDt, 0.0f, 0.0f, 0.0f);
 
       // Transition acquired image to Render Target before drawing
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
