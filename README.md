@@ -18,6 +18,28 @@ and their interaction.
 I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
 However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
 
+## Finished Elements (Clavet)
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/3DClavet.gif" width="800"/>
+  </div>
+
+</div>
+
+## 2D concepts
+
+The math is finished and there is a proof of concept for 2D.
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/StamAndClavetAndMidpointAndFire.gif" width="800"/>
+  </div>
+
+</div>
+
 ## Core Architecture & Pipeline Layout
 
 I will be using two backends
@@ -63,19 +85,8 @@ The following is how I would like to move forward with the project
 - [x] Moving towards 3D (stencil and depth buffers)
 - [x] Key bindings to control the camera
 - [x] a 2D plane as ground for the simulations
-- [ ] 3D Clavet and slime physics
+- [x] 3D Clavet and slime physics
+- [ ] Experiment with the Splat Map when Slime hits the ground?
 - [ ] Moving other elements to 3D
 - [ ] Post-processing
 - [ ] Optimization
-
-## 2D concepts
-
-The math is finished and there is a proof of concept for 2D.
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/StamAndClavetAndMidpointAndFire.gif" width="800"/>
-  </div>
-
-</div>
