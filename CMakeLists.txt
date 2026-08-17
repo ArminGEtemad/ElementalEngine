@@ -75,7 +75,7 @@ foreach(SHADER_NAME ${GRAPHICS_SHADERS})
     add_custom_command(
         OUTPUT ${SPV_VS_OUT}
         COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T vs_6_0 -E VSMain ${VS_SRC} -Fo ${SPV_VS_OUT}
-        DEPENDS ${VS_SRC}
+        DEPENDS ${VS_SRC} ${SHADER_HEADERS}
         COMMENT "Compiling Vertex Shader (${SHADER_NAME}_vs.hlsl) to SPIR-V..."
     )
     list(APPEND ALL_SHADER_OUTPUTS ${SPV_VS_OUT})
@@ -86,7 +86,7 @@ foreach(SHADER_NAME ${GRAPHICS_SHADERS})
     add_custom_command(
         OUTPUT ${SPV_FS_OUT}
         COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T ps_6_0 -E FSMain ${FS_SRC} -Fo ${SPV_FS_OUT}
-        DEPENDS ${FS_SRC}
+        DEPENDS ${FS_SRC} ${SHADER_HEADERS}
         COMMENT "Compiling Fragment Shader (${SHADER_NAME}_fs.hlsl) to SPIR-V..."
     )
     list(APPEND ALL_SHADER_OUTPUTS ${SPV_FS_OUT})
@@ -104,7 +104,7 @@ foreach(SHADER_NAME ${COMPUTE_SHADERS})
     add_custom_command(
         OUTPUT ${SPV_OUT}
         COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T cs_6_0 -E CSMain ${HLSL_SRC} -Fo ${SPV_OUT}
-        DEPENDS ${HLSL_SRC}
+        DEPENDS ${HLSL_SRC} ${SHADER_HEADERS}
         COMMENT "Compiling Compute Shader (${SHADER_NAME}.hlsl) to SPIR-V..."
     )
     list(APPEND ALL_SHADER_OUTPUTS ${SPV_OUT})
