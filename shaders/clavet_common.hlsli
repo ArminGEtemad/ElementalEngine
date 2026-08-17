@@ -2,7 +2,7 @@ static const uint THREAD_GROUP_SIZE = 256;
 static const uint MAX_SPRINGS = 64;
 static const uint INVALID_ID = 0xFFFFFFFF;
 static const float3 GRID_ORIGIN = float3(0.0, 0.0, 0.0);
-static const float3 GRAVITY = float3(0.0f, -9.81f, 0.0f);
+static const float3 GRAVITY = float3(0.0f, -100.0f, 0.0f);
 
 struct Particle {
   float4

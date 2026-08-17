@@ -86,7 +86,9 @@ The following is how I would like to move forward with the project
 - [x] Key bindings to control the camera
 - [x] a 2D plane as ground for the simulations
 - [x] 3D Clavet and slime physics
-- [ ] Experiment with the Splat Map when Slime hits the ground?
+- [x] Experiment with the Splat Map when Slime hits the ground?
+  - that is not what I wanted. because I still need the liquid to be interactable. but I added the prototype result in the documents
+- [ ] Experiment with Screen-Space Metaball Meshing
 - [ ] Moving other elements to 3D
 - [ ] Post-processing
 - [ ] Optimization
