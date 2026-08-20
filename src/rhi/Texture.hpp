@@ -7,6 +7,7 @@ namespace elementalEngine::RHI {
 enum class TextureFormat {
   B8G8R8A8_SRGB,
   R8G8B8A8_UNORM,
+  R16_FLOAT,
   R32_FLOAT,
   R32G32_FLOAT,
   D32_FLOAT,
@@ -20,7 +21,8 @@ enum class TextureUsage {
   RenderTarget = 1 << 2,           // rendered directly
   DepthStencilAttachment = 1 << 3, // depth and stencil buffer
   TransferSrc = 1 << 4,            // copy source
-  TransferDst = 1 << 5             // copy destination
+  TransferDst = 1 << 5,            // copy destination
+  Storage = 1 << 6
 };
 
 // combining usage
