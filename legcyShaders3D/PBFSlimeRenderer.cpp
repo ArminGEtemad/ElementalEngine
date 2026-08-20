@@ -4,12 +4,6 @@
 #include "physics/PBFSlime.hpp"
 
 namespace elementalEngine::Renderer {
-// Push Constants matching the Vertex Shader
-struct PBFRenderParams {
-  float viewProj[16];
-  float particleRadius;
-  float pad0[3];
-};
 
 PBFSlimeRenderer::PBFSlimeRenderer(RHI::Device &device) : device(device) {
   createRenderingPipeline();

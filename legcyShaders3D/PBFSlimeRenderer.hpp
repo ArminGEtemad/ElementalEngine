@@ -4,6 +4,7 @@
 
 namespace elementalEngine::Renderer {
 struct Slime3DPushConstants {
+  float viewMatrix[16];
   float viewProj[16];
   float domainWidth;
   float domainHeight;
