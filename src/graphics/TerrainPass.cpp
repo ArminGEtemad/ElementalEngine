@@ -1,5 +1,4 @@
 #include "TerrainPass.hpp"
-#include "PBFSlimeRenderer.hpp"
 #include "TerrainMesh.hpp"
 #include <cstring>
 
@@ -12,7 +11,7 @@ TerrainPass::TerrainPass(RHI::Device &device, RHI::Swapchain &swapchain)
                              0.1f, 1000.0f) {
 
   // Set initial position backed up and elevated
-  glm::vec3 startPos{0.0f, 15.0f, 20.0f};
+  glm::vec3 startPos{-15.0f, 10.0f, -15.0f};
   camera.setPosition(startPos);
 
   // Orient camera to look directly at the origin (0, 0, 0)
