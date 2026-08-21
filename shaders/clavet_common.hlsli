@@ -5,8 +5,7 @@ static const float3 GRID_ORIGIN = float3(0.0, 0.0, 0.0);
 static const float3 GRAVITY = float3(0.0f, -100.0f, 0.0f);
 
 struct Particle {
-  float4
-      position; // 4th state for the AIR and GROUND FLAG for now padding though
+  float4 position;
   float4 velocity;
   float4 predictedPosition;
 
