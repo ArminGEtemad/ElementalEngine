@@ -2,6 +2,7 @@
 
 #include "Swapchain.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanTexture.hpp"
 #include "Window.hpp"
 #include <cstdint>
 
@@ -13,9 +14,16 @@ public:
   VulkanSwapchain(VulkanDevice &device, WindowHandling &window);
   ~VulkanSwapchain() override;
 
-  void acquireNextImage() override;
-  void present() override;
+  bool present() override;
+  bool acquireNextImage() override;
+  void recreate(WindowHandling &window) override;
   uint32_t getCurrentFrameIndex() const override { return currentImageIndex; }
+  uint32_t getWidth() const override { return swapchainExtent.width; }
+  uint32_t getHeight() const override { return swapchainExtent.height; }
+  Texture *getCurrentBackBuffer() override {
+    return backBuffers[currentImageIndex].get();
+  }
+
   VkImage getImage(uint32_t index) const { return swapchainImages[index]; }
   VkImageView getImageView(uint32_t index) const {
     return swapchainImageViews[index];
@@ -46,6 +54,7 @@ private:
   VkFormat swapchainImageFormat;
   VkExtent2D swapchainExtent;
   std::vector<VkImageView> swapchainImageViews;
+  std::vector<std::unique_ptr<VulkanTexture>> backBuffers;
   std::vector<VkSemaphore> imageAvailableSemaphore;
   std::vector<VkSemaphore> renderFinishedSemaphore;
   std::vector<VkFence> inFlightFence;
@@ -64,6 +73,7 @@ private:
   void createSwapchain(WindowHandling &window);
   void createImageViews();
   void createSyncObjects();
+  void cleanupSwapchain();
 };
 
 } // namespace elementalEngine::RHI

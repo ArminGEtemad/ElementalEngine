@@ -30,9 +30,9 @@ std::unique_ptr<Pipeline>
 VulkanDevice::createPipeline(const std::string &vertexShaderName,
                              const std::string &fragmentShaderName,
                              const PipelineConfig &config) {
-  return std::make_unique<VulkanPipeline>(*this, VK_FORMAT_B8G8R8A8_SRGB,
-                                          vertexShaderName, fragmentShaderName,
-                                          config);
+  VkFormat vkColorFormat = VulkanTexture::mapFormat(config.colorFormat);
+  return std::make_unique<VulkanPipeline>(
+      *this, vkColorFormat, vertexShaderName, fragmentShaderName, config);
 }
 
 std::unique_ptr<Pipeline>
@@ -423,7 +423,8 @@ void VulkanDevice::submit(CommandList *commandList, Swapchain *swapchain) {
     waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
     waitSemaphoreInfo.semaphore = vk13Swapchain->getImageAvailableSemaphore();
     waitSemaphoreInfo.stageMask =
-        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
+        VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
 
     VkSemaphoreSubmitInfo signalSemaphoreInfo{};
     signalSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;

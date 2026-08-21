@@ -1,10 +1,56 @@
 #pragma once
 
 #include "Device.hpp"
-#include "UsedParameters.hpp"
 #include <cstdint>
 #include <memory>
 namespace elementalEngine::Physics {
+
+static constexpr uint32_t MAX_SPRINGS = 64;
+
+struct Particle {
+  float position[4];          // 4's state is just padding
+  float velocity[4];          // 4's state is just padding
+  float predictedPosition[4]; //  4's state is just padding
+
+  float density;
+  float nearDensity;
+  float pressure;
+  float nearPressure;
+};
+
+struct ParticleSimulationParameters {
+  float dt;
+  uint32_t numParticles;
+  float interactionRadius;  // h
+  float interactionRadius2; // h^2
+
+  float restDensity;     // rho0
+  float stiffness;       // k
+  float nearStiffness;   // k^near
+  float linearViscosity; // sigma
+
+  float quadraticViscosity; // beta
+  float springStiffness;    // k^spring
+  float plasticity;         // alpha
+  float yieldRatio;         // gamma
+
+  float sticknessRadius;
+  float sticknessMultiplier; // mu
+  float cellSpacing;
+  uint32_t hashGridSize;
+
+  // I used these parameters in my 2D versions so for now I keep them
+  float domainWidth = 2000.0f;
+  float domainDepth = 2000.0f;
+  float domainHeight = 2000.0f;
+  float pad;
+};
+
+struct Spring {
+  uint32_t neighborID; // INVALID_ID if empty
+  float restLength;
+};
+
 class PBFSlime {
 public:
   PBFSlime(RHI::Device &device, uint32_t particleNumberMax);

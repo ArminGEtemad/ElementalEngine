@@ -3,15 +3,26 @@
 #include <cstdint>
 
 namespace elementalEngine::RHI {
-enum class TextureFormat { B8G8R8A8_SRGB, R32_FLOAT, R32G32_FLOAT };
+
+enum class TextureFormat {
+  B8G8R8A8_SRGB,
+  R8G8B8A8_UNORM,
+  R16_FLOAT,
+  R32_FLOAT,
+  R32G32_FLOAT,
+  D32_FLOAT,
+  D24_UNORM_S8_UINT
+};
 
 enum class TextureUsage {
   None = 0,
-  ShaderResource = 1 << 0,  // sampled in shader
-  UnorderedAccess = 1 << 1, // Read/ write in compute
-  RenderTarget = 1 << 2,    // rendered directly
-  TransferSrc = 1 << 3,     // copy source
-  TransferDst = 1 << 4      // copy destination
+  ShaderResource = 1 << 0,         // sampled in shader
+  UnorderedAccess = 1 << 1,        // Read/ write in compute
+  RenderTarget = 1 << 2,           // rendered directly
+  DepthStencilAttachment = 1 << 3, // depth and stencil buffer
+  TransferSrc = 1 << 4,            // copy source
+  TransferDst = 1 << 5,            // copy destination
+  Storage = 1 << 6
 };
 
 // combining usage

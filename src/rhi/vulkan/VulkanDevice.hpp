@@ -20,7 +20,6 @@ public:
   VulkanDevice(const DeviceConfig &config, WindowHandling &window);
   ~VulkanDevice() override;
 
-  GraphicsAPI getAPI() const override { return GraphicsAPI::Vulkan; }
   void waitIdle() override;
   void submit(CommandList *commandList, Swapchain *swapchain) override;
 

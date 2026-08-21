@@ -6,6 +6,7 @@
 #include "Window.hpp"
 #include <cstdint>
 #include <memory>
+#include <string>
 
 namespace elementalEngine::RHI {
 
@@ -41,7 +42,6 @@ public:
                                                  TextureFormat format,
                                                  TextureUsage usage) = 0;
 
-  virtual GraphicsAPI getAPI() const = 0;
   virtual void waitIdle() = 0;
   virtual void submit(CommandList *commandList, Swapchain *swapchain) = 0;
 
@@ -51,8 +51,7 @@ protected:
 
 class RHIFilter {
 public:
-  static std::unique_ptr<Device> createDevice(GraphicsAPI api,
-                                              const DeviceConfig &config,
+  static std::unique_ptr<Device> createDevice(const DeviceConfig &config,
                                               WindowHandling &window);
 };
 } // namespace elementalEngine::RHI

@@ -2,6 +2,7 @@
 #include "FileHandling.hpp"
 #include "Pipeline.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanTexture.hpp"
 
 #include <cstdint>
 #include <stdexcept>
@@ -36,6 +37,40 @@ static VkShaderStageFlags mapShaderStage(ShaderStage stage) {
   if (stage & ShaderStage::Compute)
     flags |= VK_SHADER_STAGE_COMPUTE_BIT;
   return flags;
+}
+
+static VkCompareOp mapCompare(CompareOp op) {
+  switch (op) {
+  case CompareOp::Never:
+    return VK_COMPARE_OP_NEVER;
+  case CompareOp::Less:
+    return VK_COMPARE_OP_LESS;
+  case CompareOp::Equal:
+    return VK_COMPARE_OP_EQUAL;
+  case CompareOp::LessOrEqual:
+    return VK_COMPARE_OP_LESS_OR_EQUAL;
+  case CompareOp::Greater:
+    return VK_COMPARE_OP_GREATER;
+  case CompareOp::GreaterOrEqual:
+    return VK_COMPARE_OP_GREATER_OR_EQUAL;
+  case CompareOp::NotEqual:
+    return VK_COMPARE_OP_NOT_EQUAL;
+  case CompareOp::Always:
+    return VK_COMPARE_OP_ALWAYS;
+  }
+  return VK_COMPARE_OP_LESS;
+}
+
+static VkCullModeFlags mapCullMode(CullMode mode) {
+  switch (mode) {
+  case CullMode::None:
+    return VK_CULL_MODE_NONE;
+  case CullMode::Front:
+    return VK_CULL_MODE_FRONT_BIT;
+  case CullMode::Back:
+    return VK_CULL_MODE_BACK_BIT;
+  }
+  return VK_CULL_MODE_BACK_BIT;
 }
 
 VulkanPipeline::VulkanPipeline(VulkanDevice &device,
@@ -168,9 +203,22 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
   rasterizer.rasterizerDiscardEnable = VK_FALSE;
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
-  rasterizer.cullMode = VK_CULL_MODE_NONE;
-  rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-  rasterizer.depthBiasEnable = VK_FALSE;
+  rasterizer.cullMode = mapCullMode(config.cullMode);
+  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+  // depth stencil
+  VkPipelineDepthStencilStateCreateInfo depthStencil{};
+  depthStencil.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  depthStencil.depthTestEnable =
+      config.depthState.depthTestEnable ? VK_TRUE : VK_FALSE;
+  depthStencil.depthWriteEnable =
+      config.depthState.depthWriteEnable ? VK_TRUE : VK_FALSE;
+  depthStencil.depthCompareOp = mapCompare(config.depthState.depthCompareOp);
+  depthStencil.depthBoundsTestEnable = VK_FALSE;
+  depthStencil.stencilTestEnable = VK_FALSE;
+
+  VkFormat vkDepthFormat = VulkanTexture::mapFormat(config.depthFormat);
 
   // Multisampling
   VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -192,6 +240,15 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
     colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+  } else if (config.blendMode == Blendmode::Alpha) {
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor =
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
   } else {
     colorBlendAttachment.blendEnable = VK_FALSE;
@@ -222,6 +279,8 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
       VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
   pipelineRenderingCreateInfo.colorAttachmentCount = 1;
   pipelineRenderingCreateInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+  pipelineRenderingCreateInfo.depthAttachmentFormat =
+      config.hasDepthAttachment ? vkDepthFormat : VK_FORMAT_UNDEFINED;
 
   // Final Pipeline Creation
   VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -234,6 +293,7 @@ void VulkanPipeline::createPipeline(VkFormat colorAttachmentFormat,
   pipelineInfo.pViewportState = &viewportState;
   pipelineInfo.pRasterizationState = &rasterizer;
   pipelineInfo.pMultisampleState = &multisampling;
+  pipelineInfo.pDepthStencilState = &depthStencil;
   pipelineInfo.pColorBlendState = &colorBlending;
   pipelineInfo.pDynamicState = &dynamicState;
   pipelineInfo.layout = pipelineLayout;

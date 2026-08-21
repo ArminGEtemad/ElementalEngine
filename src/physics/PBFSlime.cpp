@@ -13,23 +13,23 @@ namespace elementalEngine::Physics {
 PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
     : device(device), numParticles(particleNumberMax) {
 
-  simParams.dt = 0.016f;
+  simParams.dt = 0.008f;
   simParams.numParticles = particleNumberMax;
-  simParams.interactionRadius = 20.0f;
+  simParams.interactionRadius = 40.0f;
   simParams.interactionRadius2 =
       simParams.interactionRadius * simParams.interactionRadius;
-  simParams.restDensity = 6.0f;
-  simParams.stiffness = 25.0f;
-  simParams.nearStiffness = 40.0f;
-  simParams.linearViscosity = 2.0f;
-  simParams.quadraticViscosity = 0.3f;
+  simParams.restDensity = 8.0f;
+  simParams.stiffness = 15.0f;
+  simParams.nearStiffness = 2.0f;
+  simParams.linearViscosity = 0.5f;
+  simParams.quadraticViscosity = 0.05f;
   simParams.springStiffness = 20.0f;
-  simParams.plasticity = 0.5f;
-  simParams.yieldRatio = 0.2f;
+  simParams.plasticity = 10.0f;
+  simParams.yieldRatio = 0.1f;
   simParams.sticknessRadius = 2.0f;
 
   simParams.sticknessRadius = 2.0f;
-  simParams.sticknessMultiplier = 2.0f;
+  simParams.sticknessMultiplier = 0.2f;
   simParams.cellSpacing = simParams.interactionRadius;
   simParams.hashGridSize = 700 * 300;
 
@@ -96,19 +96,24 @@ void PBFSlime::initializeParticles() {
   std::default_random_engine generator;
 
   // Widen the spawn cloud
-  std::uniform_real_distribution<float> noiseX(-100.0f, 100.0f);
-  std::uniform_real_distribution<float> spawnY(550.0f, 600.0f);
+  std::uniform_real_distribution<float> noiseXZ(-150.0f, 150.0f);
+  std::uniform_real_distribution<float> spawnY(200.0f, 450.0f);
 
   for (uint32_t i = 0; i < numParticles; ++i) {
-    initialData[i].position[0] = 300.0f + noiseX(generator);
-    initialData[i].position[1] = spawnY(generator);
+    initialData[i].position[0] = noiseXZ(generator); // X
+    initialData[i].position[1] = spawnY(generator);  // Y (Height)
+    initialData[i].position[2] = noiseXZ(generator); // Z (Depth)
+    initialData[i].position[3] = 0.0f;               // pad
 
-    initialData[i].velocity[0] = 100.0f;
-    initialData[i].velocity[1] = 10.0f;
+    initialData[i].velocity[0] = 800.0f; // Move slightly right
+    initialData[i].velocity[1] = 200.0f; // Shoot UP
+    initialData[i].velocity[2] = 0.0f;   // Shoot FORWARD
+    initialData[i].velocity[3] = 0.0f;   // pad
+
     initialData[i].predictedPosition[0] = initialData[i].position[0];
     initialData[i].predictedPosition[1] = initialData[i].position[1];
-
-    initialData[i].health = 1.0f; // all particles are healthy
+    initialData[i].predictedPosition[2] = initialData[i].position[2];
+    initialData[i].predictedPosition[3] = 0.0f;
   }
 
   void *mappedData = particleBuffer->map();
@@ -121,9 +126,12 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
                         float strikeY, float lightningOpacity) {
   using namespace RHI;
   simParams.dt = dt;
-  simParams.strikeX = strikeX;
-  simParams.strikeY = strikeY;
-  simParams.lightningOpacity = lightningOpacity;
+
+  if (!isFirstFrame) {
+    cmdList.transitionBuffer(particleBuffer.get(),
+                             RHI::ResourceState::ShaderResource,
+                             RHI::ResourceState::UnorderedAccess);
+  }
 
   uint32_t groupX = (numParticles + 255) / 256;
   if (isFirstFrame) {
