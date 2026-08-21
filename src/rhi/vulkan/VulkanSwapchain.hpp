@@ -18,6 +18,7 @@ public:
   bool acquireNextImage() override;
   void recreate(WindowHandling &window) override;
   uint32_t getCurrentFrameIndex() const override { return currentImageIndex; }
+  uint32_t getSyncFrameIndex() const override { return currentFrame; }
   uint32_t getWidth() const override { return swapchainExtent.width; }
   uint32_t getHeight() const override { return swapchainExtent.height; }
   Texture *getCurrentBackBuffer() override {
@@ -33,7 +34,7 @@ public:
     return imageAvailableSemaphore[currentFrame];
   }
   VkSemaphore getRenderFinishedSemaphore() const {
-    return renderFinishedSemaphore[currentFrame];
+    return renderFinishedSemaphore[currentImageIndex];
   }
   VkFence getInFlightFence() const { return inFlightFence[currentFrame]; }
 

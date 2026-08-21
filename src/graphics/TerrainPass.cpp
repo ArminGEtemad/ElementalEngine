@@ -26,9 +26,12 @@ TerrainPass::TerrainPass(RHI::Device &device, RHI::Swapchain &swapchain)
 }
 
 void TerrainPass::createDepthTarget(uint32_t width, uint32_t height) {
-  depthTexture =
-      device.createTexture(width, height, RHI::TextureFormat::D32_FLOAT,
-                           RHI::TextureUsage::DepthStencilAttachment);
+  for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    // create one for each frame
+    depthTextures[i] =
+        device.createTexture(width, height, RHI::TextureFormat::D32_FLOAT,
+                             RHI::TextureUsage::DepthStencilAttachment);
+  }
 }
 
 void TerrainPass::createBuffers() {
@@ -53,9 +56,11 @@ void TerrainPass::createBuffers() {
   std::memcpy(mappedIndices, terrain.Indices.data(), indexBufferSize);
   indexBuffer->unmap();
 
-  cameraUniformBuffer = device.createBuffer(sizeof(Core::CameraFrameData),
-                                            RHI::BufferUsage::Uniform,
-                                            RHI::MemoryProperty::CPUAccess);
+  for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    cameraUniformBuffers[i] = device.createBuffer(
+        sizeof(Core::CameraFrameData), RHI::BufferUsage::Uniform,
+        RHI::MemoryProperty::CPUAccess);
+  }
 }
 
 void TerrainPass::createPipeline() {
@@ -97,7 +102,7 @@ void TerrainPass::onResize(uint32_t newWidth, uint32_t newHeight) {
 }
 
 void TerrainPass::update(WindowHandling &window, float deltaTime,
-                         float totalTime) {
+                         float totalTime, uint32_t frameIndex) {
   // Process interactive WASD + QE input
   camera.processKeyboardInput(window.getGLFWwindow(), deltaTime);
 
@@ -105,14 +110,14 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
   camera.update(deltaTime, totalTime);
 
   // Upload updated ViewProjection matrix to GPU UBO
-  void *mappedUBO = cameraUniformBuffer->map();
+  void *mappedUBO = cameraUniformBuffers[frameIndex]->map();
   std::memcpy(mappedUBO, &camera.getFrameData(), sizeof(Core::CameraFrameData));
-  cameraUniformBuffer->unmap();
+  cameraUniformBuffers[frameIndex]->unmap();
 }
 
 void TerrainPass::render(RHI::CommandList &commandList,
                          RHI::Texture *targetColorTexture, uint32_t width,
-                         uint32_t height) {
+                         uint32_t height, uint32_t frameIndex) {
 
   // Viewport & Scissor not hardcoded like before since the window can change
   // size now
@@ -124,7 +129,7 @@ void TerrainPass::render(RHI::CommandList &commandList,
 
   // Bindings
   commandList.bindStorageBuffer(0, vertexBuffer.get());
-  commandList.bindUniformBuffer(1, cameraUniformBuffer.get());
+  commandList.bindUniformBuffer(1, cameraUniformBuffers[frameIndex].get());
 
   // bind index buffer
   commandList.bindIndexBuffer(indexBuffer.get(), RHI::IndexType::Uint32, 0);

@@ -1,14 +1,14 @@
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include "PBFSlime.hpp"
-#include "SSFRRenderer.hpp" // ✨ Replace PBFSlimeRenderer with this!
+#include "SSFRRenderer.hpp"
 #include "Swapchain.hpp"
 #include "TerrainPass.hpp"
 #include "Window.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
-#include <glm/gtc/matrix_inverse.hpp> // ✨ Added for Inverse matrices
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <memory>
@@ -32,7 +32,12 @@ int main() {
 
     std::unique_ptr<Device> device(RHIFilter::createDevice(config, window));
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
-    std::unique_ptr<CommandList> cmdList = device->createCommandList();
+    constexpr int MAX_FRAMES_IN_FLIGHT =
+        2; // Matches Swapchain setup hardcoded for now. maybe make a getter?
+    std::vector<std::unique_ptr<CommandList>> commandLists;
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      commandLists.push_back(device->createCommandList());
+    }
 
     // make the terrain
     Graphics::TerrainPass terrainPass(*device, *swapchain);
@@ -68,6 +73,10 @@ int main() {
         continue;
       }
 
+      // get the safe cpu frame index
+      uint32_t syncFrameIdx = swapchain->getSyncFrameIndex();
+      CommandList *cmdList = commandLists[syncFrameIdx].get();
+
       auto currentTime = std::chrono::high_resolution_clock::now();
       float deltaTime =
           std::chrono::duration<float, std::chrono::seconds::period>(
@@ -85,7 +94,7 @@ int main() {
       lastTime = currentTime;
 
       // Update Camera Matrices & GPU Uniform Buffer
-      terrainPass.update(window, deltaTime, totalTime);
+      terrainPass.update(window, deltaTime, totalTime, syncFrameIdx);
 
       // record render comnmand
       cmdList->begin();
@@ -99,7 +108,7 @@ int main() {
                                  RHI::ResourceState::Undefined,
                                  RHI::ResourceState::RenderTarget);
 
-      cmdList->transitionTexture(terrainPass.getDepthTexture(),
+      cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
                                  RHI::ResourceState::Undefined,
                                  RHI::ResourceState::DepthStencilWrite);
 
@@ -117,7 +126,7 @@ int main() {
       renderingInfo.colorAttachments.push_back(colorAttachment);
 
       RHI::DepthAttachment depthAttachment{};
-      depthAttachment.texture = terrainPass.getDepthTexture();
+      depthAttachment.texture = terrainPass.getDepthTexture(syncFrameIdx);
       depthAttachment.clear = true;
       depthAttachment.clearDepth = 1.0f;
       depthAttachment.clearStencil = 0;
@@ -126,7 +135,8 @@ int main() {
       // PASS 1: RENDER TERRAIN
       cmdList->beginRendering(renderingInfo);
       terrainPass.render(*cmdList, swapchain->getCurrentBackBuffer(),
-                         swapchain->getWidth(), swapchain->getHeight());
+                         swapchain->getWidth(), swapchain->getHeight(),
+                         syncFrameIdx);
 
       // End the terrain pass here so SSFR can do its own multi-pass
       // sequence!
@@ -150,16 +160,17 @@ int main() {
 
       // A: Render particles to offscreen depth/thickness G-Buffer
       ssfrRenderer.renderGBuffer(*cmdList, slimeSim, viewMat, projMat, 0.35f,
-                                 20.0f, 20.0f);
+                                 syncFrameIdx, 20.0f, 20.0f);
 
       // B: Melt the depths using the Compute Shader blur
-      ssfrRenderer.renderBlur(*cmdList);
+      ssfrRenderer.renderBlur(*cmdList, syncFrameIdx);
 
       // C: Composite the fluid onto the screen
       float lightDir[3] = {1.5f, 1.5f, 1.5f}; // Matches Terrain lighting
       ssfrRenderer.renderComposite(*cmdList, swapchain->getCurrentBackBuffer(),
-                                   terrainPass.getDepthTexture(), invViewMat,
-                                   invProjMat, projMat, lightDir);
+                                   terrainPass.getDepthTexture(syncFrameIdx),
+                                   invViewMat, invProjMat, projMat, lightDir,
+                                   syncFrameIdx);
 
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
@@ -168,7 +179,7 @@ int main() {
       cmdList->end();
 
       // submit Command Buffer to GPU
-      device->submit(cmdList.get(), swapchain.get());
+      device->submit(cmdList, swapchain.get());
 
       // Present Frame
       if (!swapchain->present() || window.isResized()) {
