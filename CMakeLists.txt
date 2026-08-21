@@ -34,7 +34,7 @@ list(APPEND ENGINE_SOURCES
 # whatever has to do with graphics and compute passes
 list(APPEND ENGINE_SOURCES
     src/graphics/TerrainPass.cpp
-    src/graphics/PBFSlimeRenderer.cpp
+    src/graphics/SSFRRenderer.cpp
     src/physics/PBFSlime.cpp
 )
 
@@ -65,10 +65,13 @@ set(SHADER_HEADERS
 )
 
 # --- Graphics Shaders ---
-set(GRAPHICS_SHADERS Terrain Slime_3d)
+set(GRAPHICS_SHADERS_VS Terrain SSFR_fluid SSFR_composite)
+set(GRAPHICS_SHADERS_FS Terrain SSFR_depth SSFR_thickness SSFR_composite)
 
-foreach(SHADER_NAME ${GRAPHICS_SHADERS})
-    # Vertex Shader all must end in _vs
+set(ALL_SHADER_OUTPUTS)
+
+# --- Vertex ---
+foreach(SHADER_NAME ${GRAPHICS_SHADERS_VS})
     set(VS_SRC "${CMAKE_SOURCE_DIR}/shaders/${SHADER_NAME}_vs.hlsl")
     set(SPV_VS_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}_vs.spv")
 
@@ -77,9 +80,14 @@ foreach(SHADER_NAME ${GRAPHICS_SHADERS})
         COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T vs_6_0 -E VSMain ${VS_SRC} -Fo ${SPV_VS_OUT}
         DEPENDS ${VS_SRC} ${SHADER_HEADERS}
         COMMENT "Compiling Vertex Shader (${SHADER_NAME}_vs.hlsl) to SPIR-V..."
+        VERBATIM
     )
     list(APPEND ALL_SHADER_OUTPUTS ${SPV_VS_OUT})
+endforeach()
 
+
+# --- Fragment ---
+foreach(SHADER_NAME ${GRAPHICS_SHADERS_FS})
     set(FS_SRC "${CMAKE_SOURCE_DIR}/shaders/${SHADER_NAME}_fs.hlsl")
     set(SPV_FS_OUT "${CMAKE_BINARY_DIR}/${SHADER_NAME}_fs.spv")
 
@@ -88,6 +96,7 @@ foreach(SHADER_NAME ${GRAPHICS_SHADERS})
         COMMAND ${DXC_EXECUTABLE} -D__SPIRV__ -spirv -fspv-target-env=vulkan1.3 -T ps_6_0 -E FSMain ${FS_SRC} -Fo ${SPV_FS_OUT}
         DEPENDS ${FS_SRC} ${SHADER_HEADERS}
         COMMENT "Compiling Fragment Shader (${SHADER_NAME}_fs.hlsl) to SPIR-V..."
+        VERBATIM
     )
     list(APPEND ALL_SHADER_OUTPUTS ${SPV_FS_OUT})
 endforeach()
@@ -95,7 +104,7 @@ endforeach()
 
 # --- Compute Shaders ---
 set(COMPUTE_SHADERS clavet_grid_construct clavet_grid_next_construct clavet_predicted clavet_springs
-    clavet_density clavet_relax clavet_integrate)
+    clavet_density clavet_relax clavet_integrate SSFR_depth_blur)
 
 foreach(SHADER_NAME ${COMPUTE_SHADERS})
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/shaders/${SHADER_NAME}.hlsl")
