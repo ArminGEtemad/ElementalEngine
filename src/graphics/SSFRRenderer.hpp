@@ -4,6 +4,7 @@
 #include "Device.hpp"
 #include "PBFSlime.hpp"
 #include "Texture.hpp"
+#include <array>
 #include <cstdint>
 
 namespace elementalEngine::Renderer {
@@ -21,6 +22,7 @@ struct SSFRPushConstants {
 
 class SSFRRenderer {
 public:
+  static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
   SSFRRenderer(RHI::Device &device, uint32_t width, uint32_t height);
   ~SSFRRenderer() = default;
 
@@ -29,19 +31,23 @@ public:
   void renderGBuffer(RHI::CommandList &commandList,
                      const Physics::PBFSlime &slime, const float *viewMatrix,
                      const float *projMatrix, float particleRadius,
-                     float worldSizeX = 20.0f, float worldSizeZ = 20.0f);
+                     uint32_t frameIndex, float worldSizeX = 20.0f,
+                     float worldSizeZ = 20.0f);
 
-  void renderBlur(RHI::CommandList &cmdList);
+  void renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex);
 
   void renderComposite(RHI::CommandList &cmdList,
                        RHI::Texture *swapchainTexture,
                        RHI::Texture *terrainDepthTexture,
                        const float *invViewMatrix, const float *invProjMatrix,
-                       const float *projMatrix, const float *lightDir);
+                       const float *projMatrix, const float *lightDir,
+                       uint32_t frameIndex);
 
-  RHI::Texture *getDepthTexture() const { return blurredDepthTexture.get(); }
-  RHI::Texture *getThicknessTexture() const {
-    return fluidThicknessTexture.get();
+  RHI::Texture *getDepthTexture(uint32_t frameIndex) const {
+    return blurredDepthTextures[frameIndex].get();
+  }
+  RHI::Texture *getThicknessTexture(uint32_t frameIndex) const {
+    return fluidThicknessTextures[frameIndex].get();
   }
 
 private:
@@ -53,13 +59,16 @@ private:
   uint32_t currentHeight;
 
   // Off-screen Render Targets
-  std::unique_ptr<RHI::Texture> fluidDepthTexture;     // R32_FLOAT
-  std::unique_ptr<RHI::Texture> fluidThicknessTexture; // R16_FLOAT
-  std::unique_ptr<RHI::Texture> internalDepthBuffer;   // D32_FLOAT
-  std::unique_ptr<RHI::Texture>
-      tempDepthTexture; // Target for the Horizontal pass
-  std::unique_ptr<RHI::Texture>
-      blurredDepthTexture; // Target for the Vertical pass
+  std::array<std::unique_ptr<RHI::Texture>, MAX_FRAMES_IN_FLIGHT>
+      fluidDepthTextures;
+  std::array<std::unique_ptr<RHI::Texture>, MAX_FRAMES_IN_FLIGHT>
+      fluidThicknessTextures;
+  std::array<std::unique_ptr<RHI::Texture>, MAX_FRAMES_IN_FLIGHT>
+      internalDepthBuffers;
+  std::array<std::unique_ptr<RHI::Texture>, MAX_FRAMES_IN_FLIGHT>
+      tempDepthTextures;
+  std::array<std::unique_ptr<RHI::Texture>, MAX_FRAMES_IN_FLIGHT>
+      blurredDepthTextures;
 
   std::unique_ptr<RHI::Pipeline> depthPipeline;
   std::unique_ptr<RHI::Pipeline> thicknessPipeline;

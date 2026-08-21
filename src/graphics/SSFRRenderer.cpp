@@ -18,26 +18,23 @@ void SSFRRenderer::onResize(uint32_t width, uint32_t height) {
 
 void SSFRRenderer::createRenderTargets(uint32_t width, uint32_t height) {
   using namespace RHI;
-
-  fluidDepthTexture = device.createTexture(
-      width, height, TextureFormat::R32_FLOAT,
-      TextureUsage::RenderTarget | TextureUsage::ShaderResource);
-
-  fluidThicknessTexture = device.createTexture(
-      width, height, TextureFormat::R16_FLOAT,
-      TextureUsage::RenderTarget | TextureUsage::ShaderResource);
-
-  internalDepthBuffer =
-      device.createTexture(width, height, TextureFormat::D32_FLOAT,
-                           TextureUsage::DepthStencilAttachment);
-
-  tempDepthTexture = device.createTexture(
-      width, height, TextureFormat::R32_FLOAT,
-      TextureUsage::ShaderResource | TextureUsage::Storage);
-
-  blurredDepthTexture = device.createTexture(
-      width, height, TextureFormat::R32_FLOAT,
-      TextureUsage::ShaderResource | TextureUsage::Storage);
+  for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    fluidDepthTextures[i] = device.createTexture(
+        width, height, TextureFormat::R32_FLOAT,
+        TextureUsage::RenderTarget | TextureUsage::ShaderResource);
+    fluidThicknessTextures[i] = device.createTexture(
+        width, height, TextureFormat::R16_FLOAT,
+        TextureUsage::RenderTarget | TextureUsage::ShaderResource);
+    internalDepthBuffers[i] =
+        device.createTexture(width, height, TextureFormat::D32_FLOAT,
+                             TextureUsage::DepthStencilAttachment);
+    tempDepthTextures[i] = device.createTexture(
+        width, height, TextureFormat::R32_FLOAT,
+        TextureUsage::ShaderResource | TextureUsage::Storage);
+    blurredDepthTextures[i] = device.createTexture(
+        width, height, TextureFormat::R32_FLOAT,
+        TextureUsage::ShaderResource | TextureUsage::Storage);
+  }
 }
 
 void SSFRRenderer::createPipelines() {
@@ -132,15 +129,16 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
                                  const Physics::PBFSlime &slimeSim,
                                  const float *viewMatrix,
                                  const float *projMatrix, float particleRadius,
-                                 float worldSizeX, float worldSizeZ) {
+                                 uint32_t frameIndex, float worldSizeX,
+                                 float worldSizeZ) {
 
-  cmdList.transitionTexture(fluidDepthTexture.get(),
+  cmdList.transitionTexture(fluidDepthTextures[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::RenderTarget);
-  cmdList.transitionTexture(fluidThicknessTexture.get(),
+  cmdList.transitionTexture(fluidThicknessTextures[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::RenderTarget);
-  cmdList.transitionTexture(internalDepthBuffer.get(),
+  cmdList.transitionTexture(internalDepthBuffers[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::DepthStencilWrite);
 
@@ -159,13 +157,13 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   depthInfo.renderHeight = currentHeight;
 
   RHI::RenderPassAttachment depthColorAtt{};
-  depthColorAtt.texture = fluidDepthTexture.get();
+  depthColorAtt.texture = fluidDepthTextures[frameIndex].get();
   depthColorAtt.clear = true;
   depthColorAtt.clearColor[0] = -10000.0f; // Initialize with a far-away depth
   depthInfo.colorAttachments.push_back(depthColorAtt);
 
   RHI::DepthAttachment zAtt{};
-  zAtt.texture = internalDepthBuffer.get();
+  zAtt.texture = internalDepthBuffers[frameIndex].get();
   zAtt.clear = true;
   zAtt.clearDepth = 1.0f;
   zAtt.clearStencil = 0;
@@ -188,7 +186,7 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   thickInfo.renderHeight = currentHeight;
 
   RHI::RenderPassAttachment thickColorAtt{};
-  thickColorAtt.texture = fluidThicknessTexture.get();
+  thickColorAtt.texture = fluidThicknessTextures[frameIndex].get();
   thickColorAtt.clear = true;
   thickColorAtt.clearColor[0] = 0.0f;
   thickInfo.colorAttachments.push_back(thickColorAtt);
@@ -210,15 +208,15 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   cmdList.endRendering();
 
   // Transition to ShaderResource for the next bluring
-  cmdList.transitionTexture(fluidDepthTexture.get(),
+  cmdList.transitionTexture(fluidDepthTextures[frameIndex].get(),
                             RHI::ResourceState::RenderTarget,
                             RHI::ResourceState::ShaderResource);
-  cmdList.transitionTexture(fluidThicknessTexture.get(),
+  cmdList.transitionTexture(fluidThicknessTextures[frameIndex].get(),
                             RHI::ResourceState::RenderTarget,
                             RHI::ResourceState::ShaderResource);
 }
 
-void SSFRRenderer::renderBlur(RHI::CommandList &cmdList) {
+void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
   struct BlurPushConstants {
     int blurDirX;
     int blurDirY;
@@ -238,12 +236,14 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList) {
   cmdList.bindPipeline(*blurPipeline);
 
   // pass 1: HORIZONTAL BLUR (Raw Depth -> Temp)
-  cmdList.transitionTexture(tempDepthTexture.get(),
+  cmdList.transitionTexture(tempDepthTextures[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::UnorderedAccess);
 
-  cmdList.bindTexture(0, fluidDepthTexture.get());     // Read raw depth
-  cmdList.bindStorageImage(1, tempDepthTexture.get()); // Write to temp
+  cmdList.bindTexture(0,
+                      fluidDepthTextures[frameIndex].get()); // Read raw depth
+  cmdList.bindStorageImage(
+      1, tempDepthTextures[frameIndex].get()); // Write to temp
 
   pc.blurDirX = 1;
   pc.blurDirY = 0;
@@ -253,15 +253,16 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList) {
 
   // pass 2: VERTICAL BLUR (Temp -> Blurred Depth)
   // Transition Temp to be Read, and Blurred to be Written
-  cmdList.transitionTexture(tempDepthTexture.get(),
+  cmdList.transitionTexture(tempDepthTextures[frameIndex].get(),
                             RHI::ResourceState::UnorderedAccess,
                             RHI::ResourceState::ShaderResource);
-  cmdList.transitionTexture(blurredDepthTexture.get(),
+  cmdList.transitionTexture(blurredDepthTextures[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::UnorderedAccess);
 
-  cmdList.bindTexture(0, tempDepthTexture.get());         // Read temp
-  cmdList.bindStorageImage(1, blurredDepthTexture.get()); // Write to blurred
+  cmdList.bindTexture(0, tempDepthTextures[frameIndex].get()); // Read temp
+  cmdList.bindStorageImage(
+      1, blurredDepthTextures[frameIndex].get()); // Write to blurred
 
   pc.blurDirX = 0;
   pc.blurDirY = 1;
@@ -270,7 +271,7 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList) {
   cmdList.dispatch(groupX, groupY, 1);
 
   // Final Transition
-  cmdList.transitionTexture(blurredDepthTexture.get(),
+  cmdList.transitionTexture(blurredDepthTextures[frameIndex].get(),
                             RHI::ResourceState::UnorderedAccess,
                             RHI::ResourceState::ShaderResource);
 }
@@ -281,7 +282,7 @@ void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
                                    const float *invViewMatrix,
                                    const float *invProjMatrix,
                                    const float *projMatrix,
-                                   const float *lightDir) {
+                                   const float *lightDir, uint32_t frameIndex) {
 
   RHI::RenderingInfo info{};
   info.renderWidth = currentWidth;
@@ -303,8 +304,8 @@ void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
 
   cmdList.bindPipeline(*compositePipeline);
 
-  cmdList.bindTexture(0, blurredDepthTexture.get());
-  cmdList.bindTexture(1, fluidThicknessTexture.get());
+  cmdList.bindTexture(0, blurredDepthTextures[frameIndex].get());
+  cmdList.bindTexture(1, fluidThicknessTextures[frameIndex].get());
   cmdList.bindSampler(2);
 
   struct CompPushConstants {
