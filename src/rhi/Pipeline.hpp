@@ -26,10 +26,7 @@ struct DepthState {
   CompareOp depthCompareOp = CompareOp::Less;
 };
 
-enum class Blendmode {
-  None,
-  Additive,
-};
+enum class Blendmode { None, Additive, Alpha };
 
 enum class ShaderStage : uint32_t {
   None = 0,

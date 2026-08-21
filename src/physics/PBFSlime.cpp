@@ -24,7 +24,7 @@ PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
   simParams.linearViscosity = 0.5f;
   simParams.quadraticViscosity = 0.05f;
   simParams.springStiffness = 20.0f;
-  simParams.plasticity = 8.0f;
+  simParams.plasticity = 10.0f;
   simParams.yieldRatio = 0.1f;
   simParams.sticknessRadius = 2.0f;
 
@@ -105,10 +105,10 @@ void PBFSlime::initializeParticles() {
     initialData[i].position[2] = noiseXZ(generator); // Z (Depth)
     initialData[i].position[3] = 0.0f;               // pad
 
-    initialData[i].velocity[0] = 1000.0f; // Move slightly right
-    initialData[i].velocity[1] = 200.0f;  // Shoot UP
-    initialData[i].velocity[2] = 0.0f;    // Shoot FORWARD
-    initialData[i].velocity[3] = 0.0f;    // pad
+    initialData[i].velocity[0] = 800.0f; // Move slightly right
+    initialData[i].velocity[1] = 200.0f; // Shoot UP
+    initialData[i].velocity[2] = 0.0f;   // Shoot FORWARD
+    initialData[i].velocity[3] = 0.0f;   // pad
 
     initialData[i].predictedPosition[0] = initialData[i].position[0];
     initialData[i].predictedPosition[1] = initialData[i].position[1];

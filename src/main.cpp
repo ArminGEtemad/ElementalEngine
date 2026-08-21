@@ -1,13 +1,14 @@
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include "PBFSlime.hpp"
-#include "PBFSlimeRenderer.hpp"
+#include "SSFRRenderer.hpp" // ✨ Replace PBFSlimeRenderer with this!
 #include "Swapchain.hpp"
 #include "TerrainPass.hpp"
 #include "Window.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
+#include <glm/gtc/matrix_inverse.hpp> // ✨ Added for Inverse matrices
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <memory>
@@ -37,9 +38,10 @@ int main() {
     Graphics::TerrainPass terrainPass(*device, *swapchain);
 
     // make slime
-    uint32_t numParticles = 2800;
+    uint32_t numParticles = 10000;
     Physics::PBFSlime slimeSim(*device, numParticles);
-    Renderer::PBFSlimeRenderer slimeRenderer(*device);
+    Renderer::SSFRRenderer ssfrRenderer(*device, swapchain->getWidth(),
+                                        swapchain->getHeight());
 
     // time tracking instead of hardcoding dt
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -60,22 +62,18 @@ int main() {
         window.resetResizedFlag();
         swapchain->recreate(window);
         terrainPass.onResize(swapchain->getWidth(), swapchain->getHeight());
+
+        // Notify the SSFR renderer that the screen changed size!
+        ssfrRenderer.onResize(swapchain->getWidth(), swapchain->getHeight());
         continue;
       }
 
-      // calculate dt & totalTime
-      // now there is a problem I realized when changind the window size. maybe
-      // the dt has to be hardcoded so that we are actually not dependent on the
-      // rate? because soe times the visuals can run faster and sometimes
-      // slower?
       auto currentTime = std::chrono::high_resolution_clock::now();
       float deltaTime =
           std::chrono::duration<float, std::chrono::seconds::period>(
               currentTime - lastTime)
               .count();
-      // changing the window size and moving the window broke the physics. this
-      // is just a safety net. We won't have this problem if the dt is
-      // hardcoded.
+
       if (deltaTime > 0.05f) {
         deltaTime = 0.05f;
       }
@@ -104,6 +102,7 @@ int main() {
       cmdList->transitionTexture(terrainPass.getDepthTexture(),
                                  RHI::ResourceState::Undefined,
                                  RHI::ResourceState::DepthStencilWrite);
+
       RHI::RenderingInfo renderingInfo{};
       renderingInfo.renderWidth = swapchain->getWidth();
       renderingInfo.renderHeight = swapchain->getHeight();
@@ -124,17 +123,44 @@ int main() {
       depthAttachment.clearStencil = 0;
       renderingInfo.depthAttachment = depthAttachment;
 
+      // PASS 1: RENDER TERRAIN
       cmdList->beginRendering(renderingInfo);
-      // Runs 3D Render Pass
       terrainPass.render(*cmdList, swapchain->getCurrentBackBuffer(),
                          swapchain->getWidth(), swapchain->getHeight());
 
-      const float *viewProj =
-          glm::value_ptr(terrainPass.getCamera().getFrameData().viewProjection);
-
-      slimeRenderer.render3D(*cmdList, swapchain->getWidth(),
-                             swapchain->getHeight(), slimeSim, viewProj, 0.1f);
+      // End the terrain pass here so SSFR can do its own multi-pass
+      // sequence!
       cmdList->endRendering();
+
+      // ==========================================
+      // PASS 2: 3 step SSFR (GBuffer -> Blur -> Composite)
+      // ==========================================
+      // Extract the matrices we need for Screen-Space logic
+      const float *viewMat =
+          glm::value_ptr(terrainPass.getCamera().getFrameData().viewMatrix);
+      const float *projMat = glm::value_ptr(
+          terrainPass.getCamera().getFrameData().projectionMatrix);
+
+      glm::mat4 invView =
+          glm::inverse(terrainPass.getCamera().getFrameData().viewMatrix);
+      glm::mat4 invProj =
+          glm::inverse(terrainPass.getCamera().getFrameData().projectionMatrix);
+      const float *invViewMat = glm::value_ptr(invView);
+      const float *invProjMat = glm::value_ptr(invProj);
+
+      // A: Render particles to offscreen depth/thickness G-Buffer
+      ssfrRenderer.renderGBuffer(*cmdList, slimeSim, viewMat, projMat, 0.35f,
+                                 20.0f, 20.0f);
+
+      // B: Melt the depths using the Compute Shader blur
+      ssfrRenderer.renderBlur(*cmdList);
+
+      // C: Composite the fluid onto the screen
+      float lightDir[3] = {1.5f, 1.5f, 1.5f}; // Matches Terrain lighting
+      ssfrRenderer.renderComposite(*cmdList, swapchain->getCurrentBackBuffer(),
+                                   terrainPass.getDepthTexture(), invViewMat,
+                                   invProjMat, projMat, lightDir);
+
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
                                  RHI::ResourceState::RenderTarget,
@@ -149,6 +175,7 @@ int main() {
         window.resetResizedFlag();
         swapchain->recreate(window);
         terrainPass.onResize(swapchain->getWidth(), swapchain->getHeight());
+        ssfrRenderer.onResize(swapchain->getWidth(), swapchain->getHeight());
       }
     }
 

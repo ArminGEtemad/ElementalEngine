@@ -8,9 +8,8 @@ namespace elementalEngine::Physics {
 static constexpr uint32_t MAX_SPRINGS = 64;
 
 struct Particle {
-  float position[4]; // I can use the 4's state for AIR, GROUND flagfor now
-                     // padding thoug
-  float velocity[4]; // 4's state is just padding
+  float position[4];          // 4's state is just padding
+  float velocity[4];          // 4's state is just padding
   float predictedPosition[4]; //  4's state is just padding
 
   float density;

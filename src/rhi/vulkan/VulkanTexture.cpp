@@ -93,6 +93,8 @@ VkFormat VulkanTexture::mapFormat(TextureFormat format) {
     return VK_FORMAT_R8G8B8A8_UNORM;
   case TextureFormat::R32_FLOAT:
     return VK_FORMAT_R32_SFLOAT;
+  case TextureFormat::R16_FLOAT:
+    return VK_FORMAT_R16_SFLOAT;
   case TextureFormat::R32G32_FLOAT:
     return VK_FORMAT_R32G32_SFLOAT;
   case TextureFormat::D32_FLOAT:
@@ -112,6 +114,8 @@ TextureFormat VulkanTexture::reverseMapFormat(VkFormat format) {
     return TextureFormat::R8G8B8A8_UNORM;
   case VK_FORMAT_R32_SFLOAT:
     return TextureFormat::R32_FLOAT;
+  case VK_FORMAT_R16_SFLOAT:
+    return TextureFormat::R16_FLOAT;
   case VK_FORMAT_R32G32_SFLOAT:
     return TextureFormat::R32G32_FLOAT;
   case VK_FORMAT_D32_SFLOAT:
@@ -137,6 +141,8 @@ VkImageUsageFlags VulkanTexture::mapUsage(TextureUsage usage) {
     flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
   if (usage & TextureUsage::TransferDst)
     flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+  if (usage & TextureUsage::Storage)
+    flags |= VK_IMAGE_USAGE_STORAGE_BIT;
   return flags;
 }
 
