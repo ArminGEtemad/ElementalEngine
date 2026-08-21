@@ -16,6 +16,7 @@ public:
   virtual void recreate(WindowHandling &window) = 0;
 
   virtual uint32_t getCurrentFrameIndex() const = 0;
+  virtual uint32_t getSyncFrameIndex() const = 0;
   virtual uint32_t getWidth() const = 0;
   virtual uint32_t getHeight() const = 0;
 

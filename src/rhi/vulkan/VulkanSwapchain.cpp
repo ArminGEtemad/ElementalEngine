@@ -119,8 +119,8 @@ void VulkanSwapchain::createSwapchain(WindowHandling &window) {
       chooseSwapPresentMode(swapchainSupport.presentModes);
   VkExtent2D extent = chooseSwapExtent(swapchainSupport.capabilities, window);
 
-  // enforcing double buffering
-  uint32_t imageCount = 2;
+  // enforcing tripple buffering
+  uint32_t imageCount = 3;
   if (swapchainSupport.capabilities.maxImageCount > 0 &&
       imageCount > swapchainSupport.capabilities.maxImageCount) {
     imageCount = swapchainSupport.capabilities.maxImageCount;
@@ -211,8 +211,9 @@ void VulkanSwapchain::createImageViews() {
 
 void VulkanSwapchain::createSyncObjects() {
   imageAvailableSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
-  renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
   inFlightFence.resize(MAX_FRAMES_IN_FLIGHT);
+
+  renderFinishedSemaphore.resize(swapchainImages.size());
 
   VkSemaphoreCreateInfo semaphoreInfo{};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -222,14 +223,21 @@ void VulkanSwapchain::createSyncObjects() {
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start signaled so first
                                                   // frame doesn't wait forever
 
+  // CPU/GPU sync objects (based on MAX_FRAMES_IN_FLIGHT)
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     if (vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
                           &imageAvailableSemaphore[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
-                          &renderFinishedSemaphore[i]) != VK_SUCCESS ||
         vkCreateFence(device.getLogicalDevice(), &fenceInfo, nullptr,
                       &inFlightFence[i]) != VK_SUCCESS) {
       throw std::runtime_error("Failed to create sync object for frames.");
+    }
+  }
+
+  // GPU/OS presentation semaphores (based on actual Swapchain Images)
+  for (size_t i = 0; i < swapchainImages.size(); i++) {
+    if (vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
+                          &renderFinishedSemaphore[i]) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create presentation semaphore.");
     }
   }
 }
@@ -257,9 +265,21 @@ void VulkanSwapchain::recreate(WindowHandling &window) {
     glfwWaitEvents();
   }
   device.waitIdle();
+  for (size_t i = 0; i < renderFinishedSemaphore.size(); i++) {
+    vkDestroySemaphore(device.getLogicalDevice(), renderFinishedSemaphore[i],
+                       nullptr);
+  }
   cleanupSwapchain();
   createSwapchain(window);
   createImageViews();
+
+  renderFinishedSemaphore.resize(swapchainImages.size());
+  VkSemaphoreCreateInfo semaphoreInfo{};
+  semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  for (size_t i = 0; i < renderFinishedSemaphore.size(); i++) {
+    vkCreateSemaphore(device.getLogicalDevice(), &semaphoreInfo, nullptr,
+                      &renderFinishedSemaphore[i]);
+  }
 }
 
 bool VulkanSwapchain::acquireNextImage() {
@@ -285,7 +305,7 @@ bool VulkanSwapchain::acquireNextImage() {
 bool VulkanSwapchain::present() {
   VkPresentInfoKHR presentInfo{};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  VkSemaphore signalSemaphore[] = {renderFinishedSemaphore[currentFrame]};
+  VkSemaphore signalSemaphore[] = {renderFinishedSemaphore[currentImageIndex]};
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores = signalSemaphore;
   presentInfo.swapchainCount = 1;
@@ -294,7 +314,7 @@ bool VulkanSwapchain::present() {
 
   VkResult result = vkQueuePresentKHR(device.getPresentQueue(), &presentInfo);
   currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-  vkQueueWaitIdle(device.getPresentQueue());
+
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     return false; // which has to trigger recreate in the main loop
   } else if (result != VK_SUCCESS) {
