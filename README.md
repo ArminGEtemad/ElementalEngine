@@ -23,7 +23,23 @@ However I am trying to write an abstraction layer to make it possible to add DX1
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
   <div>
-    <img src="PicturesAndGifs/3DClavet.gif" width="800"/>
+    <img src="PicturesAndGifs/ClavetSSFR.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFR1.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFR2.gif" width="800"/>
   </div>
 
 </div>
@@ -88,7 +104,8 @@ The following is how I would like to move forward with the project
 - [x] 3D Clavet and slime physics
 - [x] Experiment with the Splat Map when Slime hits the ground?
   - that is not what I wanted. because I still need the liquid to be interactable. but I added the prototype result in the documents
-- [ ] Experiment with Screen-Space Metaball Meshing
+- [x] Experiment with Screen-Space Metaball Meshing
+- [ ] paying some technical debt like (waitIdle I built in present)
 - [ ] Moving other elements to 3D
 - [ ] Post-processing
 - [ ] Optimization
