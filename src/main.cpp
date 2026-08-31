@@ -5,6 +5,8 @@
 #include "Swapchain.hpp"
 #include "TerrainPass.hpp"
 #include "Window.hpp"
+#include "graphics/StamFluidRenderer.hpp"
+#include "physics/StamFluid.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
@@ -47,6 +49,16 @@ int main() {
     Physics::PBFSlime slimeSim(*device, numParticles);
     Renderer::SSFRRenderer ssfrRenderer(*device, swapchain->getWidth(),
                                         swapchain->getHeight());
+
+    // make poison gas
+    Physics::StamFluid stamSim(*device, 256, 256);
+    Renderer::StamFluidRenderer stamRenderer(*device);
+
+    commandLists[0]->begin();
+    stamSim.init(*commandLists[0]);
+    commandLists[0]->end();
+    device->submit(commandLists[0].get(), nullptr);
+    device->waitIdle();
 
     // time tracking instead of hardcoding dt
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -100,8 +112,10 @@ int main() {
       cmdList->begin();
       float fixedDt = 0.008f;
 
-      // run slime physics
+      // run physics
       slimeSim.simulate(*cmdList, fixedDt, 0.0f, 0.0f, 0.0f);
+      stamSim.simulate(*cmdList, fixedDt, slimeSim.getParticleBuffer(),
+                       slimeSim.getParticleCount());
 
       // Transition acquired image to Render Target before drawing
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
@@ -171,6 +185,20 @@ int main() {
                                    terrainPass.getDepthTexture(syncFrameIdx),
                                    invViewMat, invProjMat, projMat, lightDir,
                                    syncFrameIdx);
+
+      RHI::RenderingInfo stamInfo{};
+      stamInfo.renderWidth = swapchain->getWidth();
+      stamInfo.renderHeight = swapchain->getHeight();
+
+      RHI::RenderPassAttachment stamAtt{};
+      stamAtt.texture = swapchain->getCurrentBackBuffer();
+      stamAtt.clear = false; // additive overlay just to make sure it works
+      stamInfo.colorAttachments.push_back(stamAtt);
+
+      cmdList->beginRendering(stamInfo);
+      stamRenderer.draw(*cmdList, stamSim, swapchain->getWidth(),
+                        swapchain->getHeight());
+      cmdList->endRendering();
 
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
