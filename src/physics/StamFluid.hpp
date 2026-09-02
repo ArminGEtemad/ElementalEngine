@@ -12,18 +12,22 @@ namespace elementalEngine::Physics {
 struct SimConfig {
   uint32_t gridWidth;
   uint32_t gridHeight;
+  uint32_t gridDepth;
   float dt;
-  float forceY;
 
+  float forceY;
   uint32_t numParticles;
-  float domainDepth;
   float domainWidth;
-  float pad;
+  float domainHeight;
+
+  float domainDepth;
+  float pad[3];
 };
 
 class StamFluid {
 public:
-  StamFluid(RHI::Device &device, uint32_t width, uint32_t height);
+  StamFluid(RHI::Device &device, uint32_t width, uint32_t height,
+            uint32_t depth);
   ~StamFluid() = default;
 
   // initialize the undifined resource states
@@ -39,8 +43,11 @@ public:
 
 private:
   RHI::Device &device;
+
   uint32_t gridWidth;
   uint32_t gridHeight;
+  uint32_t gridDepth;
+
   SimConfig simConfig;
 
   bool useBufferPingToRead = true;

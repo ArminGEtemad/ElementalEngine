@@ -1,18 +1,20 @@
 #include "StamFluid.hpp"
 #include "Pipeline.hpp"
-#include <cstdint>
 
 namespace elementalEngine::Physics {
-StamFluid::StamFluid(RHI::Device &device, uint32_t width, uint32_t height)
-    : device(device), gridWidth(width), gridHeight(height) {
+StamFluid::StamFluid(RHI::Device &device, uint32_t width, uint32_t height,
+                     uint32_t depth)
+    : device(device), gridWidth(width), gridHeight(height), gridDepth(depth) {
   simConfig.gridWidth = width;
   simConfig.gridHeight = height;
+  simConfig.gridDepth = depth;
   simConfig.forceY = 9.8f;
 
   // hardcoded for now matches the slime and I could put everything together
   // actually
-  simConfig.domainDepth = 2000.0f;
   simConfig.domainWidth = 2000.0f;
+  simConfig.domainHeight = 2000.0f;
+  simConfig.domainDepth = 2000.0f;
 
   createResources();
   createPipeline();
@@ -26,20 +28,29 @@ void StamFluid::createResources() {
                                 TextureUsage::TransferDst;
 
   // -- ping pong texture
-  densityPingTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32_FLOAT, rwTextureUsage);
-  densityPongTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32_FLOAT, rwTextureUsage);
-  velocityPingTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32G32_FLOAT, rwTextureUsage);
-  velocityPongTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32G32_FLOAT, rwTextureUsage);
-  divergenceTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32_FLOAT, rwTextureUsage);
-  pressurePingTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32_FLOAT, rwTextureUsage);
-  pressurePongTex = device.createTexture(
-      gridWidth, gridHeight, TextureFormat::R32_FLOAT, rwTextureUsage);
+  densityPingTex =
+      device.createTexture(gridWidth, gridHeight, TextureFormat::R32_FLOAT,
+                           rwTextureUsage, gridDepth);
+  densityPongTex =
+      device.createTexture(gridWidth, gridHeight, TextureFormat::R32_FLOAT,
+                           rwTextureUsage, gridDepth);
+
+  velocityPingTex = device.createTexture(gridWidth, gridHeight,
+                                         TextureFormat::R32G32B32A32_FLOAT,
+                                         rwTextureUsage, gridDepth);
+  velocityPongTex = device.createTexture(gridWidth, gridHeight,
+                                         TextureFormat::R32G32B32A32_FLOAT,
+                                         rwTextureUsage, gridDepth);
+
+  divergenceTex =
+      device.createTexture(gridWidth, gridHeight, TextureFormat::R32_FLOAT,
+                           rwTextureUsage, gridDepth);
+  pressurePingTex =
+      device.createTexture(gridWidth, gridHeight, TextureFormat::R32_FLOAT,
+                           rwTextureUsage, gridDepth);
+  pressurePongTex =
+      device.createTexture(gridWidth, gridHeight, TextureFormat::R32_FLOAT,
+                           rwTextureUsage, gridDepth);
 }
 
 void StamFluid::createPipeline() {
@@ -122,6 +133,10 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
   simConfig.dt = dt;
   simConfig.numParticles = numParticles;
 
+  uint32_t groupX = gridWidth / 8;
+  uint32_t groupY = gridHeight / 8;
+  uint32_t groupZ = gridDepth / 8;
+
   Texture *densityRead =
       useBufferPingToRead ? densityPingTex.get() : densityPongTex.get();
   Texture *densityWrite =
@@ -146,7 +161,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
   if (particleBuffer) {
     commandList.bindStorageBuffer(6, particleBuffer);
   }
-  commandList.dispatch(gridWidth / 8, gridHeight / 8, 1);
+  commandList.dispatch(groupX, groupY, groupZ);
 
   // DIVERGENCE PASS
   commandList.transitionTexture(velocityAdvected,
@@ -161,7 +176,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
                             ShaderStage::Compute);
   commandList.bindTexture(1, velocityAdvected);
   commandList.bindStorageImage(3, divergenceTex.get());
-  commandList.dispatch(gridWidth / 8, gridHeight / 8, 1);
+  commandList.dispatch(groupX, groupY, groupZ);
 
   // JACOBI SOLVER PASS
   commandList.transitionTexture(divergenceTex.get(),
@@ -190,7 +205,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
 
     commandList.bindTexture(1, pRead);
     commandList.bindStorageImage(3, pWrite);
-    commandList.dispatch(gridWidth / 8, gridHeight / 8, 1);
+    commandList.dispatch(groupX, groupY, groupZ);
 
     usePressurePing = !usePressurePing;
   }
@@ -210,7 +225,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
   commandList.bindTexture(1, finalPressure);
   commandList.bindTexture(2, velocityAdvected);
   commandList.bindStorageImage(3, velocityStart);
-  commandList.dispatch(gridWidth / 8, gridHeight / 8, 1);
+  commandList.dispatch(groupX, groupY, groupZ);
 
   // Transition densityWrite to Read so the Graphics pipeline can draw it!
   commandList.transitionTexture(densityWrite, ResourceState::UnorderedAccess,
@@ -222,9 +237,6 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
 }
 
 RHI::Texture *StamFluid::getRenderTexture() const {
-  // Since we toggled useBufferPingToRead at the end of simulate,
-  // we return the buffer that we just WROTE to (which is now ping, if we were
-  // using pong).
   return useBufferPingToRead ? densityPingTex.get() : densityPongTex.get();
 }
 
