@@ -339,6 +339,14 @@ void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
                            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+  } else if (from == ResourceState::DepthStencilWrite &&
+             to == ResourceState::ShaderResource) {
+    barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
   }
 
   VkDependencyInfo depInfo{};
@@ -398,6 +406,13 @@ void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
         VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT;
     barrier.dstStageMask =
         VK_PIPELINE_STAGE_2_CLEAR_BIT; // vkCmdFillBuffer stage
+    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+  } else if (from == ResourceState::ShaderResource &&
+             to == ResourceState::TransferDst) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_CLEAR_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
   }
 
