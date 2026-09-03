@@ -1,39 +1,45 @@
 struct SimConfigStruct {
   uint gridWidth;
   uint gridHeight;
+  uint gridDepth;
   float dt;
-  float forceY;
 
+  float forceY;
   uint numParticles;
-  float domainDepth;
   float domainWidth;
-  float pad;
+  float domainHeight;
+
+  float domainDepth;
+  float3 pad;
 };
 
 [[vk::push_constant]] SimConfigStruct SimConfig;
 
-Texture2D<float> ReadPressure : register(t1);
-Texture2D<float2> ReadVelocity : register(t2);
-RWTexture2D<float2> WriteVelocity : register(u3);
+Texture3D<float> ReadPressure : register(t1);
+Texture3D<float4> ReadVelocity : register(t2);
+RWTexture3D<float4> WriteVelocity : register(u3);
 
-[numthreads(8, 8, 1)] void CSMain(uint3 id : SV_DispatchThreadID) {
-  if (id.x >= SimConfig.gridWidth || id.y >= SimConfig.gridHeight)
+[numthreads(8, 8, 8)] void CSMain(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= SimConfig.gridWidth || id.y >= SimConfig.gridHeight ||
+      id.z >= SimConfig.gridDepth)
     return;
 
-  // Handle boundaries safely
   uint left = id.x > 0 ? id.x - 1 : id.x;
   uint right = id.x < SimConfig.gridWidth - 1 ? id.x + 1 : id.x;
-  uint top = id.y > 0 ? id.y - 1 : id.y;
-  uint bottom = id.y < SimConfig.gridHeight - 1 ? id.y + 1 : id.y;
+  uint bottom = id.y > 0 ? id.y - 1 : id.y;
+  uint top = id.y < SimConfig.gridHeight - 1 ? id.y + 1 : id.y;
+  uint back = id.z > 0 ? id.z - 1 : id.z;
+  uint front = id.z < SimConfig.gridDepth - 1 ? id.z + 1 : id.z;
 
-  float pL = ReadPressure[uint2(left, id.y)];
-  float pR = ReadPressure[uint2(right, id.y)];
-  float pT = ReadPressure[uint2(id.x, top)];
-  float pB = ReadPressure[uint2(id.x, bottom)];
+  float pL = ReadPressure.Load(uint4(left, id.y, id.z, 0));
+  float pR = ReadPressure.Load(uint4(right, id.y, id.z, 0));
+  float pB = ReadPressure.Load(uint4(id.x, bottom, id.z, 0));
+  float pT = ReadPressure.Load(uint4(id.x, top, id.z, 0));
+  float pBk = ReadPressure.Load(uint4(id.x, id.y, back, 0));
+  float pF = ReadPressure.Load(uint4(id.x, id.y, front, 0));
 
-  float2 vel = ReadVelocity[id.xy];
-  vel.x -= 0.5f * (pR - pL);
-  vel.y -= 0.5f * (pB - pT);
+  float3 gradP = 0.5f * float3(pR - pL, pT - pB, pF - pBk);
 
-  WriteVelocity[id.xy] = vel;
+  float3 vel = ReadVelocity.Load(int4(id, 0)).xyz - gradP;
+  WriteVelocity[id] = float4(vel, 0.0f);
 }
