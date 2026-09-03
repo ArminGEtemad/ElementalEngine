@@ -1,13 +1,16 @@
 struct SimConfigStruct {
   uint gridWidth;
   uint gridHeight;
+  uint gridDepth;
   float dt;
-  float forceY;
 
+  float forceY;
   uint numParticles;
-  float domainDepth;
   float domainWidth;
-  float pad;
+  float domainHeight;
+
+  float domainDepth;
+  float3 pad;
 };
 
 struct Particle {
@@ -23,73 +26,58 @@ struct Particle {
 
 [[vk::push_constant]] SimConfigStruct SimConfig;
 
-Texture2D<float> ReadDensity : register(t1);
-Texture2D<float2> ReadVelocity : register(t2);
-RWTexture2D<float> WriteDensity : register(u3);
-RWTexture2D<float2> WriteVelocity : register(u4);
+Texture3D<float> ReadDensity : register(t1);
+Texture3D<float4> ReadVelocity : register(t2);
+RWTexture3D<float> WriteDensity : register(u3);
+RWTexture3D<float4> WriteVelocity : register(u4);
 SamplerState LinearSampler : register(s5);
-StructuredBuffer<Particle> particles : register(t6);
+StructuredBuffer<uint> InjectionGrid : register(t6);
 
-[numthreads(8, 8, 1)] void
-CSMain(uint3 dispatchThreadID : SV_DispatchThreadID) {
-  uint x = dispatchThreadID.x;
-  uint y = dispatchThreadID.y;
-
-  if (x >= SimConfig.gridWidth || y >= SimConfig.gridHeight)
+[numthreads(8, 8, 8)] void CSMain(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= SimConfig.gridWidth || id.y >= SimConfig.gridHeight ||
+      id.z >= SimConfig.gridDepth)
     return;
-  uint2 index2D = uint2(x, y);
-  float2 currentVelocity = ReadVelocity[index2D];
+
+  float3 gridDim =
+      float3(SimConfig.gridWidth, SimConfig.gridHeight, SimConfig.gridDepth);
+  float3 currentVelocity = ReadVelocity.Load(int4(id, 0)).xyz;
 
   // trace back using current velocity
-  float srcX = (float)x - (currentVelocity.x * SimConfig.dt);
-  float srcY = (float)y - (currentVelocity.y * SimConfig.dt);
+  float3 srcPos = (float3)id - (currentVelocity * SimConfig.dt);
 
   // uv coordinate
-  float2 uv = float2((srcX + 0.5f) / (float)SimConfig.gridWidth,
-                     (srcY + 0.5f) / (float)SimConfig.gridHeight);
+  float3 uvw = (srcPos + 0.5f) / gridDim;
 
-  float newDensity = ReadDensity.SampleLevel(LinearSampler, uv, 0) * 0.9995f;
-  float2 newVelocity = ReadVelocity.SampleLevel(LinearSampler, uv, 0) * 0.9995f;
+  float newDensity = ReadDensity.SampleLevel(LinearSampler, uvw, 0) * 0.9995f;
+  float3 newVelocity =
+      ReadVelocity.SampleLevel(LinearSampler, uvw, 0).xyz * 0.999995f;
 
-  // External Force
   newVelocity.y += (newDensity * SimConfig.forceY * SimConfig.dt);
 
-  float2 cellPos = float2((float)x, (float)y);
+  uint flatIndex = id.z * SimConfig.gridWidth * SimConfig.gridHeight +
+                   id.y * SimConfig.gridWidth + id.x;
+  uint strideIdx = flatIndex * 4;
 
+  // instead of the loop i had before I use the injection method here
+  float injectedDensity = asfloat(InjectionGrid[strideIdx + 0]);
+  float injectedVelX = asfloat(InjectionGrid[strideIdx + 1]);
+  float injectedVelY = asfloat(InjectionGrid[strideIdx + 2]);
+  float injectedVelZ = asfloat(InjectionGrid[strideIdx + 3]);
+
+  newDensity += injectedDensity;
+  newVelocity += float3(injectedVelX, injectedVelY, injectedVelZ);
+
+  // Cap density to prevent runaway explosions
   float maxDensity = 0.1f;
-  for (uint i = 0; i < SimConfig.numParticles; i++) {
-    // to make sure that the calculation doesn't become expensive only 10% of
-    // the particles can emit gas
-    if (i % 10 != 0)
-      continue;
-
-    Particle p = particles[i];
-
-    float gridPx =
-        ((p.position.x / SimConfig.domainWidth) + 0.5f) * SimConfig.gridWidth;
-    float gridPy =
-        ((p.position.z / SimConfig.domainDepth) + 0.5f) * SimConfig.gridHeight;
-
-    float dist = distance(cellPos, float2(gridPx, gridPy));
-
-    if (dist < 3.5f) {
-      newDensity += 0.001f;
-      newVelocity.x += p.velocity.x * 0.05f * SimConfig.dt;
-      newVelocity.y += p.velocity.z * 0.05f * SimConfig.dt;
-    }
-    // Outer faint gas trail
-    else if (dist < 20.0f) {
-      newDensity += 0.00001f;
-    }
-  }
-
   newDensity = min(newDensity, maxDensity);
 
-  if (x <= 1 || x >= SimConfig.gridWidth - 2)
+  if (id.x <= 1 || id.x >= SimConfig.gridWidth - 2)
     newVelocity.x = 0.0f;
-  if (y <= 1 || y >= SimConfig.gridHeight - 2)
+  if (id.y <= 1 || id.y >= SimConfig.gridHeight - 2)
     newVelocity.y = 0.0f;
+  if (id.z <= 1 || id.z >= SimConfig.gridDepth - 2)
+    newVelocity.z = 0.0f;
 
-  WriteDensity[index2D] = newDensity;
-  WriteVelocity[index2D] = newVelocity;
+  WriteDensity[id] = newDensity;
+  WriteVelocity[id] = float4(newVelocity, 0.0f);
 }
