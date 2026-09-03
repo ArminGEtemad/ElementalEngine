@@ -51,6 +51,13 @@ void StamFluid::createResources() {
   pressurePongTex =
       device.createTexture(gridWidth, gridHeight, TextureFormat::R32_FLOAT,
                            rwTextureUsage, gridDepth);
+
+  // buffer to hold the injected density and verlocity
+  size_t totalCells = gridWidth * gridHeight * gridDepth;
+  injectionBuffer = device.createBuffer(totalCells * 4 * sizeof(uint32_t),
+                                        RHI::BufferUsage::Storage |
+                                            RHI::BufferUsage::TransferDst,
+                                        RHI::MemoryProperty::GPULocal);
 }
 
 void StamFluid::createPipeline() {
@@ -83,6 +90,19 @@ void StamFluid::createPipeline() {
   divPipeline = device.createComputePipeline("stam_divergence", config);
   jacobiPipeline = device.createComputePipeline("stam_jacobi", config);
   gradPipeline = device.createComputePipeline("stam_gradient", config);
+
+  PipelineConfig injectConfig;
+  injectConfig.bindings = {
+      {0, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Compute}, // Particles (t0)
+      {1, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Compute} // Injection Grid (u1)
+  };
+  injectConfig.pushConstants.size = sizeof(SimConfig);
+  injectConfig.pushConstants.offset = 0;
+  injectConfig.pushConstants.stage = RHI::ShaderStage::Compute;
+
+  injectPipeline = device.createComputePipeline("stam_inject", injectConfig);
 }
 
 void StamFluid::init(RHI::CommandList &setupCmd) {
@@ -137,6 +157,31 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
   uint32_t groupY = gridHeight / 8;
   uint32_t groupZ = gridDepth / 8;
 
+  commandList.transitionBuffer(injectionBuffer.get(),
+                               RHI::ResourceState::ShaderResource,
+                               RHI::ResourceState::TransferDst);
+  commandList.clearBuffer(injectionBuffer.get(), 0);
+  commandList.transitionBuffer(injectionBuffer.get(),
+                               RHI::ResourceState::TransferDst,
+                               RHI::ResourceState::UnorderedAccess);
+
+  if (particleBuffer && numParticles > 0) {
+    // Run the injection scatter
+    commandList.bindPipeline(*injectPipeline);
+    commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
+                              RHI::ShaderStage::Compute);
+    commandList.bindStorageBuffer(0, particleBuffer);
+    commandList.bindStorageBuffer(1, injectionBuffer.get());
+
+    uint32_t injectGroupX = (numParticles + 255) / 256;
+    commandList.dispatch(injectGroupX, 1, 1);
+  }
+
+  // Transition buffer for the Advection shader to read it
+  commandList.transitionBuffer(injectionBuffer.get(),
+                               RHI::ResourceState::UnorderedAccess,
+                               RHI::ResourceState::ShaderResource);
+
   Texture *densityRead =
       useBufferPingToRead ? densityPingTex.get() : densityPongTex.get();
   Texture *densityWrite =
@@ -158,9 +203,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
   commandList.bindStorageImage(3, densityWrite);
   commandList.bindStorageImage(4, velocityAdvected);
   commandList.bindSampler(5);
-  if (particleBuffer) {
-    commandList.bindStorageBuffer(6, particleBuffer);
-  }
+  commandList.bindStorageBuffer(6, injectionBuffer.get());
   commandList.dispatch(groupX, groupY, groupZ);
 
   // DIVERGENCE PASS
@@ -188,7 +231,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt,
   commandList.bindTexture(2, divergenceTex.get());
 
   bool usePressurePing = true;
-  const int JACOBI_ITERATIONS = 20;
+  const int JACOBI_ITERATIONS = 8;
 
   for (int i = 0; i < JACOBI_ITERATIONS; ++i) {
     Texture *pRead =

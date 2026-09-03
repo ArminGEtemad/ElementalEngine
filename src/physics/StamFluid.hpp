@@ -30,14 +30,12 @@ public:
             uint32_t depth);
   ~StamFluid() = default;
 
-  // initialize the undifined resource states
   void init(RHI::CommandList &commandList);
-  // called every frame
   void simulate(RHI::CommandList &commandList, float dt,
                 RHI::Buffer *particleBuffer = nullptr,
                 uint32_t numParticles = 0);
 
-  // getter
+  // getters
   SimConfig getSimConfig() const { return simConfig; }
   RHI::Texture *getRenderTexture() const;
 
@@ -60,8 +58,10 @@ private:
   std::unique_ptr<RHI::Texture> divergenceTex;
   std::unique_ptr<RHI::Texture> pressurePingTex;
   std::unique_ptr<RHI::Texture> pressurePongTex;
+  std::unique_ptr<RHI::Buffer> injectionBuffer;
 
   // pipelines
+  std::unique_ptr<RHI::Pipeline> injectPipeline;
   std::unique_ptr<RHI::Pipeline> advectionPipeline;
   std::unique_ptr<RHI::Pipeline> divPipeline;
   std::unique_ptr<RHI::Pipeline> jacobiPipeline;
