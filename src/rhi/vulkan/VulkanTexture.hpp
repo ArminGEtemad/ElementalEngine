@@ -9,17 +9,18 @@ class VulkanTexture : public Texture {
 public:
   // standard constructor owns GPU allocation via VMA
   VulkanTexture(VulkanDevice &device, uint32_t width, uint32_t height,
-                TextureFormat format, TextureUsage usage);
+                TextureFormat format, TextureUsage usage, uint32_t depth = 1);
 
   // non-owning creating that wraps external vulkan images
   VulkanTexture(VulkanDevice &device, VkImage image, VkImageView imageView,
                 uint32_t width, uint32_t height, TextureFormat format,
-                TextureUsage usage);
+                TextureUsage usage, uint32_t depth = 1);
 
   ~VulkanTexture() override;
 
   uint32_t getWidth() const override { return width; }
   uint32_t getHeight() const override { return height; }
+  uint32_t getDepth() const override { return depth; }
   TextureFormat getFormat() const override { return format; }
   TextureUsage getUsage() const override { return usage; }
 
@@ -36,6 +37,7 @@ private:
   VulkanDevice &device;
   uint32_t width;
   uint32_t height;
+  uint32_t depth;
   TextureFormat format;
   TextureUsage usage;
 
