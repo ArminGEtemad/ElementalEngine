@@ -37,10 +37,10 @@ public:
 
   virtual std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                                MemoryProperty memory) = 0;
-  virtual std::unique_ptr<Texture> createTexture(uint32_t gridWidth,
-                                                 uint32_t gridHeight,
+  virtual std::unique_ptr<Texture> createTexture(uint32_t width, uint32_t heigh,
                                                  TextureFormat format,
-                                                 TextureUsage usage) = 0;
+                                                 TextureUsage usage,
+                                                 uint32_t depth = 1) = 0;
 
   virtual void waitIdle() = 0;
   virtual void submit(CommandList *commandList, Swapchain *swapchain) = 0;

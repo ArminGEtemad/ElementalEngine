@@ -5,6 +5,8 @@
 #include "Swapchain.hpp"
 #include "TerrainPass.hpp"
 #include "Window.hpp"
+#include "graphics/StamFluidRenderer.hpp"
+#include "physics/StamFluid.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
@@ -17,8 +19,8 @@ using namespace elementalEngine;
 using namespace elementalEngine::RHI;
 
 int main() {
-  static constexpr int WIDTH{2000};
-  static constexpr int HEIGHT{1000};
+  static constexpr int WIDTH{800};
+  static constexpr int HEIGHT{800};
 
   std::cout << "-----------------------------------\n";
   std::cout << "   .:: ELEMENTAL ENGINE ::.\n";
@@ -47,6 +49,16 @@ int main() {
     Physics::PBFSlime slimeSim(*device, numParticles);
     Renderer::SSFRRenderer ssfrRenderer(*device, swapchain->getWidth(),
                                         swapchain->getHeight());
+
+    // make poison gas
+    Physics::StamFluid stamSim(*device, 128, 128, 128);
+    Renderer::StamFluidRenderer stamRenderer(*device);
+
+    commandLists[0]->begin();
+    stamSim.init(*commandLists[0]);
+    commandLists[0]->end();
+    device->submit(commandLists[0].get(), nullptr);
+    device->waitIdle();
 
     // time tracking instead of hardcoding dt
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -100,8 +112,10 @@ int main() {
       cmdList->begin();
       float fixedDt = 0.008f;
 
-      // run slime physics
+      // run physics
       slimeSim.simulate(*cmdList, fixedDt, 0.0f, 0.0f, 0.0f);
+      stamSim.simulate(*cmdList, fixedDt, slimeSim.getParticleBuffer(),
+                       slimeSim.getParticleCount());
 
       // Transition acquired image to Render Target before drawing
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
@@ -172,16 +186,37 @@ int main() {
                                    invViewMat, invProjMat, projMat, lightDir,
                                    syncFrameIdx);
 
+      cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
+                                 RHI::ResourceState::DepthStencilWrite,
+                                 RHI::ResourceState::ShaderResource);
+
+      glm::mat4 invViewProj = invView * invProj;
+      glm::vec3 cameraPos = terrainPass.getCamera().getPosition();
+
+      RHI::RenderingInfo stamInfo{};
+      stamInfo.renderWidth = swapchain->getWidth();
+      stamInfo.renderHeight = swapchain->getHeight();
+
+      RHI::RenderPassAttachment stamAtt{};
+      stamAtt.texture = swapchain->getCurrentBackBuffer();
+      stamAtt.clear = false; // Blend over terrain and SSFR slime
+      stamInfo.colorAttachments.push_back(stamAtt);
+
+      cmdList->beginRendering(stamInfo);
+      stamRenderer.draw(*cmdList, stamSim, invViewProj, cameraPos,
+                        swapchain->getWidth(), swapchain->getHeight(),
+                        terrainPass.getDepthTexture(syncFrameIdx));
+      cmdList->endRendering();
+
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
                                  RHI::ResourceState::RenderTarget,
                                  RHI::ResourceState::Present);
       cmdList->end();
+      // ==============================================
 
-      // submit Command Buffer to GPU
       device->submit(cmdList, swapchain.get());
 
-      // Present Frame
       if (!swapchain->present() || window.isResized()) {
         window.resetResizedFlag();
         swapchain->recreate(window);

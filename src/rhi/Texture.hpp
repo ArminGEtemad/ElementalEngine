@@ -10,6 +10,7 @@ enum class TextureFormat {
   R16_FLOAT,
   R32_FLOAT,
   R32G32_FLOAT,
+  R32G32B32A32_FLOAT,
   D32_FLOAT,
   D24_UNORM_S8_UINT
 };
@@ -44,6 +45,7 @@ public:
 
   virtual uint32_t getWidth() const = 0;
   virtual uint32_t getHeight() const = 0;
+  virtual uint32_t getDepth() const = 0;
   virtual TextureFormat getFormat() const = 0;
   virtual TextureUsage getUsage() const = 0;
 

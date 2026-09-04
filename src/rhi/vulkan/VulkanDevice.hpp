@@ -36,10 +36,10 @@ public:
 
   std::unique_ptr<Buffer> createBuffer(size_t size, BufferUsage usage,
                                        MemoryProperty memory) override;
-  std::unique_ptr<Texture> createTexture(uint32_t gridWidth,
-                                         uint32_t gridHeight,
+  std::unique_ptr<Texture> createTexture(uint32_t width, uint32_t height,
                                          TextureFormat format,
-                                         TextureUsage usage) override;
+                                         TextureUsage usage,
+                                         uint32_t depth = 1) override;
 
   // getter functions
   VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }

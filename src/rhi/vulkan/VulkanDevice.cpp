@@ -48,15 +48,14 @@ std::unique_ptr<Buffer> VulkanDevice::createBuffer(size_t size,
   return std::make_unique<VulkanBuffer>(*this, size, usage, memory);
 }
 
-std::unique_ptr<Texture> VulkanDevice::createTexture(uint32_t gridWidth,
-                                                     uint32_t gridHeight,
+std::unique_ptr<Texture> VulkanDevice::createTexture(uint32_t width,
+                                                     uint32_t height,
                                                      TextureFormat format,
-                                                     TextureUsage usage) {
-  return std::make_unique<VulkanTexture>(*this, gridWidth, gridHeight, format,
-                                         usage);
+                                                     TextureUsage usage,
+                                                     uint32_t depth) {
+  return std::make_unique<VulkanTexture>(*this, width, height, format, usage,
+                                         depth);
 }
-
-// just for internal linkage
 namespace {
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,

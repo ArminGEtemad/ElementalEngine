@@ -6,28 +6,30 @@
 namespace elementalEngine::RHI {
 VulkanTexture::VulkanTexture(VulkanDevice &device, uint32_t width,
                              uint32_t height, TextureFormat format,
-                             TextureUsage usage)
+                             TextureUsage usage, uint32_t depth)
     : device(device), width(width), height(height), format(format),
       usage(usage) {
 
   vkFormat = mapFormat(format);
   VkImageUsageFlags vkUsage = mapUsage(usage);
 
-  bool isDepth = (format == TextureFormat::D32_FLOAT ||
-                  format == TextureFormat::D24_UNORM_S8_UINT);
+  bool isDepthFormat = (format == TextureFormat::D32_FLOAT ||
+                        format == TextureFormat::D24_UNORM_S8_UINT);
 
   VkImageAspectFlags aspectFlags =
-      isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+      isDepthFormat ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
   if (format == TextureFormat::D24_UNORM_S8_UINT) {
     aspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
   }
 
+  bool isType3D = (depth > 1);
+
   VkImageCreateInfo imageInfo{};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.imageType = isType3D ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
   imageInfo.extent.width = width;
   imageInfo.extent.height = height;
-  imageInfo.extent.depth = 1;
+  imageInfo.extent.depth = depth;
   imageInfo.mipLevels = 1;
   imageInfo.arrayLayers = 1;
   imageInfo.format = vkFormat;
@@ -49,7 +51,8 @@ VulkanTexture::VulkanTexture(VulkanDevice &device, uint32_t width,
   VkImageViewCreateInfo imageViewInfo{};
   imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   imageViewInfo.image = image;
-  imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  imageViewInfo.viewType =
+      isType3D ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
   imageViewInfo.format = vkFormat;
   imageViewInfo.subresourceRange.aspectMask = aspectFlags;
   imageViewInfo.subresourceRange.baseMipLevel = 0;
@@ -67,7 +70,7 @@ VulkanTexture::VulkanTexture(VulkanDevice &device, uint32_t width,
 VulkanTexture::VulkanTexture(VulkanDevice &device, VkImage image,
                              VkImageView imageView, uint32_t width,
                              uint32_t height, TextureFormat format,
-                             TextureUsage usage)
+                             TextureUsage usage, uint32_t depth)
     : device(device), width(width), height(height), format(format),
       usage(usage), image(image), imageView(imageView), ownsResources(false) {
   vkFormat = mapFormat(format);
@@ -97,6 +100,8 @@ VkFormat VulkanTexture::mapFormat(TextureFormat format) {
     return VK_FORMAT_R16_SFLOAT;
   case TextureFormat::R32G32_FLOAT:
     return VK_FORMAT_R32G32_SFLOAT;
+  case TextureFormat::R32G32B32A32_FLOAT:
+    return VK_FORMAT_R32G32B32A32_SFLOAT;
   case TextureFormat::D32_FLOAT:
     return VK_FORMAT_D32_SFLOAT;
   case TextureFormat::D24_UNORM_S8_UINT:
@@ -118,6 +123,8 @@ TextureFormat VulkanTexture::reverseMapFormat(VkFormat format) {
     return TextureFormat::R16_FLOAT;
   case VK_FORMAT_R32G32_SFLOAT:
     return TextureFormat::R32G32_FLOAT;
+  case VK_FORMAT_R32G32B32A32_SFLOAT:
+    return TextureFormat::R32G32B32A32_FLOAT;
   case VK_FORMAT_D32_SFLOAT:
     return TextureFormat::D32_FLOAT;
   case VK_FORMAT_D24_UNORM_S8_UINT:
