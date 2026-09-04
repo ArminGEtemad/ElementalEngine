@@ -19,8 +19,8 @@ using namespace elementalEngine;
 using namespace elementalEngine::RHI;
 
 int main() {
-  static constexpr int WIDTH{2000};
-  static constexpr int HEIGHT{1000};
+  static constexpr int WIDTH{800};
+  static constexpr int HEIGHT{800};
 
   std::cout << "-----------------------------------\n";
   std::cout << "   .:: ELEMENTAL ENGINE ::.\n";
@@ -51,7 +51,7 @@ int main() {
                                         swapchain->getHeight());
 
     // make poison gas
-    Physics::StamFluid stamSim(*device, 256, 256);
+    Physics::StamFluid stamSim(*device, 128, 128, 128);
     Renderer::StamFluidRenderer stamRenderer(*device);
 
     commandLists[0]->begin();
@@ -186,18 +186,26 @@ int main() {
                                    invViewMat, invProjMat, projMat, lightDir,
                                    syncFrameIdx);
 
+      cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
+                                 RHI::ResourceState::DepthStencilWrite,
+                                 RHI::ResourceState::ShaderResource);
+
+      glm::mat4 invViewProj = invView * invProj;
+      glm::vec3 cameraPos = terrainPass.getCamera().getPosition();
+
       RHI::RenderingInfo stamInfo{};
       stamInfo.renderWidth = swapchain->getWidth();
       stamInfo.renderHeight = swapchain->getHeight();
 
       RHI::RenderPassAttachment stamAtt{};
       stamAtt.texture = swapchain->getCurrentBackBuffer();
-      stamAtt.clear = false; // additive overlay just to make sure it works
+      stamAtt.clear = false; // Blend over terrain and SSFR slime
       stamInfo.colorAttachments.push_back(stamAtt);
 
       cmdList->beginRendering(stamInfo);
-      stamRenderer.draw(*cmdList, stamSim, swapchain->getWidth(),
-                        swapchain->getHeight());
+      stamRenderer.draw(*cmdList, stamSim, invViewProj, cameraPos,
+                        swapchain->getWidth(), swapchain->getHeight(),
+                        terrainPass.getDepthTexture(syncFrameIdx));
       cmdList->endRendering();
 
       // Transition Backbuffer to Present
@@ -205,11 +213,10 @@ int main() {
                                  RHI::ResourceState::RenderTarget,
                                  RHI::ResourceState::Present);
       cmdList->end();
+      // ==============================================
 
-      // submit Command Buffer to GPU
       device->submit(cmdList, swapchain.get());
 
-      // Present Frame
       if (!swapchain->present() || window.isResized()) {
         window.resetResizedFlag();
         swapchain->recreate(window);
