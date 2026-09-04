@@ -18,12 +18,12 @@ and their interaction.
 I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
 However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
 
-## Finished Elements (Clavet)
+## Finished Elements (Clavet + Stam)
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
   <div>
-    <img src="PicturesAndGifs/ClavetSSFR.gif" width="800"/>
+    <img src="PicturesAndGifs/ClavetSSFRStam1.gif" width="800"/>
   </div>
 
 </div>
@@ -31,15 +31,7 @@ However I am trying to write an abstraction layer to make it possible to add DX1
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
   <div>
-    <img src="PicturesAndGifs/ClavetSSFR1.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFR2.gif" width="800"/>
+    <img src="PicturesAndGifs/ClavetSSFRStam2.gif" width="800"/>
   </div>
 
 </div>
@@ -105,7 +97,34 @@ The following is how I would like to move forward with the project
 - [x] Experiment with the Splat Map when Slime hits the ground?
   - that is not what I wanted. because I still need the liquid to be interactable. but I added the prototype result in the documents
 - [x] Experiment with Screen-Space Metaball Meshing
-- [ ] paying some technical debt like (waitIdle I built in present)
+- [x] paying some technical debt like (waitIdle I built in present)
+- [x] 3D stam fluid for poison gas + raymarcher
 - [ ] Moving other elements to 3D
 - [ ] Post-processing
 - [ ] Optimization
+
+## Older GIFs (Clavet without adding Stam)
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFR.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFR1.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFR2.gif" width="800"/>
+  </div>
+
+</div>
