@@ -7,7 +7,7 @@ VSOut VSMain(uint vertexID : SV_VERTEXID) {
   VSOut output;
 
   output.uv = float2((vertexID << 1) & 2, vertexID & 2);
-  output.position = float4(output.uv * 2.0f + float2(-1.0f, -1.0f), 0.0f, 1.0f);
-
+  output.position =
+      float4(output.uv.x * 2.0f - 1.0f, 1.0f - output.uv.y * 2.0f, 0.0f, 1.0f);
   return output;
 }
