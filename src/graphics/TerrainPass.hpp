@@ -24,7 +24,8 @@ public:
               uint32_t frameIndex);
   // Records 3D render pass commands into command list
   void render(RHI::CommandList &commandList, RHI::Texture *targetColorTexture,
-              uint32_t width, uint32_t height, uint32_t frameIndex);
+              uint32_t width, uint32_t height, uint32_t frameIndex,
+              glm::vec3 targetPos);
 
   // Recreates depth texture when window resolution changes
   void onResize(uint32_t newWidth, uint32_t newHeight);
