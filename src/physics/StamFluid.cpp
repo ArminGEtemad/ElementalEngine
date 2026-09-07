@@ -147,11 +147,15 @@ void StamFluid::init(RHI::CommandList &setupCmd) {
                              ResourceState::ShaderResource);
 }
 
-void StamFluid::simulate(RHI::CommandList &commandList, float dt,
+void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
+                         float strikeZ, float strikeForce,
                          RHI::Buffer *particleBuffer, uint32_t numParticles) {
   using namespace RHI;
   simConfig.dt = dt;
   simConfig.numParticles = numParticles;
+  simConfig.strikeX = strikeX;
+  simConfig.strikeZ = strikeZ;
+  simConfig.strikeForce = strikeForce;
 
   uint32_t groupX = gridWidth / 8;
   uint32_t groupY = gridHeight / 8;

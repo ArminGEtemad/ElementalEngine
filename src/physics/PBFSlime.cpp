@@ -24,7 +24,7 @@ PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
   simParams.linearViscosity = 0.5f;
   simParams.quadraticViscosity = 0.05f;
   simParams.springStiffness = 20.0f;
-  simParams.plasticity = 10.0f;
+  simParams.plasticity = 5.0f;
   simParams.yieldRatio = 0.1f;
   simParams.sticknessRadius = 2.0f;
 
@@ -126,6 +126,9 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
                         float strikeY, float lightningOpacity) {
   using namespace RHI;
   simParams.dt = dt;
+  simParams.strikeX = strikeX;
+  simParams.strikeZ = strikeY; // main.cpp passes Z in here
+  simParams.strikeForce = lightningOpacity;
 
   if (!isFirstFrame) {
     cmdList.transitionBuffer(particleBuffer.get(),

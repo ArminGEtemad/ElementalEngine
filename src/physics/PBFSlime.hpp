@@ -43,7 +43,11 @@ struct ParticleSimulationParameters {
   float domainWidth = 2000.0f;
   float domainDepth = 2000.0f;
   float domainHeight = 2000.0f;
-  float pad;
+  float strikeX;
+
+  float strikeZ;
+  float strikeForce;
+  float pad[2];
 };
 
 struct Spring {
