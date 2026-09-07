@@ -4,28 +4,28 @@
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include <cstdint>
+#include <glm/glm.hpp>
 #include <memory>
 #include <random>
 #include <vector>
-namespace elementalEngine::Renderer {
 
-// a 2D vector struct
-struct V2 {
-  float x, y;
-};
+namespace elementalEngine::Renderer {
 
 // push consts
 struct MidpointLightningParams {
   float viewProj[16];
+  float cameraPos[4];
+
   float opacity;
   float thickness;
   float pad[2];
 };
 
 struct Segments {
-  V2 p0;
-  V2 p1;
+  glm::vec3 p0;
   float scale;
+
+  glm::vec3 p1;
   float pad0;
 };
 
@@ -44,12 +44,13 @@ public:
   ~LightningRenderer() = default;
 
   // triggering a lightning strike
-  void triggerLightning(float targetX, float targetY);
+  void triggerLightning(float targetX, float targetZ);
 
   // update the fade-out part
   void update(float dt);
 
-  void draw(RHI::CommandList &commandList, const float *viewProjMatrix);
+  void draw(RHI::CommandList &commandList, const float *viewProjMatrix,
+            const glm::vec3 &cameraPos);
 
   // getter
   float getOpacity() const { return opacity; }
@@ -71,8 +72,9 @@ private:
 
   void createLightningPipeline();
 
-  void generateJaggedPaths(const V2 &startPoint, const V2 &endPoint,
-                           float displace, int generation, int maxGenerated,
-                           float scale, std::vector<Segments> &outSegments);
+  void generateJaggedPaths(const glm::vec3 &startPoint,
+                           const glm::vec3 &endPoint, float displace,
+                           int generation, int maxGenerated, float scale,
+                           std::vector<Segments> &outSegments);
 };
 } // namespace elementalEngine::Renderer

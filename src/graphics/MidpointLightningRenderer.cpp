@@ -21,8 +21,9 @@ LightningRenderer::LightningRenderer(RHI::Device &device) : device(device) {
 }
 
 void LightningRenderer::generateJaggedPaths(
-    const V2 &startPoint, const V2 &endPoint, float displace, int generation,
-    int maxGenerated, float scale, std::vector<Segments> &outSegments) {
+    const glm::vec3 &startPoint, const glm::vec3 &endPoint, float displace,
+    int generation, int maxGenerated, float scale,
+    std::vector<Segments> &outSegments) {
   // when reaching the max stop generating
   if (generation >= maxGenerated) {
     Segments seg;
@@ -35,38 +36,47 @@ void LightningRenderer::generateJaggedPaths(
   }
 
   // calculate the midpoint of a segment
-  V2 mid = {(startPoint.x + endPoint.x) * 0.5f,
-            (startPoint.y + endPoint.y) * 0.5f};
+  glm::vec3 mid = (startPoint + endPoint) * 0.5f;
 
   // the midpoint displacement must be perpendicular to the startPoint -
   // endPoint vector
   // first calculate the perpendicular vector
-  float dx = endPoint.x - startPoint.x;
-  float dy = endPoint.y - startPoint.y;
-  float lengthSeg = std::sqrt(dx * dx + dy * dy);
+  glm::vec3 direction = endPoint - startPoint;
+  float lengthSeg = glm::length(direction);
 
-  // perpendicular is (-dy, dx) or (dy, -dx)
-  V2 perpendicular = {0.0f, 0.0f};
-  if (lengthSeg > 1e-5) {
-    perpendicular.x = -dy / lengthSeg;
-    perpendicular.y = dx / lengthSeg;
+  if (lengthSeg > 1e-5f) {
+    glm::vec3 mainDir = direction / lengthSeg;
+
+    // generate a completely random vector and take the cross product for
+    // perpendicular
+    glm::vec3 randomVec =
+        glm::normalize(glm::vec3(normalDist(randomizer), normalDist(randomizer),
+                                 normalDist(randomizer)));
+
+    // fallback if the random vector happens to be exactly parallel to the
+    // direction
+    if (glm::abs(glm::dot(mainDir, randomVec)) > 0.99f) {
+      randomVec = glm::vec3(1.0f, 0.0f, 0.0f);
+      if (glm::abs(glm::dot(mainDir, randomVec)) > 0.99f) {
+        randomVec = glm::vec3(0.0f, 1.0f, 0.0f);
+      }
+    }
+    glm::vec3 perpendicular = glm::normalize(glm::cross(mainDir, randomVec));
+
+    float midPointOffset = normalDist(randomizer) * displace;
+    mid += perpendicular * midPointOffset;
   }
-
-  float midPointOffset = normalDist(randomizer) * displace;
-  mid.x += perpendicular.x * midPointOffset;
-  mid.y += perpendicular.y * midPointOffset;
 
   // forking logic and allow branching
   if (generation == 2 || generation == 3) {
     float forkRoll = (normalDist(randomizer) + 1.0f) * 0.5f;
     if (forkRoll < 0.50f) { // 50% chance to fork a sister branch
       // direction vector
-      float tDx = endPoint.x - mid.x;
-      float tDy = endPoint.y - mid.y;
-      float tLen = std::sqrt(tDx * tDx + tDy * tDy);
+      glm::vec3 tDir = endPoint - mid;
+      float tLen = glm::length(tDir);
 
       if (tLen > 1.0f) {
-        V2 mainDir = {tDx / tLen, tDy / tLen};
+        glm::vec3 mainDir = tDir / tLen;
 
         // choosing a random downward angle
         float angleSign = (normalDist(randomizer) > 0.0f) ? 1.0f : -1.0f;
@@ -74,16 +84,21 @@ void LightningRenderer::generateJaggedPaths(
                       (20.0f + (normalDist(randomizer) + 1.0f) * 0.5f * 0.25f) *
                       3.1415f / 180.0f;
 
+        glm::vec3 randomAxis = glm::normalize(
+            glm::vec3(normalDist(randomizer), normalDist(randomizer),
+                      normalDist(randomizer)));
+        if (std::abs(glm::dot(mainDir, randomAxis)) > 0.99f)
+          randomAxis = glm::vec3(1.0f, 0.0f, 0.0f);
+        glm::vec3 rotAxis = glm::normalize(glm::cross(mainDir, randomAxis));
+
         // rotation matrix
         float cosAngle = std::cos(angle);
         float sinAngle = std::sin(angle);
-        V2 branchDir;
-        branchDir.x = mainDir.x * cosAngle - mainDir.y * sinAngle;
-        branchDir.y = mainDir.x * sinAngle + mainDir.y * cosAngle;
+        glm::vec3 branchDir =
+            mainDir * cosAngle + glm::cross(rotAxis, mainDir) * sinAngle +
+            rotAxis * glm::dot(rotAxis, mainDir) * (1.0f - cosAngle);
 
-        V2 branchEnd;
-        branchEnd.x = mid.x + branchDir.x * tLen;
-        branchEnd.y = mid.y + branchDir.y * tLen;
+        glm::vec3 branchEnd = mid + branchDir * tLen;
         // Recursively generate segments for the branch (dimmer scale, smaller
         // displacement)
         generateJaggedPaths(mid, branchEnd, displace * 0.5f, generation + 1,
@@ -99,13 +114,13 @@ void LightningRenderer::generateJaggedPaths(
                       maxGenerated, scale, outSegments);
 }
 
-void LightningRenderer::triggerLightning(float targetX, float targetY) {
+void LightningRenderer::triggerLightning(float targetX, float targetZ) {
   strikes.clear();
   timer = 0.0f;
 
   // Hardcoded the roof. TODO make it dynamic later
-  V2 startPoint = {targetX, 800.0f};
-  V2 endPoint = {targetX, targetY};
+  glm::vec3 startPoint = glm::vec3(targetX, 20.0f, targetZ);
+  glm::vec3 endPoint = glm::vec3(targetX, 0.0f, targetZ);
 
   // helper struct
   struct StrikeConfig {
@@ -117,10 +132,10 @@ void LightningRenderer::triggerLightning(float targetX, float targetY) {
     int maxGenerations;
   };
 
-  std::vector<StrikeConfig> configs = {{0.00f, 0.12f, 0.3f, 1.5f, 180.0f, 8},
-                                       {0.12f, 0.10f, 0.5f, 2.5f, 200.0f, 8},
-                                       {0.22f, 0.13f, 0.5f, 2.5f, 200.0f, 8},
-                                       {0.55f, 0.45f, 1.0f, 5.5f, 150.0f, 6}};
+  std::vector<StrikeConfig> configs = {{0.00f, 0.06f, 0.3f, 0.05f, 1.8f, 8},
+                                       {0.06f, 0.05f, 0.5f, 0.08f, 2.0f, 8},
+                                       {0.11f, 0.07f, 0.5f, 0.08f, 2.0f, 8},
+                                       {0.18f, 0.05f, 1.0f, 0.15f, 1.5f, 6}};
 
   totDuration = 0.0f;
 
@@ -203,13 +218,17 @@ void LightningRenderer::createLightningPipeline() {
   // We want standard additive blending so our glowing lightning arcs
   // brighten the background scene cleanly
   config.blendMode = Blendmode::Additive;
+  config.depthState.depthTestEnable = true;
+  config.depthState.depthWriteEnable = false;
+  config.cullMode = CullMode::None;
 
   lightningPipeline = device.createPipeline("midpoint_lightning_vs",
                                             "midpoint_lightning_fs", config);
 }
 
 void LightningRenderer::draw(RHI::CommandList &commandList,
-                             const float *viewProjMatrix) {
+                             const float *viewProjMatrix,
+                             const glm::vec3 &cameraPos) {
   if (opacity <= 0.0f || strikes.empty()) {
     return;
   }
@@ -225,6 +244,10 @@ void LightningRenderer::draw(RHI::CommandList &commandList,
 
       MidpointLightningParams params{};
       std::memcpy(params.viewProj, viewProjMatrix, sizeof(float) * 16);
+      params.cameraPos[0] = cameraPos.x;
+      params.cameraPos[1] = cameraPos.y;
+      params.cameraPos[2] = cameraPos.z;
+      params.cameraPos[3] = 1.0f;
       params.opacity = opacity;
       params.thickness = strike.thickness;
 
