@@ -44,7 +44,11 @@ struct ParticleSimulationParameters {
   float domainWidth;
   float domainDepth;
   float domainHeight;
-  float pad;
+  float strikeX;
+
+  float strikeZ;
+  float strikeForce;
+  float2 pad;
 };
 
 #ifdef __SPIRV__

@@ -10,7 +10,9 @@ struct SimConfigStruct {
   float domainHeight;
 
   float domainDepth;
-  float3 pad;
+  float strikeX;
+  float strikeZ;
+  float strikeForce;
 };
 
 [[vk::push_constant]] SimConfigStruct SimConfig;
