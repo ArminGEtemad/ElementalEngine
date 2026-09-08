@@ -221,6 +221,9 @@ void LightningRenderer::createLightningPipeline() {
   config.depthState.depthTestEnable = true;
   config.depthState.depthWriteEnable = false;
   config.cullMode = CullMode::None;
+  config.colorFormat = TextureFormat::B8G8R8A8_SRGB;
+  config.depthFormat = TextureFormat::D32_FLOAT;
+  config.hasDepthAttachment = true;
 
   lightningPipeline = device.createPipeline("midpoint_lightning_vs",
                                             "midpoint_lightning_fs", config);
