@@ -18,20 +18,12 @@ and their interaction.
 I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
 However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
 
-## Finished Elements (Clavet + Stam)
+## Finished Elements (Clavet + Stam + Midpoint Displacement)
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
   <div>
-    <img src="PicturesAndGifs/ClavetSSFRStam1.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFRStam2.gif" width="800"/>
+    <img src="PicturesAndGifs/ClavetSSFRStamAndMidpoint2.gif" width="800"/>
   </div>
 
 </div>
@@ -99,11 +91,13 @@ The following is how I would like to move forward with the project
 - [x] Experiment with Screen-Space Metaball Meshing
 - [x] paying some technical debt like (waitIdle I built in present)
 - [x] 3D stam fluid for poison gas + raymarcher
-- [ ] Moving other elements to 3D
+- [x] 3D midpoit displacement for lightning
+- [x] interaction between Stam and lightning / Clavet and lightning
+- [ ] Add thermodynamics and Fire logic in 3D
 - [ ] Post-processing
 - [ ] Optimization
 
-## Older GIFs (Clavet without adding Stam)
+## Older GIFs
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
@@ -125,6 +119,22 @@ The following is how I would like to move forward with the project
 
   <div>
     <img src="PicturesAndGifs/ClavetSSFR2.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFRStam1.gif" width="800"/>
+  </div>
+
+</div>
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFRStam2.gif" width="800"/>
   </div>
 
 </div>
