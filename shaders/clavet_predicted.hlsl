@@ -23,6 +23,28 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   // apply gravity
   p.velocity.xyz += GRAVITY * particleParams.dt;
 
+  // force of the lightning outward push
+  if (particleParams.strikeForce > 0.0f) {
+    float3 strikePos =
+        float3(particleParams.strikeX, 0.0f, particleParams.strikeZ);
+    float3 diff = p.position.xyz - strikePos;
+    float dist = length(diff);
+
+    float blastRadius = 200.0f;
+
+    if (dist < blastRadius && dist > 0.1f) {
+      float3 outwardDir = diff / dist;
+
+      outwardDir.y += 1.0f;
+      outwardDir = normalize(outwardDir);
+
+      float intensity = 1.0f - (dist / blastRadius);
+
+      p.velocity.xyz += outwardDir * (intensity * particleParams.strikeForce *
+                                      particleParams.dt);
+    }
+  }
+
   // apply viscosity
   float3 viscosityImpulse = float3(0, 0, 0);
   int3 centerCell = getGridCell(p.position.xyz);

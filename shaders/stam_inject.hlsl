@@ -15,7 +15,9 @@ struct SimConfigStruct {
   float domainHeight;
 
   float domainDepth;
-  float3 pad;
+  float strikeX;
+  float strikeZ;
+  float strikeForce;
 };
 
 struct Particle {
@@ -54,6 +56,62 @@ void InterlockedAddFloat(uint index, float value) {
 }
 
 [numthreads(256, 1, 1)] void CSMain(uint3 id : SV_DispatchThreadID) {
+  // lightning strike
+  if (id.x == 0 && SimConfig.strikeForce > 0.0f) {
+    float gridPx = ((SimConfig.strikeX / SimConfig.domainWidth) + 0.5f) *
+                   SimConfig.gridWidth;
+    float gridPz = ((SimConfig.strikeZ / SimConfig.domainDepth) + 0.5f) *
+                   SimConfig.gridDepth;
+
+    int cx = (int)floor(gridPx);
+    int cy = 2; // Floor level
+    int cz = (int)floor(gridPz);
+
+    int blastRadius = 10; // Grid cells
+    for (int z = -blastRadius; z <= blastRadius; z++) {
+      for (int y = -blastRadius; y <= blastRadius; y++) {
+        for (int x = -blastRadius; x <= blastRadius; x++) {
+          int ix = cx + x;
+          int iy = cy + y;
+          int iz = cz + z;
+
+          if (ix >= 0 && ix < (int)SimConfig.gridWidth && iy >= 0 &&
+              iy < (int)SimConfig.gridHeight && iz >= 0 &&
+              iz < (int)SimConfig.gridDepth) {
+
+            float3 cellPos = float3(ix, iy, iz);
+            float3 centerPos = float3(gridPx, cy, gridPz);
+
+            float3 diff = cellPos - centerPos;
+            float dist = length(diff);
+
+            if (dist < (float)blastRadius && dist > 0.1f) {
+              uint flatIndex = iz * SimConfig.gridWidth * SimConfig.gridHeight +
+                               iy * SimConfig.gridWidth + ix;
+              uint strideIdx = flatIndex * 4;
+
+              float3 outwardDir = diff / dist;
+
+              float normalizedDist = dist / (float)blastRadius;
+              // the falloff should be more smooth using this rather the abropt
+              // one
+              float falloff = (1.0f - normalizedDist) * (1.0f - normalizedDist);
+
+              float force = SimConfig.strikeForce * falloff;
+
+              InterlockedAddFloat(strideIdx + 1,
+                                  outwardDir.x * force * SimConfig.dt);
+              InterlockedAddFloat(strideIdx + 2,
+                                  outwardDir.y * force * SimConfig.dt);
+              InterlockedAddFloat(strideIdx + 3,
+                                  outwardDir.z * force * SimConfig.dt);
+            }
+          }
+        }
+      }
+    }
+  }
+
   if (id.x >= SimConfig.numParticles)
     return;
 

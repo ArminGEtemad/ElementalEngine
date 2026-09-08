@@ -36,6 +36,7 @@ list(APPEND ENGINE_SOURCES
     src/graphics/TerrainPass.cpp
     src/graphics/SSFRRenderer.cpp
     src/graphics/StamFluidRenderer.cpp
+    src/graphics/MidpointLightningRenderer.cpp
     src/physics/PBFSlime.cpp
     src/physics/StamFluid.cpp
 )
@@ -67,8 +68,8 @@ set(SHADER_HEADERS
 )
 
 # --- Graphics Shaders ---
-set(GRAPHICS_SHADERS_VS Terrain SSFR_fluid SSFR_composite grid)
-set(GRAPHICS_SHADERS_FS Terrain SSFR_depth SSFR_thickness SSFR_composite grid)
+set(GRAPHICS_SHADERS_VS Terrain SSFR_fluid SSFR_composite grid midpoint_lightning)
+set(GRAPHICS_SHADERS_FS Terrain SSFR_depth SSFR_thickness SSFR_composite grid midpoint_lightning)
 
 set(ALL_SHADER_OUTPUTS)
 

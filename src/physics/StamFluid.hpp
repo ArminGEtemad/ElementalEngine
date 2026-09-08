@@ -21,7 +21,9 @@ struct SimConfig {
   float domainHeight;
 
   float domainDepth;
-  float pad[3];
+  float strikeX;
+  float strikeZ;
+  float strikeForce;
 };
 
 class StamFluid {
@@ -31,7 +33,8 @@ public:
   ~StamFluid() = default;
 
   void init(RHI::CommandList &commandList);
-  void simulate(RHI::CommandList &commandList, float dt,
+  void simulate(RHI::CommandList &commandList, float dt, float strikeX,
+                float strikeZ, float strikeForce,
                 RHI::Buffer *particleBuffer = nullptr,
                 uint32_t numParticles = 0);
 

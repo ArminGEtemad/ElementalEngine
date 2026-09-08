@@ -90,6 +90,12 @@ void TerrainPass::createPipeline() {
   config.depthFormat = RHI::TextureFormat::D32_FLOAT;
   config.hasDepthAttachment = true;
 
+  // needed for zapping with lightning
+  config.pushConstants.size =
+      sizeof(glm::vec4); // Just passing targetPos + padding
+  config.pushConstants.offset = 0;
+  config.pushConstants.stage = RHI::ShaderStage::Fragment;
+
   pipeline = device.createPipeline("Terrain_vs", "Terrain_fs", config);
 }
 
@@ -118,7 +124,10 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
 
 void TerrainPass::render(RHI::CommandList &commandList,
                          RHI::Texture *targetColorTexture, uint32_t width,
-                         uint32_t height, uint32_t frameIndex) {
+                         uint32_t height, uint32_t frameIndex,
+                         glm::vec3 targetPos) {
+
+  glm::vec4 pushTarget = glm::vec4(targetPos.x, targetPos.y, targetPos.z, 0.0f);
 
   // Viewport & Scissor not hardcoded like before since the window can change
   // size now
@@ -131,6 +140,8 @@ void TerrainPass::render(RHI::CommandList &commandList,
   // Bindings
   commandList.bindStorageBuffer(0, vertexBuffer.get());
   commandList.bindUniformBuffer(1, cameraUniformBuffers[frameIndex].get());
+  commandList.pushConstants(0, sizeof(glm::vec4), &pushTarget,
+                            RHI::ShaderStage::Fragment);
 
   // bind index buffer
   commandList.bindIndexBuffer(indexBuffer.get(), RHI::IndexType::Uint32, 0);

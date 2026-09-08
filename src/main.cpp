@@ -5,12 +5,12 @@
 #include "Swapchain.hpp"
 #include "TerrainPass.hpp"
 #include "Window.hpp"
+#include "graphics/MidpointLightningRenderer.hpp"
 #include "graphics/StamFluidRenderer.hpp"
 #include "physics/StamFluid.hpp"
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
-#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <memory>
@@ -53,6 +53,7 @@ int main() {
     // make poison gas
     Physics::StamFluid stamSim(*device, 128, 128, 128);
     Renderer::StamFluidRenderer stamRenderer(*device);
+    Renderer::LightningRenderer lightningRenderer(*device);
 
     commandLists[0]->begin();
     stamSim.init(*commandLists[0]);
@@ -63,6 +64,12 @@ int main() {
     // time tracking instead of hardcoding dt
     auto startTime = std::chrono::high_resolution_clock::now();
     auto lastTime = startTime;
+
+    // lightning targeting system
+    glm::vec3 lightningTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+    float targetSpeed = 15.0f;
+    bool isSpacePressed = false;
+    float activeShockForce = 0.0f;
 
     std::cout << "main loop starts now...\n";
 
@@ -105,6 +112,48 @@ int main() {
               .count();
       lastTime = currentTime;
 
+      // ====================================================================================
+
+      GLFWwindow *rawWindow = window.getGLFWwindow();
+
+      // TODO: it doesn't feel natural right now! it should be connected to the
+      // camera I should do it later
+      //  Move Z (Forward/Back)
+      if (glfwGetKey(rawWindow, GLFW_KEY_UP) == GLFW_PRESS) {
+        lightningTarget.z -= targetSpeed * deltaTime;
+      }
+      if (glfwGetKey(rawWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        lightningTarget.z += targetSpeed * deltaTime;
+      }
+
+      // Move X (Left/Right)
+      if (glfwGetKey(rawWindow, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        lightningTarget.x -= targetSpeed * deltaTime;
+      }
+      if (glfwGetKey(rawWindow, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        lightningTarget.x += targetSpeed * deltaTime;
+      }
+
+      // Keep target within the 20x20 terrain bounds
+      lightningTarget.x = glm::clamp(lightningTarget.x, -10.0f, 10.0f);
+      lightningTarget.z = glm::clamp(lightningTarget.z, -10.0f, 10.0f);
+
+      // zapping
+      if (glfwGetKey(rawWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (!isSpacePressed) {
+          isSpacePressed = true;
+          lightningRenderer.triggerLightning(lightningTarget.x,
+                                             lightningTarget.z);
+          activeShockForce = 1.0f;
+          std::cout << "Zapping at the coordinates: " << lightningTarget.x
+                    << ", " << lightningTarget.z << "\n";
+        }
+      } else {
+        isSpacePressed = false; // Reset trigger when button is released
+      }
+
+      // ====================================================================================
+
       // Update Camera Matrices & GPU Uniform Buffer
       terrainPass.update(window, deltaTime, totalTime, syncFrameIdx);
 
@@ -113,9 +162,15 @@ int main() {
       float fixedDt = 0.008f;
 
       // run physics
-      slimeSim.simulate(*cmdList, fixedDt, 0.0f, 0.0f, 0.0f);
-      stamSim.simulate(*cmdList, fixedDt, slimeSim.getParticleBuffer(),
-                       slimeSim.getParticleCount());
+      float sX = activeShockForce > 0 ? lightningTarget.x * 100.0f : 0.0f;
+      float sZ = activeShockForce > 0 ? lightningTarget.z * 100.0f : 0.0f;
+
+      slimeSim.simulate(*cmdList, fixedDt, sX, sZ,
+                        activeShockForce > 0 ? 30000.0f : 0.0f);
+      stamSim.simulate(
+          *cmdList, fixedDt, sX, sZ, activeShockForce > 0 ? 800000.0f : 0.0f,
+          slimeSim.getParticleBuffer(), slimeSim.getParticleCount());
+      activeShockForce = 0.0f;
 
       // Transition acquired image to Render Target before drawing
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
@@ -135,7 +190,7 @@ int main() {
       colorAttachment.clear = true;
       colorAttachment.clearColor[0] = 0.01f;
       colorAttachment.clearColor[1] = 0.01f;
-      colorAttachment.clearColor[2] = 0.1f;
+      colorAttachment.clearColor[2] = 0.01f;
       colorAttachment.clearColor[3] = 1.0f;
       renderingInfo.colorAttachments.push_back(colorAttachment);
 
@@ -150,7 +205,12 @@ int main() {
       cmdList->beginRendering(renderingInfo);
       terrainPass.render(*cmdList, swapchain->getCurrentBackBuffer(),
                          swapchain->getWidth(), swapchain->getHeight(),
-                         syncFrameIdx);
+                         syncFrameIdx, lightningTarget);
+      glm::vec3 camPos = terrainPass.getCamera().getPosition();
+      const float *vpMat =
+          glm::value_ptr(terrainPass.getCamera().getFrameData().viewProjection);
+      lightningRenderer.update(deltaTime);
+      lightningRenderer.draw(*cmdList, vpMat, camPos);
 
       // End the terrain pass here so SSFR can do its own multi-pass
       // sequence!
@@ -203,6 +263,7 @@ int main() {
       stamInfo.colorAttachments.push_back(stamAtt);
 
       cmdList->beginRendering(stamInfo);
+
       stamRenderer.draw(*cmdList, stamSim, invViewProj, cameraPos,
                         swapchain->getWidth(), swapchain->getHeight(),
                         terrainPass.getDepthTexture(syncFrameIdx));
