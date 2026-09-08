@@ -22,6 +22,7 @@ struct VSOutput {
   float4 position : SV_Position;
   float3 normal : NORMAL;
   float2 uv : TEXCOORD0;
+  float3 worldPos : TEXCOORD1;
 };
 
 VSOutput VSMain(uint vertexID : SV_VertexID) {
@@ -33,6 +34,8 @@ VSOutput VSMain(uint vertexID : SV_VertexID) {
 
   output.normal = vert.normal.xyz;
   output.uv = vert.uv.xy;
+
+  output.worldPos = vert.position.xyz;
 
   return output;
 }
