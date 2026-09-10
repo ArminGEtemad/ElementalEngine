@@ -16,6 +16,9 @@ struct Particle {
   float nearDensity;
   float pressure;
   float nearPressure;
+
+  float health;
+  float pad[3];
 };
 
 struct ParticleSimulationParameters {

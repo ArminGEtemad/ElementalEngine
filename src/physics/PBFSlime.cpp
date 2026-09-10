@@ -114,6 +114,8 @@ void PBFSlime::initializeParticles() {
     initialData[i].predictedPosition[1] = initialData[i].position[1];
     initialData[i].predictedPosition[2] = initialData[i].position[2];
     initialData[i].predictedPosition[3] = 0.0f;
+
+    initialData[i].health = 1.0;
   }
 
   void *mappedData = particleBuffer->map();
