@@ -98,6 +98,8 @@ VkFormat VulkanTexture::mapFormat(TextureFormat format) {
     return VK_FORMAT_R32_SFLOAT;
   case TextureFormat::R16_FLOAT:
     return VK_FORMAT_R16_SFLOAT;
+  case TextureFormat::R16G16_FLOAT:
+    return VK_FORMAT_R16G16_SFLOAT;
   case TextureFormat::R32G32_FLOAT:
     return VK_FORMAT_R32G32_SFLOAT;
   case TextureFormat::R32G32B32A32_FLOAT:
@@ -121,6 +123,8 @@ TextureFormat VulkanTexture::reverseMapFormat(VkFormat format) {
     return TextureFormat::R32_FLOAT;
   case VK_FORMAT_R16_SFLOAT:
     return TextureFormat::R16_FLOAT;
+  case VK_FORMAT_R16G16_SFLOAT:
+    return TextureFormat::R16G16_FLOAT;
   case VK_FORMAT_R32G32_SFLOAT:
     return TextureFormat::R32G32_FLOAT;
   case VK_FORMAT_R32G32B32A32_SFLOAT:
