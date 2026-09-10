@@ -23,7 +23,7 @@ void SSFRRenderer::createRenderTargets(uint32_t width, uint32_t height) {
         width, height, TextureFormat::R32_FLOAT,
         TextureUsage::RenderTarget | TextureUsage::ShaderResource);
     fluidThicknessTextures[i] = device.createTexture(
-        width, height, TextureFormat::R16_FLOAT,
+        width, height, TextureFormat::R16G16_FLOAT,
         TextureUsage::RenderTarget | TextureUsage::ShaderResource);
     internalDepthBuffers[i] =
         device.createTexture(width, height, TextureFormat::D32_FLOAT,
@@ -61,7 +61,7 @@ void SSFRRenderer::createPipelines() {
       device.createPipeline("SSFR_fluid_vs", "SSFR_depth_fs", config);
 
   // Thickness Pipeline
-  config.colorFormat = TextureFormat::R16_FLOAT;
+  config.colorFormat = TextureFormat::R16G16_FLOAT; // thickness and health now
   config.depthState.depthWriteEnable =
       false; // Additive volume doesn't block pixels
   config.depthState.depthTestEnable = false;
