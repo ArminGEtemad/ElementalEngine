@@ -7,6 +7,9 @@ struct Particle {
   float nearDensity;
   float pressure;
   float nearPressure;
+
+  float health;
+  float3 pad;
 };
 
 struct PushConstants {
@@ -30,10 +33,18 @@ struct VSOutput {
   float4 posClip : SV_POSITION;
   float3 posView : TEXCOORD0;
   float2 uv : TEXCOORD1;
+  float health : TEXCOORD2;
 };
 
 VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   VSOutput output;
+  float health = Particles[instanceID].health;
+
+  // don't draw dead particles anymore
+  if (health <= 0.0f) {
+    output.posClip = float4(0, 0, 0, 0);
+    return output;
+  }
 
   float3 pos3D = Particles[instanceID].position.xyz;
   float scaleX = pushConstants.WorldSizeX / pushConstants.DomainWidth;
@@ -52,12 +63,15 @@ VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   output.uv = offset;
 
   float4 viewCenter = mul(pushConstants.ViewMatrix, float4(centerWorld, 1.0));
+  float currentRadius = pushConstants.ParticleRadius * health;
 
-  float3 viewPos = viewCenter.xyz + float3(offset.x, offset.y, 0.0) *
-                                        pushConstants.ParticleRadius;
+  float3 viewPos =
+      viewCenter.xyz + float3(offset.x, offset.y, 0.0) * currentRadius;
 
   output.posView = viewPos;
   output.posClip = mul(pushConstants.projMatrix, float4(viewPos, 1.0));
+
+  output.health = health;
 
   return output;
 }
