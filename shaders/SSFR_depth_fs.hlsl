@@ -2,6 +2,7 @@ struct VSOutput {
   float4 posClip : SV_POSITION;
   float3 posView : TEXCOORD0;
   float2 uv : TEXCOORD1;
+  float health : TEXCOORD2;
 };
 
 struct PushConstants {
@@ -39,7 +40,7 @@ PSOutput FSMain(VSOutput input) {
   float3 spherePosView = input.posView;
   spherePosView.z += z * pushConstants.ParticleRadius;
 
-  output.depthOut = float4(spherePosView.z, 0.0, 0.0, 1.0);
+  output.depthOut = float4(spherePosView.z, input.health, 0.0, 1.0);
 
   float4 clipPos = mul(pushConstants.projMatrix, float4(spherePosView, 1.0));
   output.depthZ = clipPos.z / clipPos.w;
