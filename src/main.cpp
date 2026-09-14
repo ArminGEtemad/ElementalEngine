@@ -5,6 +5,7 @@
 #include "Swapchain.hpp"
 #include "TerrainPass.hpp"
 #include "Window.hpp"
+#include "graphics/FireRenderer.hpp"
 #include "graphics/MidpointLightningRenderer.hpp"
 #include "graphics/StamFluidRenderer.hpp"
 #include "physics/StamFluid.hpp"
@@ -54,6 +55,10 @@ int main() {
     Physics::StamFluid stamSim(*device, 128, 128, 128);
     Renderer::StamFluidRenderer stamRenderer(*device);
     Renderer::LightningRenderer lightningRenderer(*device);
+
+    uint32_t fireParticles = 50000;
+    Physics::FireSystem fireSim(*device, fireParticles);
+    Renderer::FireRenderer fireRenderer(*device);
 
     commandLists[0]->begin();
     stamSim.init(*commandLists[0]);
@@ -167,6 +172,10 @@ int main() {
 
       slimeSim.simulate(*cmdList, fixedDt, sX, sZ,
                         activeShockForce > 0 ? 30000.0f : 0.0f);
+
+      fireSim.simulate(*cmdList, fixedDt, slimeSim.getParticleBuffer(),
+                       slimeSim.getParticleCount());
+
       stamSim.simulate(
           *cmdList, fixedDt, sX, sZ, activeShockForce > 0 ? 800000.0f : 0.0f,
           slimeSim.getParticleBuffer(), slimeSim.getParticleCount());
@@ -206,11 +215,6 @@ int main() {
       terrainPass.render(*cmdList, swapchain->getCurrentBackBuffer(),
                          swapchain->getWidth(), swapchain->getHeight(),
                          syncFrameIdx, lightningTarget);
-      glm::vec3 camPos = terrainPass.getCamera().getPosition();
-      const float *vpMat =
-          glm::value_ptr(terrainPass.getCamera().getFrameData().viewProjection);
-      lightningRenderer.update(deltaTime);
-      lightningRenderer.draw(*cmdList, vpMat, camPos);
 
       // End the terrain pass here so SSFR can do its own multi-pass
       // sequence!
@@ -245,6 +249,38 @@ int main() {
                                    terrainPass.getDepthTexture(syncFrameIdx),
                                    invViewMat, invProjMat, projMat, lightDir,
                                    syncFrameIdx);
+
+      // -- fire --
+
+      RHI::RenderingInfo additiveInfo{};
+      additiveInfo.renderWidth = swapchain->getWidth();
+      additiveInfo.renderHeight = swapchain->getHeight();
+
+      RHI::RenderPassAttachment additiveColorAtt{};
+      additiveColorAtt.texture = swapchain->getCurrentBackBuffer();
+      additiveColorAtt.clear = false;
+      additiveInfo.colorAttachments.push_back(additiveColorAtt);
+
+      RHI::DepthAttachment additiveDepthAtt{};
+      additiveDepthAtt.texture = terrainPass.getDepthTexture(syncFrameIdx);
+      additiveDepthAtt.clear = false;
+      additiveInfo.depthAttachment = additiveDepthAtt;
+
+      cmdList->beginRendering(additiveInfo);
+
+      glm::vec3 camPos = terrainPass.getCamera().getPosition();
+      const float *vpMat =
+          glm::value_ptr(terrainPass.getCamera().getFrameData().viewProjection);
+
+      lightningRenderer.update(deltaTime);
+      lightningRenderer.draw(*cmdList, vpMat, camPos);
+
+      fireRenderer.draw(*cmdList, fireSim, swapchain->getWidth(),
+                        swapchain->getHeight(), viewMat, projMat);
+
+      cmdList->endRendering();
+
+      // -- stam --
 
       cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
                                  RHI::ResourceState::DepthStencilWrite,
