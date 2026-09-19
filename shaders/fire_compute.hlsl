@@ -81,11 +81,15 @@ void respawnParticle(inout FireParticles p, uint id) {
     float seed5 = hash11((float)id * 3.89f);
     float seed6 = hash11((float)id * 4.91f);
 
+    float seedRadius = hash11((float)id * 5.12f);
+    float seedExp = hash11((float)id * 6.33f);
+    float seedDrag = hash11((float)id * 7.42f);
+
     // Position spread XZ
     p.position.x = targetSlime.position.x + (seed1 * 2.0f - 1.0f) * 5.0f;
     p.position.y = targetSlime.position.y + 10.0f;
     p.position.z = targetSlime.position.z + (seed5 * 2.0f - 1.0f) * 1.5f;
-    p.position.w = 0.0f;
+    p.position.w = 0.5f + (seedDrag * 1.5f);
 
     // Velocity X Z in
     p.velocity.x =
@@ -94,15 +98,17 @@ void respawnParticle(inout FireParticles p, uint id) {
 
     // Upward Velocity Y
     p.velocity.y = 20.0f + seed3 * 90.0f;
-    p.velocity.w = 0.0f;
+
+    // flames don't grow at the same speed
+    p.velocity.w = 0.3f + (seedExp * 1.2f);
 
     // Lifespan
     float lifetime = 0.8f + seed4 * 2.0f;
     p.life = lifetime;
     p.maxLife = lifetime;
 
-    p.temperature = 1.0f;     // Hot core
-    p.particleRadius = 20.0f; // Initial radius
+    p.temperature = 1.0f;                            // Hot core
+    p.particleRadius = 15.0f + (seedRadius * 15.0f); // Initial radius
   } else {
     // if the slime particle is dead so is the fire particle
     p.life = 0.0;
@@ -132,12 +138,13 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   p.temperature = max(p.temperature, 0.0f);
 
   // gas expansion due to temperature
-  p.particleRadius +=
-      particleParams.expansionRate * particleParams.dt * p.temperature;
+  float personalExpansion = particleParams.expansionRate * p.velocity.w;
+  p.particleRadius += personalExpansion * particleParams.dt * p.temperature;
 
   // air is damping the velocity
-  p.velocity.xyz *= max(
-      0.0f, 1.0f - (particleParams.drag * p.temperature * particleParams.dt));
+  float personalDrag = particleParams.drag * p.position.w;
+  p.velocity.xyz *=
+      max(0.0f, 1.0f - (personalDrag * p.temperature * particleParams.dt));
 
   // hat particles move up and changes the velocity in y direction
   float3 buoyancyForce =
