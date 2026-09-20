@@ -38,17 +38,12 @@ struct FireSimParameters {
   float emitterZ;
   uint isBurning;
   uint slimeParticleCount;
-  float pad;
+  float time;
 };
 
-#ifdef __SPIRV__
 [[vk::push_constant]] FireSimParameters particleParams;
-#else
-ConstantBuffer<FireSimParameters> particleParams : register(b0);
-#endif
 
 RWStructuredBuffer<FireParticles> particles : register(u0);
-
 StructuredBuffer<SlimeParticle> slimeParticles : register(t1);
 
 // shader toy  David Hoskins  Hash without Sine
@@ -145,6 +140,24 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   float personalDrag = particleParams.drag * p.position.w;
   p.velocity.xyz *=
       max(0.0f, 1.0f - (personalDrag * p.temperature * particleParams.dt));
+
+  float waveSpeed = 10.0f;
+  float waveFreq = 0.2f;
+  float windForce = 40.0f;
+
+  float uniqueOffset = p.position.w * 20.0f;
+  float timeOffset = particleParams.time * waveSpeed;
+
+  float windX = sin(p.position.y * waveFreq - timeOffset + uniqueOffset) +
+                cos(p.position.z * waveFreq + timeOffset);
+  float windZ =
+      cos(p.position.y * waveFreq * 0.8f - timeOffset * 1.2f + uniqueOffset) +
+      sin(p.position.x * waveFreq - timeOffset);
+
+  float turbMultiplier = 1.0f - p.temperature;
+
+  p.velocity.x += windX * windForce * turbMultiplier * particleParams.dt;
+  p.velocity.z += windZ * windForce * turbMultiplier * particleParams.dt;
 
   // hat particles move up and changes the velocity in y direction
   float3 buoyancyForce =
