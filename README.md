@@ -18,12 +18,12 @@ and their interaction.
 I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
 However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
 
-## Finished Elements (Clavet + Stam + Midpoint Displacement)
+## Finished Elements (Clavet + Stam + Midpoint Displacement + Thermodynamics)
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
   <div>
-    <img src="PicturesAndGifs/ClavetSSFRStamAndMidpoint2.gif" width="800"/>
+    <img src="PicturesAndGifs/Version1EndGif.gif" width="800"/>
   </div>
 
 </div>
@@ -93,11 +93,18 @@ The following is how I would like to move forward with the project
 - [x] 3D stam fluid for poison gas + raymarcher
 - [x] 3D midpoit displacement for lightning
 - [x] interaction between Stam and lightning / Clavet and lightning
-- [ ] Add thermodynamics and Fire logic in 3D
-- [ ] Post-processing
-- [ ] Optimization
+- [x] Add thermodynamics and Fire logic in 3D
+- [ ] Optimization/Documentation
 
 ## Older GIFs
+
+<div style="display: flex; gap: 100px; align-items: flex-start;">
+
+  <div>
+    <img src="PicturesAndGifs/ClavetSSFRStamAndMidpoint2.gif" width="800"/>
+  </div>
+
+</div>
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
