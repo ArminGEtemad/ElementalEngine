@@ -16,7 +16,7 @@ FireSystem::FireSystem(RHI::Device &device, uint32_t maxParticles)
   std::random_device rd;
   randomEngine.seed(rd());
 
-  simParams.buoyancy = 800.0f;
+  simParams.buoyancy = 400.0f;
   simParams.drag = 0.8f;
   simParams.coolingRate = 0.70f;
   simParams.expansionRate = 10.0f;
@@ -48,7 +48,7 @@ void FireSystem::createResource() {
     initialData[i].life = (static_cast<float>(i) / maxParticles) * lifeTime;
     initialData[i].maxLife = lifeTime;
     initialData[i].temperature = 1.0f;
-    initialData[i].particleRadius = 5.0f;
+    initialData[i].particleRadius = 2.0f;
   }
 }
 
@@ -70,7 +70,7 @@ void FireSystem::createPipeline() {
 }
 
 void FireSystem::simulate(RHI::CommandList &commandList, float dt,
-                          RHI::Buffer *slimeBuffer,
+                          float totalTime, RHI::Buffer *slimeBuffer,
                           uint32_t slimeParticleCount) {
 
   if (slimeBuffer) {
@@ -85,6 +85,7 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
   simParams.emitterZ = emitterZ;
   simParams.isBurning = isBurning ? 1 : 0;
   simParams.slimeParticleCount = slimeParticleCount;
+  simParams.time = totalTime;
 
   commandList.bindPipeline(*simulatePipeline);
   commandList.bindStorageBuffer(0, particleBuffer.get());

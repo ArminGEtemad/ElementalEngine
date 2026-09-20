@@ -33,7 +33,7 @@ struct FireSimParameters {
   float emitterZ;
   uint32_t isBurning;
   uint32_t slimeParticleCount;
-  float pad;
+  float time;
 };
 
 class FireSystem {
@@ -50,7 +50,7 @@ public:
   void startFire() { isBurning = true; }
   void endFire() { isBurning = false; }
 
-  void simulate(RHI::CommandList &commadList, float dt,
+  void simulate(RHI::CommandList &commadList, float dt, float totalTime,
                 RHI::Buffer *slimeBuffer, uint32_t slimeParticleCount);
 
   // getters
