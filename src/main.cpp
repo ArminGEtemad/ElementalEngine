@@ -56,7 +56,7 @@ int main() {
     Renderer::StamFluidRenderer stamRenderer(*device);
     Renderer::LightningRenderer lightningRenderer(*device);
 
-    uint32_t fireParticles = 50000;
+    uint32_t fireParticles = 100000;
     Physics::FireSystem fireSim(*device, fireParticles);
     Renderer::FireRenderer fireRenderer(*device);
 
@@ -173,7 +173,8 @@ int main() {
       slimeSim.simulate(*cmdList, fixedDt, sX, sZ,
                         activeShockForce > 0 ? 30000.0f : 0.0f);
 
-      fireSim.simulate(*cmdList, fixedDt, slimeSim.getParticleBuffer(),
+      fireSim.simulate(*cmdList, fixedDt, totalTime,
+                       slimeSim.getParticleBuffer(),
                        slimeSim.getParticleCount());
 
       stamSim.simulate(
@@ -237,7 +238,7 @@ int main() {
       const float *invProjMat = glm::value_ptr(invProj);
 
       // A: Render particles to offscreen depth/thickness G-Buffer
-      ssfrRenderer.renderGBuffer(*cmdList, slimeSim, viewMat, projMat, 0.35f,
+      ssfrRenderer.renderGBuffer(*cmdList, slimeSim, viewMat, projMat, 0.2f,
                                  syncFrameIdx, 20.0f, 20.0f);
 
       // B: Melt the depths using the Compute Shader blur

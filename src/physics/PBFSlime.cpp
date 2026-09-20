@@ -96,8 +96,8 @@ void PBFSlime::initializeParticles() {
   std::default_random_engine generator;
 
   // Widen the spawn cloud
-  std::uniform_real_distribution<float> noiseXZ(-150.0f, 150.0f);
-  std::uniform_real_distribution<float> spawnY(200.0f, 450.0f);
+  std::uniform_real_distribution<float> noiseXZ(-100.0f, 100.0f);
+  std::uniform_real_distribution<float> spawnY(50.0f, 400.0f);
 
   for (uint32_t i = 0; i < numParticles; ++i) {
     initialData[i].position[0] = noiseXZ(generator); // X
@@ -105,7 +105,7 @@ void PBFSlime::initializeParticles() {
     initialData[i].position[2] = noiseXZ(generator); // Z (Depth)
     initialData[i].position[3] = 0.0f;               // pad
 
-    initialData[i].velocity[0] = 800.0f; // Move slightly right
+    initialData[i].velocity[0] = 200.0f; // Move slightly right
     initialData[i].velocity[1] = 200.0f; // Shoot UP
     initialData[i].velocity[2] = 0.0f;   // Shoot FORWARD
     initialData[i].velocity[3] = 0.0f;   // pad
