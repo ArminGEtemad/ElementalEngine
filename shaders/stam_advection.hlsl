@@ -53,7 +53,7 @@ StructuredBuffer<uint> InjectionGrid : register(t6);
   // uv coordinate
   float3 uvw = (srcPos + 0.5f) / gridDim;
 
-  float newDensity = ReadDensity.SampleLevel(LinearSampler, uvw, 0) * 0.9995f;
+  float newDensity = ReadDensity.SampleLevel(LinearSampler, uvw, 0) * 0.997f;
   float3 newVelocity =
       ReadVelocity.SampleLevel(LinearSampler, uvw, 0).xyz * 0.999995f;
 
