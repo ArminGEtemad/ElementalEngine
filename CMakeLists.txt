@@ -37,8 +37,10 @@ list(APPEND ENGINE_SOURCES
     src/graphics/SSFRRenderer.cpp
     src/graphics/StamFluidRenderer.cpp
     src/graphics/MidpointLightningRenderer.cpp
+    src/graphics/FireRenderer.cpp
     src/physics/PBFSlime.cpp
     src/physics/StamFluid.cpp
+    src/physics/FireSystem.cpp
 )
 
 list(APPEND ENGINE_LIBS Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
@@ -68,8 +70,8 @@ set(SHADER_HEADERS
 )
 
 # --- Graphics Shaders ---
-set(GRAPHICS_SHADERS_VS Terrain SSFR_fluid SSFR_composite grid midpoint_lightning)
-set(GRAPHICS_SHADERS_FS Terrain SSFR_depth SSFR_thickness SSFR_composite grid midpoint_lightning)
+set(GRAPHICS_SHADERS_VS Terrain SSFR_fluid SSFR_composite grid midpoint_lightning fire)
+set(GRAPHICS_SHADERS_FS Terrain SSFR_depth SSFR_thickness SSFR_composite grid midpoint_lightning fire)
 
 set(ALL_SHADER_OUTPUTS)
 
@@ -108,7 +110,7 @@ endforeach()
 # --- Compute Shaders ---
 set(COMPUTE_SHADERS clavet_grid_construct clavet_grid_next_construct clavet_predicted clavet_springs
     clavet_density clavet_relax clavet_integrate SSFR_depth_blur stam_advection stam_divergence
-    stam_jacobi stam_gradient stam_inject)
+    stam_jacobi stam_gradient stam_inject fire_compute)
 
 foreach(SHADER_NAME ${COMPUTE_SHADERS})
     set(HLSL_SRC "${CMAKE_SOURCE_DIR}/shaders/${SHADER_NAME}.hlsl")

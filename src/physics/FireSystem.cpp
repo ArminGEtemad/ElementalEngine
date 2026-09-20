@@ -3,7 +3,6 @@
 #include "Device.hpp"
 #include "Pipeline.hpp"
 #include "RHICommon.hpp"
-#include "UsedParameters.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -17,10 +16,10 @@ FireSystem::FireSystem(RHI::Device &device, uint32_t maxParticles)
   std::random_device rd;
   randomEngine.seed(rd());
 
-  simParams.buoyancy = 20.0f;
+  simParams.buoyancy = 400.0f;
   simParams.drag = 0.8f;
   simParams.coolingRate = 0.70f;
-  simParams.expansionRate = 8.0f;
+  simParams.expansionRate = 10.0f;
 
   createResource();
   createPipeline();
@@ -37,15 +36,19 @@ void FireSystem::createResource() {
   for (uint32_t i = 0; i < maxParticles; i++) {
     initialData[i].position[0] = emitterX;
     initialData[i].position[1] = emitterY;
+    initialData[i].position[2] = emitterZ;
 
-    initialData[i].velocity[0] = initialSpeedX(randomEngine);
+    initialData[i].velocity[0] = initialSpeedXZ(randomEngine);
     initialData[i].velocity[1] = initialSpeedY(randomEngine);
+    initialData[i].velocity[2] = initialSpeedXZ(randomEngine);
+
+    initialData[i].velocity[3] = 0.0f; // padding
 
     float lifeTime = lifeDist(randomEngine);
     initialData[i].life = (static_cast<float>(i) / maxParticles) * lifeTime;
     initialData[i].maxLife = lifeTime;
     initialData[i].temperature = 1.0f;
-    initialData[i].particleRadius = 5.0f;
+    initialData[i].particleRadius = 2.0f;
   }
 }
 
@@ -67,7 +70,7 @@ void FireSystem::createPipeline() {
 }
 
 void FireSystem::simulate(RHI::CommandList &commandList, float dt,
-                          RHI::Buffer *slimeBuffer,
+                          float totalTime, RHI::Buffer *slimeBuffer,
                           uint32_t slimeParticleCount) {
 
   if (slimeBuffer) {
@@ -79,8 +82,10 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
   simParams.numParticles = maxParticles;
   simParams.emitterX = emitterX;
   simParams.emitterY = emitterY;
+  simParams.emitterZ = emitterZ;
   simParams.isBurning = isBurning ? 1 : 0;
   simParams.slimeParticleCount = slimeParticleCount;
+  simParams.time = totalTime;
 
   commandList.bindPipeline(*simulatePipeline);
   commandList.bindStorageBuffer(0, particleBuffer.get());

@@ -13,6 +13,9 @@ struct Particle {
   float nearDensity;
   float pressure;
   float nearPressure;
+
+  float health;
+  float3 pad;
 };
 
 struct Spring {

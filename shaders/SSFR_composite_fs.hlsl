@@ -1,5 +1,5 @@
 Texture2D<float> BlurredDepthMap : register(t0);
-Texture2D<float> ThicknessMap : register(t1);
+Texture2D<float2> ThicknessMap : register(t1);
 SamplerState LinearSampler : register(s2);
 
 struct VSOutput {
@@ -61,10 +61,13 @@ PSOutput FSMain(VSOutput input) {
   if (viewDepth < -9000.0f)
     discard;
 
-  float thickness = ThicknessMap.Sample(LinearSampler, input.uv).x;
+  float2 thicknessData = ThicknessMap.Sample(LinearSampler, input.uv).xy;
+  float thickness = thicknessData.x;
 
   if (thickness < 0.05f)
     discard;
+
+  float avgHealth = saturate(thicknessData.g / max(thickness, 0.001f));
 
   float3 posView = ReconstructViewPos(input.uv, viewDepth);
 
@@ -126,7 +129,23 @@ PSOutput FSMain(VSOutput input) {
   float transmittance = exp(-thickness * 2.0f);
   float3 volumeColor = lerp(deepColor, edgeColor, transmittance);
 
-  float3 finalColor = (volumeColor * (NdotL + 0.2f)) + float3(spec, spec, spec);
+  float3 burningOrange = float3(1.0f, 0.42f, 0.02f); // Hot ember glow
+  float3 charredSoot = float3(0.05f, 0.04f, 0.04f);  // Soot black
+
+  float3 slimeColor;
+  if (avgHealth >= 0.95f) {
+    slimeColor = volumeColor; // Healthy slime
+  } else if (avgHealth > 0.35f) {
+    // Active Combustion: Green -> Hot Incandescent Orange
+    float t = (avgHealth - 0.35f) / 0.60f;
+    slimeColor = lerp(burningOrange, volumeColor, t);
+  } else {
+    // Dying/Charred: Orange -> Soot Black
+    float t = avgHealth / 0.35f;
+    slimeColor = lerp(charredSoot, burningOrange, t);
+  }
+
+  float3 finalColor = (slimeColor * (NdotL + 0.2f)) + float3(spec, spec, spec);
 
   // Crisp meniscus edge
   float alpha = smoothstep(0.05f, 0.15f, thickness);

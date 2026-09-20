@@ -1,6 +1,7 @@
 struct FireParticles {
-  float2 position;
-  float2 velocity;
+  float4 position;
+  float4 velocity;
+
   float life;
   float maxLife;
   float temperature; // core 1.0, 0.0 cold (should I transition to smoke?)
@@ -8,14 +9,15 @@ struct FireParticles {
 };
 
 struct FireRenderParams {
-  float4x4 viewProj;
+  float4x4 viewMatrix;
+  float4x4 projMatrix;
+
+  float domainWidth;
+  float worldSizeX;
+  float2 pad;
 };
 
-#ifdef __SPIRV__
 [[vk::push_constant]] FireRenderParams renderParams;
-#else
-ConstantBuffer<FireRenderParams> renderParams : register(b0);
-#endif
 
 StructuredBuffer<FireParticles> particles : register(t0);
 
@@ -23,7 +25,7 @@ struct VSOut {
   float4 position : SV_POSITION;
   float2 uv : TEXCOORD0;
   float temperature : TEXCOORD1;
-  float lifeRatio : EXTRA0;
+  float lifeRatio : TEXCOORD2;
 };
 
 static float2 QUAD_VERTS[6] = {float2(-1.0f, -1.0f), float2(1.0f, -1.0f),
@@ -43,8 +45,19 @@ VSOut VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   float2 localPos = QUAD_VERTS[vertexID];
   output.uv = QUAD_UVS[vertexID];
 
-  float2 worldPos = p.position + (localPos * radius);
-  output.position = mul(renderParams.viewProj, float4(worldPos, 0.0f, 1.0f));
+  float scaleX = renderParams.worldSizeX / renderParams.domainWidth;
+
+  float3 scaledWorldPos = p.position.xyz * scaleX;
+  float scaledRadius = radius * scaleX;
+
+  float4 viewCenter =
+      mul(renderParams.viewMatrix, float4(scaledWorldPos, 1.0f));
+
+  float4 viewPos = float4(
+      viewCenter.xyz + float3(localPos.x, localPos.y, 0.0f) * scaledRadius,
+      1.0f);
+
+  output.position = mul(renderParams.projMatrix, viewPos);
 
   output.temperature = p.temperature;
   output.lifeRatio = saturate(p.life / p.maxLife);

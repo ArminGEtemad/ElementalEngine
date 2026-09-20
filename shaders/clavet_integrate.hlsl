@@ -132,6 +132,15 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
     pos.z += impulse * particleParams.dt;
   }
 
+  // remove dead slime
+  if (p.health <= 0.0f) {
+    p.position.xyz = float3(0.0f, -9000.0f, 0.0f);
+    p.predictedPosition.xyz = float3(0.0f, -9000.0f, 0.0f);
+    p.velocity.xyz = float3(0.0, 0.0, 0.0);
+    particles[id] = p;
+    return;
+  }
+
   // Do the movement
   p.velocity.xyz = (pos - prevPos) / particleParams.dt;
   p.position.xyz = pos;

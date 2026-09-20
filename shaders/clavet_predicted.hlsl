@@ -42,6 +42,13 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
 
       p.velocity.xyz += outwardDir * (intensity * particleParams.strikeForce *
                                       particleParams.dt);
+
+      // without that factor the ignition damage was too big and the whole slime
+      // was gone in one strike!!
+      float ignitionDamage =
+          intensity * particleParams.strikeForce * particleParams.dt * 0.005;
+      p.health -= ignitionDamage;
+      p.health = max(p.health, 0.0f);
     }
   }
 
