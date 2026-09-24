@@ -50,6 +50,13 @@ public:
                    uint32_t firstIndex, int32_t vertexOffset,
                    uint32_t firstInstance) override;
 
+  // profiling tool helper functions
+  void beginDebugMarker(const char *name,
+                        const float color[4] = nullptr) override;
+  void endDebugMarker() override;
+  void insertDebugMarker(const char *name,
+                         const float color[4] = nullptr) override;
+
   VkCommandBuffer getNativeCommandBuffer() const { return commandBuffer; }
 
 private:
