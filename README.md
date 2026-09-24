@@ -1,24 +1,10 @@
 # Elemental Engine
 
-> This project is my most ambitious project until now.
->
-> The core idea is to have an engine to render different elements and their interaction
->
-> Target: This engine must be finished around the time I finish my PhD.
+A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scratch in C++20 and **Vulkan 1.3**, featuring coupled multi-element interactions (gas, viscoelastic fluids, electricity, thermodynamics) and a custom Render Hardware Interface (RHI).
 
-A real-time **Multi-Element Reactivity Engine** built from scratch in modern C++ to simulate
+> version 1.0.0
 
-- gas behavior
-- Liquid behavior
-- Electricity
-- Thermodynamics (fire and explosion)
-
-and their interaction.
-
-I will be writing the engine without any use of game engines. My focus is right now on Vulkan backend.
-However I am trying to write an abstraction layer to make it possible to add DX12 and even Metal at some point. But that is for the future...
-
-## Finished Elements (Clavet + Stam + Midpoint Displacement + Thermodynamics)
+## Showcase
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
@@ -28,120 +14,32 @@ However I am trying to write an abstraction layer to make it possible to add DX1
 
 </div>
 
-## 2D concepts
+## Technical Highlights
 
-The math is finished and there is a proof of concept for 2D.
+- **Custom Low-Level RHI:** Thin hardware abstraction designed around modern explicit graphics APIs (Vulkan 1.3 native, DX12-ready architecture).
+- **Modern Vulkan 1.3 Core:**
+  - Full **Dynamic Rendering** pipeline (`VK_KHR_dynamic_rendering`), removing legacy render pass boilerplate.
+  - Utilization of compute shaders.
+  - Integrated **Vulkan Memory Allocator (VMA)** for memory management.
+  - Vertex Pulling is used instead of Vertex Buffers.
+- **Hierarchical GPU Profiling:** Instrumented with `VK_EXT_debug_utils` for nested event hierarchy in RenderDoc and Nsight.
 
-<div style="display: flex; gap: 100px; align-items: flex-start;">
+## Performance & Metrics
 
-  <div>
-    <img src="PicturesAndGifs/StamAndClavetAndMidpointAndFire.gif" width="800"/>
-  </div>
+**Benchmarked on:** NVIDIA GeForce RTX 4070 Ti Super / Intel Core CPU / 1440p
 
-</div>
-
-## Core Architecture & Pipeline Layout
-
-I will be using two backends
-
-- **Vulkan 1.3 Backend (Main Focus)**
-- **DirectX 12 Backend (Paused)**
-
-### Used Hardware
-
-**Development Device:** Intel Core CPU / NVIDIA RTX 4070 Ti Super / Windows 11
-
-## Simulation Framework
-
-- Stam's Stable fluid (Poison Gas)
-- Clevet Particle-based Viscoelastic Fluid Simulation (Acidic Slime)
-- Macklin Position Based Fluids (An experimental case was developed at first for acidic bath but It wasn't the way I liked it. I save it for the Future updates but for water.)
-- Electricity using midpoint displacement
-- For the electricity I started first by trying space colonization algorithm. Which was too slow. I then moved to midpoint displacement.
-- Thermodynamics
+Coming up in the next updates with some optimizations.
 
 ## Dependencies
 
 I used VMA (Vulkan Memory Allocator) for memory allocations. You can find it [here](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) and install it.
 
-## Moving Forward
+## Building from Source
 
-The following is how I would like to move forward with the project
-
-- [x] Set up windowing (GLFW/SDL), swapchains, and device initialization for both Vulkan 1.3 and DX12.
-- [x] Build the thin HAL. Get a basic triangle rendering in both APIs to verify the pipeline.
-- [x] Implement Compute Shader dispatching in the HAL. Set up structured buffers and read/write textures.
-- [x] Write a basic advection and diffusion compute shader to move generic "density" around.
-- [x] Fluid Dynamics (Poison Gas)
-- DX12 development is paused here.
-- [x] Collision Geometry (Dirichlet boundary condition)
-- [x] Added Acidic Slime using Clavet algorithm
-- [x] phase change compute pass
-- [x] Add lightning strike (electricity)
-- [x] Add interactivity between lightning strike and slime
-- [x] Ingnition logic when lightning strikes the slime
-- [x] Rendering fire when the slime burns
-- [x] Camera
-- [x] Moving towards 3D (stencil and depth buffers)
-- [x] Key bindings to control the camera
-- [x] a 2D plane as ground for the simulations
-- [x] 3D Clavet and slime physics
-- [x] Experiment with the Splat Map when Slime hits the ground?
-  - that is not what I wanted. because I still need the liquid to be interactable. but I added the prototype result in the documents
-- [x] Experiment with Screen-Space Metaball Meshing
-- [x] paying some technical debt like (waitIdle I built in present)
-- [x] 3D stam fluid for poison gas + raymarcher
-- [x] 3D midpoit displacement for lightning
-- [x] interaction between Stam and lightning / Clavet and lightning
-- [x] Add thermodynamics and Fire logic in 3D
-- [ ] Optimization/Documentation
-
-## Older GIFs
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFRStamAndMidpoint2.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFR.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFR1.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFR2.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFRStam1.gif" width="800"/>
-  </div>
-
-</div>
-
-<div style="display: flex; gap: 100px; align-items: flex-start;">
-
-  <div>
-    <img src="PicturesAndGifs/ClavetSSFRStam2.gif" width="800"/>
-  </div>
-
-</div>
+```bash
+git clone https://github.com/ArminGEtemad/ElementalEngine.git
+cd ElementalEngine
+mkdir build && cd build
+cmake ..
+cmake --build . --config Release
+```

@@ -151,6 +151,10 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
                          float strikeZ, float strikeForce,
                          RHI::Buffer *particleBuffer, uint32_t numParticles) {
   using namespace RHI;
+
+  const float colorRoot[4] = {0.0f, 0.75f, 0.9f, 1.0f};
+  commandList.beginDebugMarker("Stam Fluid Simulation", colorRoot);
+
   simConfig.dt = dt;
   simConfig.numParticles = numParticles;
   simConfig.strikeX = strikeX;
@@ -161,6 +165,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   uint32_t groupY = gridHeight / 8;
   uint32_t groupZ = gridDepth / 8;
 
+  // Injection pass
   commandList.transitionBuffer(injectionBuffer.get(),
                                RHI::ResourceState::ShaderResource,
                                RHI::ResourceState::TransferDst);
@@ -170,6 +175,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
                                RHI::ResourceState::UnorderedAccess);
 
   if (particleBuffer && numParticles > 0) {
+    const float colorInject[4] = {0.8f, 0.3f, 0.8f, 1.0f};
+    commandList.beginDebugMarker("Particle Injection", colorInject);
     // Run the injection scatter
     commandList.bindPipeline(*injectPipeline);
     commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
@@ -179,6 +186,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
 
     uint32_t injectGroupX = (numParticles + 255) / 256;
     commandList.dispatch(injectGroupX, 1, 1);
+
+    commandList.endDebugMarker();
   }
 
   // Transition buffer for the Advection shader to read it
@@ -194,6 +203,9 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   Texture *velocityAdvected = velocityPongTex.get();
 
   // ADVECTION PASS
+  const float colorAdvect[4] = {0.2f, 0.6f, 1.0f, 1.0f};
+  commandList.beginDebugMarker("Advection Pass", colorAdvect);
+
   commandList.transitionTexture(densityWrite, ResourceState::ShaderResource,
                                 ResourceState::UnorderedAccess);
   commandList.transitionTexture(velocityAdvected, ResourceState::ShaderResource,
@@ -210,7 +222,12 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.bindStorageBuffer(6, injectionBuffer.get());
   commandList.dispatch(groupX, groupY, groupZ);
 
+  commandList.endDebugMarker();
+
   // DIVERGENCE PASS
+  const float colorDiv[4] = {1.0f, 0.55f, 0.0f, 1.0f}; // Orange
+  commandList.beginDebugMarker("Divergence Pass", colorDiv);
+
   commandList.transitionTexture(velocityAdvected,
                                 ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
@@ -225,7 +242,12 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.bindStorageImage(3, divergenceTex.get());
   commandList.dispatch(groupX, groupY, groupZ);
 
+  commandList.endDebugMarker();
+
   // JACOBI SOLVER PASS
+  const float colorJacobi[4] = {0.95f, 0.85f, 0.2f, 1.0f};
+  commandList.beginDebugMarker("Jacobi Solver", colorJacobi);
+
   commandList.transitionTexture(divergenceTex.get(),
                                 ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
@@ -256,8 +278,12 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
 
     usePressurePing = !usePressurePing;
   }
+  commandList.endDebugMarker();
 
   // GRADIENT SUBTRACTION PASS
+  const float colorGrad[4] = {0.2f, 0.85f, 0.4f, 1.0f};
+  commandList.beginDebugMarker("Gradient Subtraction Pass", colorGrad);
+
   Texture *finalPressure =
       usePressurePing ? pressurePingTex.get() : pressurePongTex.get();
 
@@ -281,6 +307,10 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
                                 ResourceState::ShaderResource);
 
   useBufferPingToRead = !useBufferPingToRead;
+  commandList.endDebugMarker();
+
+  // Close the Root marker
+  commandList.endDebugMarker(); // End "Stam Fluid Simulation"
 }
 
 RHI::Texture *StamFluid::getRenderTexture() const {

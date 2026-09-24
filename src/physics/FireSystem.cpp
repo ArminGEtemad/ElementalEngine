@@ -73,6 +73,9 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
                           float totalTime, RHI::Buffer *slimeBuffer,
                           uint32_t slimeParticleCount) {
 
+  const float colorSim[4] = {0.95f, 0.45f, 0.1f, 1.0f}; // Amber / Orange
+  commandList.beginDebugMarker("Fire Particle Simulation", colorSim);
+
   if (slimeBuffer) {
     commandList.transitionBuffer(slimeBuffer,
                                  RHI::ResourceState::UnorderedAccess,
@@ -107,6 +110,8 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
                                  RHI::ResourceState::ShaderResource,
                                  RHI::ResourceState::UnorderedAccess);
   }
+
+  commandList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Physics

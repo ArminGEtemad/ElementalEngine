@@ -127,6 +127,9 @@ void TerrainPass::render(RHI::CommandList &commandList,
                          uint32_t height, uint32_t frameIndex,
                          glm::vec3 targetPos) {
 
+  const float colorTerrain[4] = {0.35f, 0.72f, 0.35f, 1.0f};
+  commandList.beginDebugMarker("Terrain Geometry Pass", colorTerrain);
+
   glm::vec4 pushTarget = glm::vec4(targetPos.x, targetPos.y, targetPos.z, 0.0f);
 
   // Viewport & Scissor not hardcoded like before since the window can change
@@ -146,6 +149,8 @@ void TerrainPass::render(RHI::CommandList &commandList,
   // bind index buffer
   commandList.bindIndexBuffer(indexBuffer.get(), RHI::IndexType::Uint32, 0);
   commandList.drawIndexed(indexCount, 1, 0, 0, 0);
+
+  commandList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Graphics
