@@ -92,7 +92,6 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
             float dist2 = dot(r_ij, r_ij);
 
             if (dist2 < particleParams.interactionRadius2 && dist2 > 1e-7f) {
-              float dist = sqrt(dist2);
 
               // Check if a spring already exists
               bool springExists = false;
@@ -111,6 +110,8 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
 
               // If no spring exists and we have space, add it!
               if (!springExists && emptySlot != -1) {
+                float dist = sqrt(dist2);
+
                 Spring newSpring;
                 newSpring.neighborID = currNeighbor;
                 // ::this is not from the paper::
