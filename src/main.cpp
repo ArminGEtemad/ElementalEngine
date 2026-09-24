@@ -30,7 +30,7 @@ int main() {
   try {
     WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
     DeviceConfig config{};
-    config.enableValidationLayers = true;
+    config.enableValidationLayers = false;
     config.enableGPUAssistedValidatioLayer = false;
 
     std::unique_ptr<Device> device(RHIFilter::createDevice(config, window));
@@ -56,7 +56,7 @@ int main() {
     Renderer::StamFluidRenderer stamRenderer(*device);
     Renderer::LightningRenderer lightningRenderer(*device);
 
-    uint32_t fireParticles = 100000;
+    uint32_t fireParticles = 50000;
     Physics::FireSystem fireSim(*device, fireParticles);
     Renderer::FireRenderer fireRenderer(*device);
 
