@@ -54,6 +54,7 @@ public:
   VkQueue getPresentQueue() const { return presentQueue; };
   VmaAllocator getAllocator() const { return allocator; }
   VkSampler getLinearSampler() const { return linearSampler; }
+  VkInstance getInstance() const { return instance; }
 
 private:
   struct QueueFamilyIndices {

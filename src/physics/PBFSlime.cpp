@@ -127,6 +127,10 @@ void PBFSlime::initializeParticles() {
 void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
                         float strikeY, float lightningOpacity) {
   using namespace RHI;
+
+  const float colorRoot[4] = {0.2f, 0.85f, 0.35f, 1.0f};
+  cmdList.beginDebugMarker("PBF Slime Simulation", colorRoot);
+
   simParams.dt = dt;
   simParams.strikeX = strikeX;
   simParams.strikeZ = strikeY; // main.cpp passes Z in here
@@ -174,61 +178,93 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
                              ResourceState::UnorderedAccess);
   };
 
-  // clear buffer
+  // clear buffer and build initial grid pass
+  const float colorGrid[4] = {0.3f, 0.7f, 0.45f, 1.0f};
+  cmdList.beginDebugMarker("PBF - Construct Initial Grid", colorGrid);
+
   cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::UnorderedAccess,
                            ResourceState::TransferDst);
   cmdList.clearBuffer(gridHeadBuffer.get(), 0xFFFFFFFF);
   cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::TransferDst,
                            ResourceState::UnorderedAccess);
-
-  // build grid
   cmdList.bindPipeline(*buildGridPipeline);
   bindPBFResources();
   cmdList.dispatch(groupX, 1, 1);
   computeBarrier();
+  cmdList.endDebugMarker();
 
-  // build predicted
+  // predicted pass
+  const float colorPred[4] = {0.2f, 0.6f, 0.85f, 1.0f};
+  cmdList.beginDebugMarker("PBF - Position Prediction", colorPred);
+
   cmdList.bindPipeline(*predictionPipeline);
   bindPBFResources();
   cmdList.dispatch(groupX, 1, 1);
   computeBarrier();
 
-  // clear buffer
+  cmdList.endDebugMarker();
+
+  // clear buffer AND
+  // build grid predicted and viscosity pass
+  const float colorPredGrid[4] = {0.25f, 0.75f, 0.7f, 1.0f};
+  cmdList.beginDebugMarker("PBF - Construct Predicted Grid & Viscosity",
+                           colorPredGrid);
+
   cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::UnorderedAccess,
                            ResourceState::TransferDst);
   cmdList.clearBuffer(gridHeadBuffer.get(), 0xFFFFFFFF);
   cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::TransferDst,
                            ResourceState::UnorderedAccess);
 
-  // build grid predicted and viscosity
   cmdList.bindPipeline(*buildGridPredictedPipeline);
   cmdList.bindStorageBuffer(0, particleBuffer.get());
   bindPBFResources();
   cmdList.dispatch(groupX, 1, 1);
   computeBarrier();
 
-  // spring
+  cmdList.endDebugMarker();
+
+  // spring pass
+  const float colorSpring[4] = {0.85f, 0.65f, 0.2f, 1.0f};
+  cmdList.beginDebugMarker("PBF - Springs & Plasticity", colorSpring);
+
   cmdList.bindPipeline(*springPipeline);
   cmdList.bindStorageBuffer(0, particleBuffer.get());
   bindPBFResources();
   cmdList.dispatch(groupX, 1, 1);
   computeBarrier();
 
+  cmdList.endDebugMarker();
+
   // density phase 1
+  const float colorDens1[4] = {0.75f, 0.35f, 0.85f, 1.0f};
+  cmdList.beginDebugMarker("PBF - Density Phase 1", colorDens1);
+
   cmdList.bindPipeline(*densityPipeline);
   cmdList.bindStorageBuffer(0, particleBuffer.get());
   bindPBFResources();
   cmdList.dispatch(groupX, 1, 1);
   computeBarrier();
 
+  cmdList.endDebugMarker();
+
   // density phase 2
+  const float colorDens2[4] = {0.9f, 0.45f, 0.75f, 1.0f}; // Pink/Magenta
+  cmdList.beginDebugMarker("PBF - Density Phase 2", colorDens2);
+
   cmdList.bindPipeline(*relaxPipeline);
   cmdList.bindStorageBuffer(0, particleBuffer.get());
   bindPBFResources();
   cmdList.dispatch(groupX, 1, 1);
   computeBarrier();
 
+  cmdList.endDebugMarker();
+
   // integrate
+  const float colorIntegrate[4] = {0.2f, 0.85f, 0.55f, 1.0f}; // Emerald Green
+  cmdList.beginDebugMarker("PBF - Integration & Velocity Update",
+                           colorIntegrate);
+
   cmdList.bindPipeline(*integratePipeline);
   cmdList.bindStorageBuffer(0, particleBuffer.get());
   cmdList.pushConstants(0, sizeof(ParticleSimulationParameters), &simParams,
@@ -239,5 +275,10 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
   // render them!
   cmdList.transitionBuffer(particleBuffer.get(), ResourceState::UnorderedAccess,
                            ResourceState::ShaderResource);
+
+  cmdList.endDebugMarker();
+
+  // Close the Root marker
+  cmdList.endDebugMarker();
 }
 } // namespace elementalEngine::Physics

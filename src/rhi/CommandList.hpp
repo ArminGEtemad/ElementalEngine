@@ -82,6 +82,13 @@ public:
   virtual void dispatch(uint32_t groupCountX, uint32_t groupCountY,
                         uint32_t groupCountZ) = 0;
 
+  // Debug markers needed for profiling tools
+  virtual void beginDebugMarker(const char *name,
+                                const float color[4] = nullptr) = 0;
+  virtual void endDebugMarker() = 0;
+  virtual void insertDebugMarker(const char *name,
+                                 const float color[4] = nullptr) = 0;
+
 protected:
   CommandList() = default;
 };

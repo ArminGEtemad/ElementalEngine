@@ -42,6 +42,9 @@ void StamFluidRenderer::draw(RHI::CommandList &commandList,
                              uint32_t screenHeight,
                              RHI::Texture *terrainDepthTexture) {
 
+  const float drawColor[4] = {0.9f, 0.4f, 0.2f, 1.0f};
+  commandList.beginDebugMarker("Stam Fluid Raymarching Draw", drawColor);
+
   // TODO start define these constants in one single script at some point!
   float worldSizeX = 20.0f;
   float worldSizeY = 20.0f;
@@ -69,6 +72,8 @@ void StamFluidRenderer::draw(RHI::CommandList &commandList,
   commandList.bindTexture(3, terrainDepthTexture);
 
   commandList.draw(3, 1, 0, 0); // Fullscreen triangle
+
+  commandList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Renderer

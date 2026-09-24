@@ -13,6 +13,11 @@
 
 namespace elementalEngine::RHI {
 
+static PFN_vkCmdBeginDebugUtilsLabelEXT pfnCmdBeginDebugUtilsLabelEXT = nullptr;
+static PFN_vkCmdEndDebugUtilsLabelEXT pfnCmdEndDebugUtilsLabelEXT = nullptr;
+static PFN_vkCmdInsertDebugUtilsLabelEXT pfnCmdInsertDebugUtilsLabelEXT =
+    nullptr;
+
 static VkShaderStageFlags mapShaderStage(ShaderStage stage) {
   VkShaderStageFlags flags = 0;
   if (stage & ShaderStage::Vertex)
@@ -43,6 +48,19 @@ VulkanCommandList::VulkanCommandList(VulkanDevice &device) : device(device) {
   allocInfo.commandPool = commandPool;
   allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   allocInfo.commandBufferCount = 1;
+
+  if (!pfnCmdBeginDebugUtilsLabelEXT) {
+    VkInstance instance = device.getInstance();
+    pfnCmdBeginDebugUtilsLabelEXT =
+        (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(
+            instance, "vkCmdBeginDebugUtilsLabelEXT");
+    pfnCmdEndDebugUtilsLabelEXT =
+        (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(
+            instance, "vkCmdEndDebugUtilsLabelEXT");
+    pfnCmdInsertDebugUtilsLabelEXT =
+        (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(
+            instance, "vkCmdInsertDebugUtilsLabelEXT");
+  }
 
   if (vkAllocateCommandBuffers(device.getLogicalDevice(), &allocInfo,
                                &commandBuffer) != VK_SUCCESS) {
@@ -537,5 +555,58 @@ void VulkanCommandList::clearBuffer(Buffer *buffer, uint32_t value) {
   auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
   vkCmdFillBuffer(commandBuffer, vkBuffer->getVkBuffer(), 0, VK_WHOLE_SIZE,
                   value);
+}
+
+void VulkanCommandList::beginDebugMarker(const char *name,
+                                         const float color[4]) {
+  if (!pfnCmdBeginDebugUtilsLabelEXT)
+    return;
+
+  VkDebugUtilsLabelEXT labelInfo{};
+  labelInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+  labelInfo.pLabelName = name;
+  if (color) {
+    labelInfo.color[0] = color[0];
+    labelInfo.color[1] = color[1];
+    labelInfo.color[2] = color[2];
+    labelInfo.color[3] = color[3];
+  } else {
+    // Default white
+    labelInfo.color[0] = 1.0f;
+    labelInfo.color[1] = 1.0f;
+    labelInfo.color[2] = 1.0f;
+    labelInfo.color[3] = 1.0f;
+  }
+
+  pfnCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+}
+
+void VulkanCommandList::endDebugMarker() {
+  if (!pfnCmdEndDebugUtilsLabelEXT)
+    return;
+  pfnCmdEndDebugUtilsLabelEXT(commandBuffer);
+}
+
+void VulkanCommandList::insertDebugMarker(const char *name,
+                                          const float color[4]) {
+  if (!pfnCmdInsertDebugUtilsLabelEXT)
+    return;
+
+  VkDebugUtilsLabelEXT labelInfo{};
+  labelInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+  labelInfo.pLabelName = name;
+  if (color) {
+    labelInfo.color[0] = color[0];
+    labelInfo.color[1] = color[1];
+    labelInfo.color[2] = color[2];
+    labelInfo.color[3] = color[3];
+  } else {
+    labelInfo.color[0] = 1.0f;
+    labelInfo.color[1] = 1.0f;
+    labelInfo.color[2] = 1.0f;
+    labelInfo.color[3] = 1.0f;
+  }
+
+  pfnCmdInsertDebugUtilsLabelEXT(commandBuffer, &labelInfo);
 }
 } // namespace elementalEngine::RHI

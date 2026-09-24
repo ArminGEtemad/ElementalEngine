@@ -232,6 +232,10 @@ void LightningRenderer::createLightningPipeline() {
 void LightningRenderer::draw(RHI::CommandList &commandList,
                              const float *viewProjMatrix,
                              const glm::vec3 &cameraPos) {
+
+  const float colorLightning[4] = {0.45f, 0.85f, 1.0f, 1.0f}; // Electric Cyan
+  commandList.beginDebugMarker("Lightning Strike Render", colorLightning);
+
   if (opacity <= 0.0f || strikes.empty()) {
     return;
   }
@@ -263,6 +267,8 @@ void LightningRenderer::draw(RHI::CommandList &commandList,
       break; // Only draw the active strike, then exit
     }
   }
+
+  commandList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Renderer

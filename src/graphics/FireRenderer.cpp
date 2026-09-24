@@ -34,6 +34,9 @@ void FireRenderer::draw(RHI::CommandList &commandList,
                         uint32_t screenWidth, uint32_t screenHeight,
                         const float *viewMatrix, const float *projMatrix) {
 
+  const float colorDraw[4] = {1.0f, 0.65f, 0.15f, 1.0f};
+  commandList.beginDebugMarker("Fire Particles Render", colorDraw);
+
   commandList.bindPipeline(*firePipeline);
   commandList.setViewport(0.0f, 0.0f, static_cast<float>(screenWidth),
                           static_cast<float>(screenHeight));
@@ -53,6 +56,8 @@ void FireRenderer::draw(RHI::CommandList &commandList,
 
   // Draw 6 vertices (1 quad) per fire particle
   commandList.draw(6, fireSystem.getMaxParticles(), 0, 0);
+
+  commandList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Renderer

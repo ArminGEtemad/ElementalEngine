@@ -132,6 +132,9 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
                                  uint32_t frameIndex, float worldSizeX,
                                  float worldSizeZ) {
 
+  const float colorGBuffer[4] = {0.1f, 0.65f, 0.85f, 1.0f};
+  cmdList.beginDebugMarker("SSFR - GBuffer Generation", colorGBuffer);
+
   cmdList.transitionTexture(fluidDepthTextures[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::RenderTarget);
@@ -151,7 +154,10 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   pc.worldSizeZ = worldSizeZ;
   pc.particleRadius = particleRadius;
 
-  // pass 1 depth
+  // Depth pass
+  const float colorDepth[4] = {0.2f, 0.55f, 0.85f, 1.0f}; // Light Blue
+  cmdList.beginDebugMarker("SSFR - Depth Pass", colorDepth);
+
   RHI::RenderingInfo depthInfo{};
   depthInfo.renderWidth = currentWidth;
   depthInfo.renderHeight = currentHeight;
@@ -180,7 +186,12 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   cmdList.draw(6, slimeSim.getParticleCount(), 0, 0);
   cmdList.endRendering();
 
-  // pass 2 thickness
+  cmdList.endDebugMarker(); // End Depth Pass
+
+  // thickness pass
+  const float colorThick[4] = {0.75f, 0.25f, 0.85f, 1.0f}; // Purple
+  cmdList.beginDebugMarker("SSFR - Thickness Pass", colorThick);
+
   RHI::RenderingInfo thickInfo{};
   thickInfo.renderWidth = currentWidth;
   thickInfo.renderHeight = currentHeight;
@@ -207,6 +218,8 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   cmdList.draw(6, slimeSim.getParticleCount(), 0, 0);
   cmdList.endRendering();
 
+  cmdList.endDebugMarker();
+
   // Transition to ShaderResource for the next bluring
   cmdList.transitionTexture(fluidDepthTextures[frameIndex].get(),
                             RHI::ResourceState::RenderTarget,
@@ -217,6 +230,10 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
 }
 
 void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
+
+  const float colorBlurRoot[4] = {0.1f, 0.5f, 0.65f, 1.0f};
+  cmdList.beginDebugMarker("SSFR - Bilateral Depth Blur", colorBlurRoot);
+
   struct BlurPushConstants {
     int blurDirX;
     int blurDirY;
@@ -235,7 +252,10 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
 
   cmdList.bindPipeline(*blurPipeline);
 
-  // pass 1: HORIZONTAL BLUR (Raw Depth -> Temp)
+  // HORIZONTAL BLUR (Raw Depth -> Temp) pass
+  const float colorBlurH[4] = {0.2f, 0.7f, 0.6f, 1.0f};
+  cmdList.beginDebugMarker("SSFR - Horizontal Blur (X)", colorBlurH);
+
   cmdList.transitionTexture(tempDepthTextures[frameIndex].get(),
                             RHI::ResourceState::Undefined,
                             RHI::ResourceState::UnorderedAccess);
@@ -251,7 +271,12 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
                         RHI::ShaderStage::Compute);
   cmdList.dispatch(groupX, groupY, 1);
 
+  cmdList.endDebugMarker();
+
   // pass 2: VERTICAL BLUR (Temp -> Blurred Depth)
+  const float colorBlurV[4] = {0.3f, 0.8f, 0.5f, 1.0f};
+  cmdList.beginDebugMarker("SSFR - Vertical Blur (Y)", colorBlurV);
+
   // Transition Temp to be Read, and Blurred to be Written
   cmdList.transitionTexture(tempDepthTextures[frameIndex].get(),
                             RHI::ResourceState::UnorderedAccess,
@@ -270,10 +295,14 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
                         RHI::ShaderStage::Compute);
   cmdList.dispatch(groupX, groupY, 1);
 
+  cmdList.endDebugMarker();
+
   // Final Transition
   cmdList.transitionTexture(blurredDepthTextures[frameIndex].get(),
                             RHI::ResourceState::UnorderedAccess,
                             RHI::ResourceState::ShaderResource);
+
+  cmdList.endDebugMarker();
 }
 
 void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
@@ -283,6 +312,9 @@ void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
                                    const float *invProjMatrix,
                                    const float *projMatrix,
                                    const float *lightDir, uint32_t frameIndex) {
+
+  const float colorComp[4] = {0.0f, 0.5f, 1.0f, 1.0f};
+  cmdList.beginDebugMarker("SSFR - Composite Shading Pass", colorComp);
 
   RHI::RenderingInfo info{};
   info.renderWidth = currentWidth;
@@ -329,6 +361,8 @@ void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
   // Draw Full Screen Quad (3 vertices)
   cmdList.draw(3, 1, 0, 0);
   cmdList.endRendering();
+
+  cmdList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Renderer
