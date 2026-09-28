@@ -31,7 +31,7 @@ PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
   simParams.sticknessRadius = 2.0f;
   simParams.sticknessMultiplier = 0.2f;
   simParams.cellSpacing = simParams.interactionRadius;
-  simParams.hashGridSize = 700 * 300;
+  simParams.hashGridSize = 210011;
 
   createResources();
   createPipelines();
@@ -41,7 +41,7 @@ PBFSlime::PBFSlime(RHI::Device &device, uint32_t particleNumberMax)
 void PBFSlime::createResources() {
   using namespace RHI;
   size_t particleBufferSize = numParticles * sizeof(Particle);
-  size_t numGridCells = 700 * 300; // TODO hardcoded for now change later
+  size_t numGridCells = 210011;
   size_t springBufferSize = numParticles * MAX_SPRINGS * sizeof(Spring);
 
   // initialized in cpu
@@ -95,9 +95,8 @@ void PBFSlime::initializeParticles() {
   std::vector<Particle> initialData(numParticles);
   std::default_random_engine generator;
 
-  // Widen the spawn cloud
-  std::uniform_real_distribution<float> noiseXZ(-100.0f, 100.0f);
-  std::uniform_real_distribution<float> spawnY(50.0f, 400.0f);
+  std::uniform_real_distribution<float> noiseXZ(-200.0f, 200.0f);
+  std::uniform_real_distribution<float> spawnY(20.0f, 400.0f);
 
   for (uint32_t i = 0; i < numParticles; ++i) {
     initialData[i].position[0] = noiseXZ(generator); // X
@@ -133,7 +132,7 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
 
   simParams.dt = dt;
   simParams.strikeX = strikeX;
-  simParams.strikeZ = strikeY; // main.cpp passes Z in here
+  simParams.strikeZ = strikeY;
   simParams.strikeForce = lightningOpacity;
 
   if (!isFirstFrame) {
@@ -271,14 +270,11 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
                         ShaderStage::Compute);
   cmdList.dispatch(groupX, 1, 1);
 
-  // Transition the buffer so your Graphics Pipeline can read the positions to
-  // render them!
   cmdList.transitionBuffer(particleBuffer.get(), ResourceState::UnorderedAccess,
                            ResourceState::ShaderResource);
 
   cmdList.endDebugMarker();
 
-  // Close the Root marker
   cmdList.endDebugMarker();
 }
 } // namespace elementalEngine::Physics
