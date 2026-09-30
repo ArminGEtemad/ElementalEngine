@@ -4,14 +4,15 @@ A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scr
 
 > version 1.2.0
 
-## GIF Showcase
+## Showcase
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
-<video src="PicturesAndGifs/Version1_2_0.mp4" controls width="800">
-</video>
+  <img src="PicturesAndGifs/V1_2_0.webp" alt="Version 1.2.0 Demo" width="800" />
 
 </div>
+
+GIFs and pictures of the older versions can be found [here](PicturesAndGifs).
 
 ## Technical Highlights
 
