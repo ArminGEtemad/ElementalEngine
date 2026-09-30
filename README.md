@@ -8,21 +8,32 @@ A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scr
 
 <div style="display: flex; gap: 100px; align-items: flex-start;">
 
-  <div>
-    <img src="PicturesAndGifs/Version1_2_0_Gif.gif" width="800"/>
-  </div>
+<video src="PicturesAndGifs/Version1_2_0.mp4" controls width="800">
+</video>
 
 </div>
 
 ## Technical Highlights
 
-- **Custom Low-Level RHI:** Thin hardware abstraction designed around modern explicit graphics APIs (Vulkan 1.3 native, DX12-ready architecture).
-- **Modern Vulkan 1.3 Core:**
-  - Full **Dynamic Rendering** pipeline (`VK_KHR_dynamic_rendering`), removing legacy render pass boilerplate.
-  - Utilization of compute shaders.
-  - Integrated **Vulkan Memory Allocator (VMA)** for memory management.
-  - Vertex Pulling is used instead of Vertex Buffers.
-- **Hierarchical GPU Profiling:** Instrumented with `VK_EXT_debug_utils` for nested event hierarchy in RenderDoc and Nsight.
+### 1. Coupled Multi-Physics Simulation (GPU Compute)
+
+- **Viscous Fluid Dynamics (PBF):** Position-Based Fluids implementation based on Clavet et al. Particle-based Viscoelastic Fluid Simulation.
+- **Eulerian Gas Simulation (Stam Stable Fluids):** 3D Navier-Stokes. W
+- **Procedural Dielectric Breakdown:** 3D Midpoint Displacement lightning arcs with branching.
+- **Systemic Thermodynamic Coupling:** Slime acts as a dynamic continuous gas emitter; electrical arcs trigger localized thermal thresholds, initiating heat transfare and fire.
+
+### 2. Rendering Pipelines & Volume Integration
+
+- **Screen-Space Fluid Rendering (SSFR)**
+- **Volumetric Raymarcher**
+- **Vertex Pulling**
+
+### 3. Modern Vulkan 1.3 Core & RHI
+
+- **Low-Overhead Custom RHI:** Backend-agnostic hardware abstraction layer architected for explicit APIs (Native Vulkan 1.3; extensible to DX12).
+- **Dynamic Rendering:** No legacy render pass/framebuffer boilerplate.
+- **Memory Management:** Integrated Vulkan Memory Allocator (VMA).
+- **Diagnostic Instrumentation:** Debug labeling via `VK_EXT_debug_utils` for deep Nsight Graphics and RenderDoc frame analysis.
 
 ## Performance & Metrics
 
@@ -40,11 +51,15 @@ A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scr
 | **Active Frame Time**        | **Mixed**          |    **~3.72 ms**    |
 | **Total Frame Time**         | **Mixed**          |    **~3.73 ms**    |
 
-The optimizations steps are given in [Docs](Docs/performaceTestOpt.md).
+**On a Mac M2 using Molten:** The frame rate with 10000 Clavet Slime particle stays well over 80 FPS.
+
+The optimizations steps are given in [Docs](Docs/performanceTestOpt.md).
 
 ## Dependencies
 
-I used VMA (Vulkan Memory Allocator) for memory allocations. You can find it [here](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) and install it.
+- **API:** Vulkan SDK 1.3+
+- **Memory Subsystem:** [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- C++20 support required
 
 ## Building from Source
 
@@ -55,3 +70,7 @@ mkdir build && cd build
 cmake ..
 cmake --build . --config Release
 ```
+
+# LICENSE
+
+This project is under [MIT License](LICENSE)
