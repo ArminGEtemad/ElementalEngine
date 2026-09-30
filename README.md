@@ -19,9 +19,9 @@ GIFs and pictures of the older versions can be found [here](PicturesAndGifs).
 ### 1. Coupled Multi-Physics Simulation (GPU Compute)
 
 - **Viscous Fluid Dynamics (PBF):** Position-Based Fluids implementation based on Clavet et al. Particle-based Viscoelastic Fluid Simulation.
-- **Eulerian Gas Simulation (Stam Stable Fluids):** 3D Navier-Stokes. W
+- **Eulerian Gas Simulation (Stam Stable Fluids):** 3D Navier-Stokes.
 - **Procedural Dielectric Breakdown:** 3D Midpoint Displacement lightning arcs with branching.
-- **Systemic Thermodynamic Coupling:** Slime acts as a dynamic continuous gas emitter; electrical arcs trigger localized thermal thresholds, initiating heat transfare and fire.
+- **Systemic Thermodynamic Coupling:** Slime acts as a dynamic continuous gas emitter; electrical arcs trigger localized thermal thresholds, initiating heat transfar and fire.
 
 ### 2. Rendering Pipelines & Volume Integration
 
@@ -52,7 +52,7 @@ GIFs and pictures of the older versions can be found [here](PicturesAndGifs).
 | **Active Frame Time**        | **Mixed**          |    **~3.72 ms**    |
 | **Total Frame Time**         | **Mixed**          |    **~3.73 ms**    |
 
-**On a Mac M2 using Molten:** The frame rate with 10000 Clavet Slime particle stays well over 80 FPS.
+**On a Mac M2 using MoltenVK:** The frame rate with 10000 Clavet Slime particle stays well over 80 FPS.
 
 The optimizations steps are given in [Docs](Docs/performanceTestOpt.md).
 
