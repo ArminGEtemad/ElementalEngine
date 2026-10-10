@@ -10,6 +10,10 @@
 #include <vector>
 
 namespace elementalEngine::RHI {
+// Everything needed for recoding graphics and compute work into the command
+// buffers.
+// commands are queued and evaluated upon queue submission.
+
 struct RenderPassAttachment {
   Texture *texture = nullptr;
   bool clear = true;
@@ -36,39 +40,47 @@ public:
   CommandList(const CommandList &) = delete;
   CommandList &operator=(const CommandList &) = delete;
 
-  // adding lifecycle of the command list
-  virtual void begin() = 0; // begins recording and resets the allocator/pool
-  virtual void
-  end() = 0; // closes the command list, readying for the submission
-
+  // Command buffer recording life cycle from beginning the recording and
+  // reseting the pool to closing the command list and readying for submission
+  virtual void begin() = 0;
+  virtual void end() = 0;
   virtual void beginRendering(const RenderingInfo &info) = 0;
   virtual void endRendering() = 0;
 
+  // clearing and transitioning resouce states to prevent race conditions-
+  // the ResourceState can be found in the rhicommon.
   virtual void clearBuffer(Buffer *buffer, uint32_t value) = 0;
-
-  // preventing race condition transitions buffer from - to
   virtual void transitionBuffer(Buffer *buffer, ResourceState from,
                                 ResourceState to) = 0;
   virtual void transitionTexture(Texture *texture, ResourceState from,
                                  ResourceState to) = 0;
 
-  // pushing images instead of raw buffers
+  // binding functions
+  // the bind pipeline function is unified. graphics and compute both use the
+  // same pipeline function. Not to be confused the creating pipelines. Creating
+  // pipelines is not unified. look into the Device header file!
+  //  push constants for low latency updates for small per draw such as camera
   virtual void bindTexture(uint32_t bindingSlot, Texture *texture) = 0;
   virtual void bindStorageImage(uint32_t bindingSlot, Texture *texture) = 0;
   virtual void bindSampler(uint32_t bindingSlot) = 0;
   virtual void bindIndexBuffer(Buffer *buffer, IndexType indexType,
                                size_t offset = 0) = 0;
-
-  // unified pipeline compute and graphicss
   virtual void bindPipeline(Pipeline &pipeline) = 0;
+  virtual void bindVertexBuffer(Buffer *buffer, size_t stride) = 0;
+  virtual void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) = 0;
+  virtual void bindUniformBuffer(uint32_t bindingSlot, Buffer *buffer,
+                                 size_t offset = 0, size_t range = 0) = 0;
+  virtual void pushConstants(uint32_t offset, uint32_t size, const void *data,
+                             ShaderStage stage) = 0;
 
-  // drawing commands
+  // draw/dispatch calls and rasterization
   virtual void setViewport(float x, float y, float width, float height) = 0;
   virtual void setScissor(int32_t x, int32_t y, uint32_t width,
                           uint32_t height) = 0;
-  virtual void bindVertexBuffer(Buffer *buffer, size_t stride) = 0;
   virtual void draw(uint32_t vertexCount, uint32_t instanceCount,
                     uint32_t firstVertex, uint32_t firstInstance) = 0;
+  virtual void dispatch(uint32_t groupCountX, uint32_t groupCountY,
+                        uint32_t groupCountZ) = 0;
   virtual void drawIndexed(uint32_t indexCount, uint32_t instanceCount,
                            uint32_t firstIndex, int32_t vertexOffset,
                            uint32_t firstInstance) = 0;
@@ -76,15 +88,6 @@ public:
                             uint32_t stride) = 0;
   virtual void drawIndexedIndirect(Buffer *buffer, size_t offset,
                                    uint32_t drawCount, uint32_t stride) = 0;
-
-  // compute commands
-  virtual void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) = 0;
-  virtual void bindUniformBuffer(uint32_t bindingSlot, Buffer *buffer,
-                                 size_t offset = 0, size_t range = 0) = 0;
-  virtual void pushConstants(uint32_t offset, uint32_t size, const void *data,
-                             ShaderStage stage) = 0;
-  virtual void dispatch(uint32_t groupCountX, uint32_t groupCountY,
-                        uint32_t groupCountZ) = 0;
 
   // Debug markers needed for profiling tools
   virtual void beginDebugMarker(const char *name,
