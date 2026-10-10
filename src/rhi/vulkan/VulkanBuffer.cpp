@@ -21,6 +21,9 @@ VulkanBuffer::VulkanBuffer(VulkanDevice &device, size_t size, BufferUsage usage,
     vkUsage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
   if (usage & BufferUsage::TransferDst)
     vkUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+  if (usage & BufferUsage::Indirect) {
+    vkUsage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+  }
 
   bufferInfo.usage = vkUsage;
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
