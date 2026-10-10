@@ -16,7 +16,8 @@ FireSystem::FireSystem(RHI::Device &device, uint32_t maxParticles)
   std::random_device rd;
   randomEngine.seed(rd());
 
-  simParams.buoyancy = 400.0f;
+  // change if the fire kinematics does not feel realistic
+  simParams.buoyancy = 50.0f;
   simParams.drag = 0.8f;
   simParams.coolingRate = 0.70f;
   simParams.expansionRate = 10.0f;
@@ -28,9 +29,20 @@ FireSystem::FireSystem(RHI::Device &device, uint32_t maxParticles)
 void FireSystem::createResource() {
   size_t bufferSize = maxParticles * sizeof(FireParticles);
 
+  // vertex usage so the vertex shader fetches with no need for assembler
   particleBuffer = device.createBuffer(
       bufferSize, RHI::BufferUsage::Storage | RHI::BufferUsage::Vertex,
       RHI::MemoryProperty::GPULocal);
+
+  // needed for gpu driven rendering
+  aliveIndexBuffer = device.createBuffer(maxParticles * sizeof(uint32_t),
+                                         RHI::BufferUsage::Storage,
+                                         RHI::MemoryProperty::GPULocal);
+  indirectDrawBuffer = device.createBuffer(sizeof(RHI::DrawIndirectCommand),
+                                           RHI::BufferUsage::Storage |
+                                               RHI::BufferUsage::Indirect |
+                                               RHI::BufferUsage::TransferDst,
+                                           RHI::MemoryProperty::GPULocal);
 
   std::vector<FireParticles> initialData(maxParticles);
   for (uint32_t i = 0; i < maxParticles; i++) {
@@ -56,12 +68,16 @@ void FireSystem::createPipeline() {
   using namespace RHI;
   PipelineConfig config;
 
-  // 0 fire particles
-  // 1 slime particles
   config.bindings = {
-      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Compute},
-      {1, DescriptorType::StorageBuffer, 1, ShaderStage::Compute}};
-
+      {0, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute}, // 0 fire particles
+      {1, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute}, // 1 slime particles
+      {2, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute}, // 2 alive indices
+      {3, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute} // 3 indirect command
+  };
   config.pushConstants.size = sizeof(FireSimParameters);
   config.pushConstants.offset = 0;
   config.pushConstants.stage = ShaderStage::Compute;
@@ -73,7 +89,8 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
                           float totalTime, RHI::Buffer *slimeBuffer,
                           uint32_t slimeParticleCount) {
 
-  const float colorSim[4] = {0.95f, 0.45f, 0.1f, 1.0f}; // Amber / Orange
+  // debig color marker Amber / Orange
+  const float colorSim[4] = {0.95f, 0.45f, 0.1f, 1.0f};
   commandList.beginDebugMarker("Fire Particle Simulation", colorSim);
 
   if (slimeBuffer) {
@@ -81,6 +98,22 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
                                  RHI::ResourceState::UnorderedAccess,
                                  RHI::ResourceState::ShaderResource);
   }
+  RHI::ResourceState indirectFrom = isFirstFrame
+                                        ? RHI::ResourceState::Undefined
+                                        : RHI::ResourceState::IndirectArgument;
+  commandList.transitionBuffer(indirectDrawBuffer.get(), indirectFrom,
+                               RHI::ResourceState::TransferDst);
+  RHI::ResourceState aliveFrom = isFirstFrame
+                                     ? RHI::ResourceState::Undefined
+                                     : RHI::ResourceState::ShaderResource;
+  commandList.transitionBuffer(aliveIndexBuffer.get(), aliveFrom,
+                               RHI::ResourceState::UnorderedAccess);
+  isFirstFrame = false;
+  commandList.clearBuffer(indirectDrawBuffer.get(), 0);
+  commandList.transitionBuffer(indirectDrawBuffer.get(),
+                               RHI::ResourceState::TransferDst,
+                               RHI::ResourceState::UnorderedAccess);
+
   simParams.dt = dt;
   simParams.numParticles = maxParticles;
   simParams.emitterX = emitterX;
@@ -91,10 +124,13 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
   simParams.time = totalTime;
 
   commandList.bindPipeline(*simulatePipeline);
+
   commandList.bindStorageBuffer(0, particleBuffer.get());
   if (slimeBuffer) {
     commandList.bindStorageBuffer(1, slimeBuffer);
   }
+  commandList.bindStorageBuffer(2, aliveIndexBuffer.get());
+  commandList.bindStorageBuffer(3, indirectDrawBuffer.get());
   commandList.pushConstants(0, sizeof(simParams), &simParams,
                             RHI::ShaderStage::Compute);
 
@@ -104,6 +140,12 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
   commandList.transitionBuffer(particleBuffer.get(),
                                RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::UnorderedAccess);
+  commandList.transitionBuffer(indirectDrawBuffer.get(),
+                               RHI::ResourceState::UnorderedAccess,
+                               RHI::ResourceState::IndirectArgument);
+  commandList.transitionBuffer(aliveIndexBuffer.get(),
+                               RHI::ResourceState::UnorderedAccess,
+                               RHI::ResourceState::ShaderResource);
 
   if (slimeBuffer) {
     commandList.transitionBuffer(slimeBuffer,
