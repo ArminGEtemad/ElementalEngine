@@ -2,9 +2,14 @@
 
 #include <cstdint>
 namespace elementalEngine::RHI {
+// common rhi definitions and promitives.
+// backend agnostic abstraction layer.
 
+// execution domain either graphics for vertex and fragment or compute for
+// compute shaders
 enum class PipelineBindPoint { Graphics, Compute };
 
+// tracking the resourse state when transitioning the buffer or texture.
 enum class ResourceState {
   Undefined,
   UnorderedAccess,
@@ -20,12 +25,14 @@ enum class ResourceState {
 
 enum class IndexType { Uint16, Uint32 };
 
+// validation layers can be toggled in main. keeping the GPU assusted one off as
+// default. the actual toggle are changed in the main so if wanna switch toggles
+// change it in main not here since these are overwritten
 struct DeviceConfig {
   bool enableValidationLayers = true;
-  bool enableGPUAssistedValidatioLayer = false;
+  bool enableGPUAssistedValidationLayer = false;
 };
 
-// buffer usage
 enum class BufferUsage : uint32_t {
   None = 0,
   Vertex = 1 << 0,
@@ -37,7 +44,6 @@ enum class BufferUsage : uint32_t {
   Indirect = 1 << 6,
 };
 
-// combining buffer usages
 inline BufferUsage operator|(BufferUsage a, BufferUsage b) {
   return (static_cast<BufferUsage>(static_cast<uint32_t>(a) |
                                    static_cast<uint32_t>(b)));
@@ -46,10 +52,10 @@ inline bool operator&(BufferUsage a, BufferUsage b) {
   return (static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
 
-// placed memory
 enum class MemoryProperty { GPULocal, CPUAccess };
 
-// 3D vertecies
+// not to be changed in to float3. should stay 4 dimensional and if the 4th
+// dimension is not use, it should be a padding for 16 byte alignment for gpu
 struct Vertex3D {
   float position[4];
   float normal[4];
