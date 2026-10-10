@@ -72,6 +72,10 @@ public:
   virtual void drawIndexed(uint32_t indexCount, uint32_t instanceCount,
                            uint32_t firstIndex, int32_t vertexOffset,
                            uint32_t firstInstance) = 0;
+  virtual void drawIndirect(Buffer *buffer, size_t offset, uint32_t drawCount,
+                            uint32_t stride) = 0;
+  virtual void drawIndexedIndirect(Buffer *buffer, size_t offset,
+                                   uint32_t drawCount, uint32_t stride) = 0;
 
   // compute commands
   virtual void bindStorageBuffer(uint32_t bindingSlot, Buffer *buffer) = 0;
