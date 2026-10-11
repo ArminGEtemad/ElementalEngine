@@ -20,6 +20,7 @@ struct FireRenderParams {
 [[vk::push_constant]] FireRenderParams renderParams;
 
 StructuredBuffer<FireParticles> particles : register(t0);
+StructuredBuffer<uint> aliveIndices : register(t1);
 
 struct VSOut {
   float4 position : SV_POSITION;
@@ -38,7 +39,8 @@ static float2 QUAD_UVS[6] = {float2(0.0, 0.0), float2(1.0, 0.0),
 
 VSOut VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   VSOut output;
-  FireParticles p = particles[instanceID];
+  uint realParticleID = aliveIndices[instanceID];
+  FireParticles p = particles[realParticleID];
 
   float radius = (p.life > 0.0f) ? p.particleRadius : 0.0f;
 
