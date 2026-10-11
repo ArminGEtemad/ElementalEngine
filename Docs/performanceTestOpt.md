@@ -116,3 +116,18 @@ With Fire Global-memory stall: 48%
 
 Meaning that the memory stall is now back up even though the frame time is lower and the script is behaving in a predictable way.
 When all the slime particles are consumed we even hit 900 FPS.
+
+## ElEn Version 1.3.0
+
+I moved to GPU driven rendering using indirect drawing as well as compute based culling. In this way I was able to drop the frame time about 0.1 ms. The results are on the front page. Here a breakdown of the bottleneck that back then caused problems.
+
+| Pipeline Phase          | Time ($\text{ms}$) No fire | Time ($\text{ms}$) With fire |
+| :---------------------- | :------------------------- | :--------------------------: |
+| **Slime Simulation**    | **1.76 ms**                |         **1.84 ms**          |
+| **Position Predition**  | **0.31 ms**                |         **0.31 ms**          |
+| **Spring & Plasticity** | **0.57 ms**                |         **0.64 ms**          |
+| **Density Phase 1**     | **0.42 ms**                |         **0.42 ms**          |
+| **Density Phase 2**     | **0.44 ms**                |         **0.44 ms**          |
+
+No Fire Global-memory stall: 46%
+With Fire Global-memory stall: 47%

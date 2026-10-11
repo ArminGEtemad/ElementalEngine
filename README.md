@@ -1,8 +1,8 @@
 # Elemental Engine
 
-A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scratch in C++20 and **Vulkan 1.3**, featuring coupled multi-element interactions (gas, viscoelastic fluids, electricity, thermodynamics) and a custom Render Hardware Interface (RHI).
+A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scratch in C++20 and **Vulkan 1.3**, featuring gpu-driven indirect rendering, coupled multi-element interactions (gas, viscoelastic fluids, electricity, thermodynamics) and a custom Render Hardware Interface (RHI).
 
-> version 1.2.0
+> version 1.3.0
 
 ## Showcase
 
@@ -28,10 +28,12 @@ GIFs and pictures of the older versions can be found [here](PicturesAndGifs).
 - **Screen-Space Fluid Rendering (SSFR)**
 - **Volumetric Raymarcher**
 - **Vertex Pulling**
+- **Compute based Culling**
 
 ### 3. Modern Vulkan 1.3 Core & RHI
 
 - **Low-Overhead Custom RHI:** Backend-agnostic hardware abstraction layer architected for explicit APIs (Native Vulkan 1.3; extensible to DX12).
+- **GPU-Driven Rendering:** decoupling draw submission from CPU.
 - **Dynamic Rendering:** No legacy render pass/framebuffer boilerplate.
 - **Memory Management:** Integrated Vulkan Memory Allocator (VMA).
 - **Diagnostic Instrumentation:** Debug labeling via `VK_EXT_debug_utils` for deep Nsight Graphics and RenderDoc frame analysis.
@@ -42,15 +44,17 @@ GIFs and pictures of the older versions can be found [here](PicturesAndGifs).
 
 | Pipeline Phase               | Type               | Time ($\text{ms}$) |
 | :--------------------------- | :----------------- | :----------------: |
-| **PBF Slime Simulation**     | Compute            |    **2.14 ms**     |
-| **Stam Fluid Simulation**    | Compute            |    **1.32 ms**     |
-| **Stam Fluid Raymarcher**    | Graphics           |    **0.11 ms**     |
+| **PBF Slime Simulation**     | Compute            |    **1.84 ms**     |
+| **Stam Fluid Simulation**    | Compute            |    **1.21 ms**     |
+| **Stam Culling**             | Compute            |    **0.12 ms**     |
+| **Stam Fluid Raymarcher**    | Graphics           |    **0.09 ms**     |
 | **SSFR**                     | Graphics / Compute |    **0.04 ms**     |
-| **Fire Particle Renders**    | Graphics           |    **0.04 ms**     |
-| **Fire Particle Simulation** | Compute            |    **0.02 ms**     |
+| **Fire Particle Renders**    | Graphics           |    **0.03 ms**     |
+| **Fire Particle Simulation** | Compute            |    **0.03 ms**     |
+| **Terrain Culling**          | Compute            |    **<0.01 ms**    |
 | **Terrain Geometry Pass**    | Graphics           |    **<0.01 ms**    |
-| **Active Frame Time**        | **Mixed**          |    **~3.72 ms**    |
-| **Total Frame Time**         | **Mixed**          |    **~3.73 ms**    |
+| **Active Frame Time**        | **Mixed**          |    **~3.62 ms**    |
+| **Total Frame Time**         | **Mixed**          |    **~3.63 ms**    |
 
 **On a Mac M2 using MoltenVK:** The frame rate with 10000 Clavet Slime particle stays well over 80 FPS.
 
