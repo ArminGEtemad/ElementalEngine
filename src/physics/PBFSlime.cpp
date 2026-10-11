@@ -58,6 +58,16 @@ void PBFSlime::createResources() {
   springBuffer = device.createBuffer(
       springBufferSize, BufferUsage::Storage | BufferUsage::TransferDst,
       MemoryProperty::GPULocal);
+
+  aliveIndexBuffer = device.createBuffer(numParticles * sizeof(uint32_t),
+                                         RHI::BufferUsage::Storage,
+                                         RHI::MemoryProperty::GPULocal);
+
+  indirectDrawBuffer = device.createBuffer(sizeof(RHI::DrawIndirectCommand),
+                                           RHI::BufferUsage::Storage |
+                                               RHI::BufferUsage::Indirect |
+                                               RHI::BufferUsage::TransferDst,
+                                           RHI::MemoryProperty::GPULocal);
 }
 
 void PBFSlime::createPipelines() {
@@ -80,6 +90,14 @@ void PBFSlime::createPipelines() {
   config.pushConstants.offset = 0;
   config.pushConstants.stage = ShaderStage::Compute;
 
+  PipelineConfig integrateConfig = config;
+  integrateConfig.bindings.push_back(
+      {4, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Compute}); // Alive Indices
+  integrateConfig.bindings.push_back(
+      {5, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Compute}); // Indirect Command
+
   buildGridPipeline =
       device.createComputePipeline("clavet_grid_construct", config);
   predictionPipeline = device.createComputePipeline("clavet_predicted", config);
@@ -88,7 +106,8 @@ void PBFSlime::createPipelines() {
   springPipeline = device.createComputePipeline("clavet_springs", config);
   densityPipeline = device.createComputePipeline("clavet_density", config);
   relaxPipeline = device.createComputePipeline("clavet_relax", config);
-  integratePipeline = device.createComputePipeline("clavet_integrate", config);
+  integratePipeline =
+      device.createComputePipeline("clavet_integrate", integrateConfig);
 }
 
 void PBFSlime::initializeParticles() {
@@ -135,11 +154,30 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
   simParams.strikeZ = strikeY;
   simParams.strikeForce = lightningOpacity;
 
-  if (!isFirstFrame) {
+  bool firstFrame = isFirstFrame;
+  if (!firstFrame) {
     cmdList.transitionBuffer(particleBuffer.get(),
                              RHI::ResourceState::ShaderResource,
                              RHI::ResourceState::UnorderedAccess);
+    cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                             RHI::ResourceState::IndirectArgument,
+                             RHI::ResourceState::TransferDst);
+    cmdList.transitionBuffer(aliveIndexBuffer.get(),
+                             RHI::ResourceState::ShaderResource,
+                             RHI::ResourceState::UnorderedAccess);
+  } else {
+    cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                             RHI::ResourceState::Undefined,
+                             RHI::ResourceState::TransferDst);
+    cmdList.transitionBuffer(aliveIndexBuffer.get(),
+                             RHI::ResourceState::Undefined,
+                             RHI::ResourceState::UnorderedAccess);
   }
+
+  cmdList.clearBuffer(indirectDrawBuffer.get(), 0);
+  cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                           RHI::ResourceState::TransferDst,
+                           RHI::ResourceState::UnorderedAccess);
 
   uint32_t groupX = (numParticles + 255) / 256;
   if (isFirstFrame) {
@@ -266,12 +304,21 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
 
   cmdList.bindPipeline(*integratePipeline);
   cmdList.bindStorageBuffer(0, particleBuffer.get());
+  cmdList.bindStorageBuffer(4, aliveIndexBuffer.get());
+  cmdList.bindStorageBuffer(5, indirectDrawBuffer.get());
   cmdList.pushConstants(0, sizeof(ParticleSimulationParameters), &simParams,
                         ShaderStage::Compute);
   cmdList.dispatch(groupX, 1, 1);
 
-  cmdList.transitionBuffer(particleBuffer.get(), ResourceState::UnorderedAccess,
-                           ResourceState::ShaderResource);
+  cmdList.transitionBuffer(particleBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess,
+                           RHI::ResourceState::ShaderResource);
+  cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess,
+                           RHI::ResourceState::IndirectArgument);
+  cmdList.transitionBuffer(aliveIndexBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess,
+                           RHI::ResourceState::ShaderResource);
 
   cmdList.endDebugMarker();
 

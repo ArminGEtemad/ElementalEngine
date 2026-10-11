@@ -42,7 +42,10 @@ void SSFRRenderer::createPipelines() {
 
   PipelineConfig config{};
   config.bindings = {
-      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex}};
+      {0, RHI::DescriptorType::StorageBuffer, 1, RHI::ShaderStage::Vertex},
+      {1, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Vertex} // Alive Indices
+  };
   config.pushConstants.size = sizeof(SSFRPushConstants);
   config.pushConstants.offset = 0;
   config.pushConstants.stage = ShaderStage::Vertex | ShaderStage::Fragment;
@@ -181,9 +184,11 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
 
   cmdList.bindPipeline(*depthPipeline);
   cmdList.bindStorageBuffer(0, slimeSim.getParticleBuffer());
+  cmdList.bindStorageBuffer(1, slimeSim.getAliveIndexBuffer());
   cmdList.pushConstants(0, sizeof(SSFRPushConstants), &pc,
                         RHI::ShaderStage::Vertex | RHI::ShaderStage::Fragment);
-  cmdList.draw(6, slimeSim.getParticleCount(), 0, 0);
+  cmdList.drawIndirect(slimeSim.getIndirectDrawBuffer(), 0, 1,
+                       sizeof(RHI::DrawIndirectCommand));
   cmdList.endRendering();
 
   cmdList.endDebugMarker(); // End Depth Pass
@@ -213,9 +218,11 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
 
   cmdList.bindPipeline(*thicknessPipeline);
   cmdList.bindStorageBuffer(0, slimeSim.getParticleBuffer());
+  cmdList.bindStorageBuffer(1, slimeSim.getAliveIndexBuffer());
   cmdList.pushConstants(0, sizeof(SSFRPushConstants), &pc,
                         RHI::ShaderStage::Vertex | RHI::ShaderStage::Fragment);
-  cmdList.draw(6, slimeSim.getParticleCount(), 0, 0);
+  cmdList.drawIndirect(slimeSim.getIndirectDrawBuffer(), 0, 1,
+                       sizeof(RHI::DrawIndirectCommand));
   cmdList.endRendering();
 
   cmdList.endDebugMarker();
@@ -243,7 +250,7 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
     float pad[3];
   } pc;
 
-  pc.filterRadius = 20.0f; // Increase to melt the spheres more!
+  pc.filterRadius = 40.0f; // Increase to melt the spheres more!
   pc.spatialScale = 5.0f;
   pc.depthScale = 0.5f; // Low value preserves sharp depth silhouettes
 
@@ -313,6 +320,7 @@ void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
                                    const float *projMatrix,
                                    const float *lightDir, uint32_t frameIndex) {
 
+  // debug color
   const float colorComp[4] = {0.0f, 0.5f, 1.0f, 1.0f};
   cmdList.beginDebugMarker("SSFR - Composite Shading Pass", colorComp);
 
