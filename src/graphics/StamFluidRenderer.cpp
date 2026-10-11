@@ -20,6 +20,8 @@ void StamFluidRenderer::createRenderingPipeline() {
   config.cullMode = CullMode::None;
 
   config.bindings = {
+      {0, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Fragment}, // Active Chunks Array (t0)
       {1, DescriptorType::SampledImage, 1,
        ShaderStage::Fragment}, // Density (t1)
       {2, DescriptorType::Sampler, 1,
@@ -30,7 +32,7 @@ void StamFluidRenderer::createRenderingPipeline() {
 
   config.pushConstants.size = sizeof(GasRenderConfig);
   config.pushConstants.offset = 0;
-  config.pushConstants.stage = ShaderStage::Fragment;
+  config.pushConstants.stage = ShaderStage::Vertex | ShaderStage::Fragment;
 
   graphicsPipeline = device.createPipeline("grid_vs", "grid_fs", config);
 }
@@ -63,15 +65,15 @@ void StamFluidRenderer::draw(RHI::CommandList &commandList,
   commandList.setViewport(0.0f, 0.0f, static_cast<float>(screenWidth),
                           static_cast<float>(screenHeight));
   commandList.setScissor(0, 0, screenWidth, screenHeight);
-
   commandList.pushConstants(0, sizeof(GasRenderConfig), &renderConfig,
-                            RHI::ShaderStage::Fragment);
+                            RHI::ShaderStage::AllGraphics);
+  commandList.bindStorageBuffer(
+      0, fluidSimulation.getActiveChunkBuffer());                 // VS Buffer
+  commandList.bindTexture(1, fluidSimulation.getRenderTexture()); // FS Density
+  commandList.bindSampler(2);                                     // FS Sampler
+  commandList.bindTexture(3, terrainDepthTexture);                // FS Depth
 
-  commandList.bindTexture(1, fluidSimulation.getRenderTexture());
-  commandList.bindSampler(2);
-  commandList.bindTexture(3, terrainDepthTexture);
-
-  commandList.draw(3, 1, 0, 0); // Fullscreen triangle
+  commandList.draw(3, 1, 0, 0);
 
   commandList.endDebugMarker();
 }

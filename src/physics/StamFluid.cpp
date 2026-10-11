@@ -58,6 +58,12 @@ void StamFluid::createResources() {
                                         RHI::BufferUsage::Storage |
                                             RHI::BufferUsage::TransferDst,
                                         RHI::MemoryProperty::GPULocal);
+
+  uint32_t totalChunks = (gridWidth / 8) * (gridHeight / 8) * (gridDepth / 8);
+
+  activeChunkBuffer = device.createBuffer(
+      totalChunks * 16, RHI::BufferUsage::Storage | RHI::BufferUsage::Vertex,
+      RHI::MemoryProperty::GPULocal);
 }
 
 void StamFluid::createPipeline() {
@@ -101,8 +107,20 @@ void StamFluid::createPipeline() {
   injectConfig.pushConstants.size = sizeof(SimConfig);
   injectConfig.pushConstants.offset = 0;
   injectConfig.pushConstants.stage = RHI::ShaderStage::Compute;
-
   injectPipeline = device.createComputePipeline("stam_inject", injectConfig);
+
+  PipelineConfig cullConfig;
+  cullConfig.bindings = {
+      {0, DescriptorType::SampledImage, 1,
+       ShaderStage::Compute}, // Final Density
+      {1, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute} // Active Chunks
+  };
+  cullConfig.pushConstants.size = sizeof(SimConfig);
+  cullConfig.pushConstants.offset = 0;
+  cullConfig.pushConstants.stage = ShaderStage::Compute;
+
+  cullPipeline = device.createComputePipeline("stam_cull_compute", cullConfig);
 }
 
 void StamFluid::init(RHI::CommandList &setupCmd) {
@@ -300,16 +318,41 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.bindStorageImage(3, velocityStart);
   commandList.dispatch(groupX, groupY, groupZ);
 
-  // Transition densityWrite to Read so the Graphics pipeline can draw it!
+  // Transition densityWrite to Read so the Culling and Graphics pipelines can
+  // read it
   commandList.transitionTexture(densityWrite, ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
   commandList.transitionTexture(velocityStart, ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
 
-  useBufferPingToRead = !useBufferPingToRead;
-  commandList.endDebugMarker();
+  // volume culling
+  const float colorCull[4] = {0.8f, 0.1f, 0.1f, 1.0f};
+  commandList.beginDebugMarker("Stam Fluid Volume Culling", colorCull);
 
-  // Close the Root marker
+  commandList.bindPipeline(*cullPipeline);
+  commandList.bindTexture(0, densityWrite); // Read the density
+  commandList.bindStorageBuffer(1, activeChunkBuffer.get());
+  commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
+                            ShaderStage::Compute);
+
+  uint32_t chunksX = gridWidth / 8;
+  uint32_t chunksY = gridHeight / 8;
+  uint32_t chunksZ = gridDepth / 8;
+  uint32_t cx = (chunksX + 7) / 8;
+  uint32_t cy = (chunksY + 7) / 8;
+  uint32_t cz = (chunksZ + 7) / 8;
+  commandList.dispatch(cx == 0 ? 1 : cx, cy == 0 ? 1 : cy, cz == 0 ? 1 : cz);
+
+  commandList.transitionBuffer(activeChunkBuffer.get(),
+                               RHI::ResourceState::UnorderedAccess,
+                               RHI::ResourceState::ShaderResource);
+
+  commandList.endDebugMarker(); // End Culling Marker
+
+  isFirstFrame = false;
+  useBufferPingToRead = !useBufferPingToRead;
+
+  commandList.endDebugMarker(); // End Gradient Marker
   commandList.endDebugMarker(); // End "Stam Fluid Simulation"
 }
 
