@@ -12,7 +12,10 @@ void FireRenderer::createGraphicPipeline() {
   PipelineConfig config;
 
   config.bindings = {
-      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex}};
+      {0, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Vertex}, // FireParticles
+      {1, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex} // aliveIndices
+  };
   config.pushConstants.size = sizeof(FireRenderParameters);
   config.pushConstants.offset = 0;
   config.pushConstants.stage = ShaderStage::Vertex;
@@ -34,6 +37,7 @@ void FireRenderer::draw(RHI::CommandList &commandList,
                         uint32_t screenWidth, uint32_t screenHeight,
                         const float *viewMatrix, const float *projMatrix) {
 
+  // marker color
   const float colorDraw[4] = {1.0f, 0.65f, 0.15f, 1.0f};
   commandList.beginDebugMarker("Fire Particles Render", colorDraw);
 
@@ -50,12 +54,10 @@ void FireRenderer::draw(RHI::CommandList &commandList,
 
   commandList.pushConstants(0, sizeof(FireRenderParameters), &params,
                             RHI::ShaderStage::Vertex);
-
-  // Bind the fire particle storage buffer from the physics system
   commandList.bindStorageBuffer(0, fireSystem.getParticleBuffer());
-
-  // Draw 6 vertices (1 quad) per fire particle
-  commandList.draw(6, fireSystem.getMaxParticles(), 0, 0);
+  commandList.bindStorageBuffer(1, fireSystem.getAliveIndexBuffer());
+  commandList.drawIndirect(fireSystem.getIndirectDrawBuffer(), 0, 1,
+                           sizeof(RHI::DrawIndirectCommand));
 
   commandList.endDebugMarker();
 }
