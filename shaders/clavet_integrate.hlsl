@@ -4,7 +4,16 @@
 
 #include "clavet_common.hlsli"
 
+struct DrawIndirectCommand {
+  uint vertexCount;
+  uint instanceCount;
+  uint firstVertex;
+  uint firstInstance;
+};
+
 RWStructuredBuffer<Particle> particles : register(u0);
+RWStructuredBuffer<uint> aliveIndices : register(u4);
+RWStructuredBuffer<DrawIndirectCommand> indirectCmd : register(u5);
 
 // Wall friction (0.0 = ice/slip, 1.0 = strict no-slip)
 static const float WALL_FRICTION = 0.2f;
@@ -147,4 +156,15 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   p.predictedPosition.xyz = pos;
 
   particles[id] = p;
+
+  if (p.health > 0.0f) {
+    uint drawIndex = 0;
+    InterlockedAdd(indirectCmd[0].instanceCount, 1, drawIndex);
+
+    aliveIndices[drawIndex] = id;
+
+    indirectCmd[0].vertexCount = 6;
+    indirectCmd[0].firstVertex = 0;
+    indirectCmd[0].firstInstance = 0;
+  }
 }
