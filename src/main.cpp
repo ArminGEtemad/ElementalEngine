@@ -30,8 +30,8 @@ int main() {
   try {
     WindowHandling window{WIDTH, HEIGHT, "Elemental Engine"};
     DeviceConfig config{};
-    config.enableValidationLayers = false;
-    config.enableGPUAssistedValidatioLayer = false;
+    config.enableValidationLayers = true;
+    config.enableGPUAssistedValidationLayer = false;
 
     std::unique_ptr<Device> device(RHIFilter::createDevice(config, window));
     std::unique_ptr<Swapchain> swapchain = device->createSwapchain(window);
@@ -143,27 +143,30 @@ int main() {
       lightningTarget.x = glm::clamp(lightningTarget.x, -10.0f, 10.0f);
       lightningTarget.z = glm::clamp(lightningTarget.z, -10.0f, 10.0f);
 
-      // zapping
-      if (glfwGetKey(rawWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        if (!isSpacePressed) {
-          isSpacePressed = true;
-          lightningRenderer.triggerLightning(lightningTarget.x,
-                                             lightningTarget.z);
-          activeShockForce = 1.0f;
-          std::cout << "Zapping at the coordinates: " << lightningTarget.x
-                    << ", " << lightningTarget.z << "\n";
-        }
-      } else {
-        isSpacePressed = false; // Reset trigger when button is released
-      }
-
       // ====================================================================================
 
       // Update Camera Matrices & GPU Uniform Buffer
       terrainPass.update(window, deltaTime, totalTime, syncFrameIdx);
 
+      if (glfwGetKey(rawWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (!isSpacePressed) {
+          isSpacePressed = true;
+          activeShockForce = 1.0f;
+          std::cout << "Zapping at the coordinates: " << lightningTarget.x
+                    << ", " << lightningTarget.z << "\n";
+        }
+      } else {
+        isSpacePressed = false;
+      }
+
       // record render comnmand
       cmdList->begin();
+
+      if (activeShockForce > 0) {
+        lightningRenderer.triggerLightning(*cmdList, lightningTarget.x,
+                                           lightningTarget.z);
+      }
+
       float fixedDt = 0.008f;
 
       // run physics
@@ -181,6 +184,8 @@ int main() {
           *cmdList, fixedDt, sX, sZ, activeShockForce > 0 ? 800000.0f : 0.0f,
           slimeSim.getParticleBuffer(), slimeSim.getParticleCount());
       activeShockForce = 0.0f;
+
+      terrainPass.cull(*cmdList, syncFrameIdx);
 
       // Transition acquired image to Render Target before drawing
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
