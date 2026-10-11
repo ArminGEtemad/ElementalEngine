@@ -27,6 +27,7 @@ struct PushConstants {
 };
 
 StructuredBuffer<Particle> Particles : register(t0);
+StructuredBuffer<uint> AliveIndices : register(t1);
 [[vk::push_constant]] PushConstants pushConstants;
 
 struct VSOutput {
@@ -38,13 +39,8 @@ struct VSOutput {
 
 VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   VSOutput output;
+  uint realID = AliveIndices[instanceID];
   float health = Particles[instanceID].health;
-
-  // don't draw dead particles anymore
-  if (health <= 0.0f) {
-    output.posClip = float4(0, 0, 0, 0);
-    return output;
-  }
 
   float3 pos3D = Particles[instanceID].position.xyz;
   float scaleX = pushConstants.WorldSizeX / pushConstants.DomainWidth;
