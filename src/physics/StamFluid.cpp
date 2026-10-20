@@ -335,13 +335,7 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
                             ShaderStage::Compute);
 
-  uint32_t chunksX = gridWidth / 8;
-  uint32_t chunksY = gridHeight / 8;
-  uint32_t chunksZ = gridDepth / 8;
-  uint32_t cx = (chunksX + 7) / 8;
-  uint32_t cy = (chunksY + 7) / 8;
-  uint32_t cz = (chunksZ + 7) / 8;
-  commandList.dispatch(cx == 0 ? 1 : cx, cy == 0 ? 1 : cy, cz == 0 ? 1 : cz);
+  commandList.dispatch(groupX, groupY, groupZ);
 
   commandList.transitionBuffer(activeChunkBuffer.get(),
                                RHI::ResourceState::UnorderedAccess,

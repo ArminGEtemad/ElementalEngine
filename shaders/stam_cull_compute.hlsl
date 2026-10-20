@@ -18,35 +18,31 @@ struct SimConfig {
 Texture3D<float> densityTex : register(t0);
 RWStructuredBuffer<uint4> activeChunks : register(u1);
 
-[numthreads(8, 8, 8)] void CSMain(uint3 DTid : SV_DispatchThreadID) {
-  uint chunksX = pushData.gridWidth / 8;
-  uint chunksY = pushData.gridHeight / 8;
-  uint chunksZ = pushData.gridDepth / 8;
+groupshared uint s_hasGas;
 
-  if (DTid.x >= chunksX || DTid.y >= chunksY || DTid.z >= chunksZ)
-    return;
-
-  bool hasGas = false;
-  uint3 startVoxel = DTid * 8;
-
-  // Scan the 8x8x8 area
-  for (uint z = 0; z < 8; ++z) {
-    for (uint y = 0; y < 8; ++y) {
-      for (uint x = 0; x < 8; ++x) {
-        float d = densityTex.Load(int4(startVoxel + uint3(x, y, z), 0));
-        if (d > 0.005f) {
-          hasGas = true;
-          break;
-        }
-      }
-      if (hasGas)
-        break;
-    }
-    if (hasGas)
-      break;
+[numthreads(8, 8, 8)] void CSMain(uint3 DTid : SV_DispatchThreadID,
+                                  uint3 Gid : SV_GroupID,
+                                  uint GI : SV_GroupIndex) {
+  if (GI == 0) {
+    s_hasGas = 0;
   }
 
-  // Calculate the 1D index of this chunk and write to the buffer
-  uint chunkIndex = DTid.x + (DTid.y * chunksX) + (DTid.z * chunksX * chunksY);
-  activeChunks[chunkIndex] = uint4(hasGas ? 1 : 0, 0, 0, 0);
+  GroupMemoryBarrierWithGroupSync();
+
+  if (DTid.x < pushData.gridWidth && DTid.y < pushData.gridHeight &&
+      DTid.z < pushData.gridDepth) {
+    float d = densityTex.Load(int4(DTid, 0));
+    if (d > 0.005f) {
+      InterlockedOr(s_hasGas, 1);
+    }
+  }
+
+  GroupMemoryBarrierWithGroupSync();
+
+  if (GI == 0) {
+    uint chunksX = pushData.gridWidth / 8;
+    uint chunksY = pushData.gridHeight / 8;
+    uint chunkIndex = Gid.x + (Gid.y * chunksX) + (Gid.z * chunksX * chunksY);
+    activeChunks[chunkIndex] = uint4(s_hasGas, 0, 0, 0);
+  }
 }
