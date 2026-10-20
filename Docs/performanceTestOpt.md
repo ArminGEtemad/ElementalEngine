@@ -131,3 +131,11 @@ I moved to GPU driven rendering using indirect drawing as well as compute based 
 
 No Fire Global-memory stall: 46%
 With Fire Global-memory stall: 47%
+
+!! However this version showed a massive problem !! When slime is burnt the stam cull never triggers! Which lead to the massive spike in the frame time. with 82% stall in texture loading. With 546 instructions.
+
+## ElEn Version 1.3.1
+
+In my old shader I had one thread to check out 8 x 8 x 8 = 512 cells by itself to look for gas. When the slime was burnt there was no gas in the scene anymore. So the thread couldn't stop checking earlier and hit `break` and it had to go through all 512 cells. The solution is to have 512 threads and each look into each cell.
+
+After doing so the problem is solved and even when there is no slime left the frame time does not spike! and when all the slime is burnt we can make it over 1000 FPS.

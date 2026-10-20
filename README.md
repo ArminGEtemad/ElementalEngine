@@ -2,7 +2,7 @@
 
 A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scratch in C++20 and **Vulkan 1.3**, featuring gpu-driven indirect rendering, coupled multi-element interactions (gas, viscoelastic fluids, electricity, thermodynamics) and a custom Render Hardware Interface (RHI).
 
-> version 1.3.0
+> version 1.3.1
 
 ## Showcase
 
