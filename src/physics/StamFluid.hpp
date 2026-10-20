@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.hpp"
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include "Pipeline.hpp"
@@ -14,12 +15,10 @@ struct SimConfig {
   uint32_t gridHeight;
   uint32_t gridDepth;
   float dt;
-
   float forceY;
   uint32_t numParticles;
   float domainWidth;
   float domainHeight;
-
   float domainDepth;
   float strikeX;
   float strikeZ;
@@ -41,6 +40,7 @@ public:
   // getters
   SimConfig getSimConfig() const { return simConfig; }
   RHI::Texture *getRenderTexture() const;
+  RHI::Buffer *getActiveChunkBuffer() const { return activeChunkBuffer.get(); }
 
 private:
   RHI::Device &device;
@@ -48,6 +48,7 @@ private:
   uint32_t gridWidth;
   uint32_t gridHeight;
   uint32_t gridDepth;
+  bool isFirstFrame{true};
 
   SimConfig simConfig;
 
@@ -62,6 +63,7 @@ private:
   std::unique_ptr<RHI::Texture> pressurePingTex;
   std::unique_ptr<RHI::Texture> pressurePongTex;
   std::unique_ptr<RHI::Buffer> injectionBuffer;
+  std::unique_ptr<RHI::Buffer> activeChunkBuffer;
 
   // pipelines
   std::unique_ptr<RHI::Pipeline> injectPipeline;
@@ -69,6 +71,7 @@ private:
   std::unique_ptr<RHI::Pipeline> divPipeline;
   std::unique_ptr<RHI::Pipeline> jacobiPipeline;
   std::unique_ptr<RHI::Pipeline> gradPipeline;
+  std::unique_ptr<RHI::Pipeline> cullPipeline;
 
   // create functions
   void createPipeline();

@@ -38,7 +38,6 @@ void TerrainPass::createDepthTarget(uint32_t width, uint32_t height) {
 void TerrainPass::createBuffers() {
   // Generate 64x64 terrain grid covering 20x20 world units
   TerrainMesh terrain = TerrainMesh::generateGrid(64, 64, 20.0f, 20.0f);
-  indexCount = static_cast<uint32_t>(terrain.Indices.size());
 
   size_t vertexBufferSize = terrain.Vertices.size() * sizeof(RHI::Vertex3D);
   vertexBuffer =
@@ -62,9 +61,42 @@ void TerrainPass::createBuffers() {
         sizeof(Core::CameraFrameData), RHI::BufferUsage::Uniform,
         RHI::MemoryProperty::CPUAccess);
   }
+
+  totalChunks = static_cast<uint32_t>(terrain.Chunks.size());
+
+  size_t chunkBufferSize = totalChunks * sizeof(TerrainChunkData);
+  chunkDataBuffer =
+      device.createBuffer(chunkBufferSize, RHI::BufferUsage::Storage,
+                          RHI::MemoryProperty::CPUAccess);
+  void *mappedChunks = chunkDataBuffer->map();
+  std::memcpy(mappedChunks, terrain.Chunks.data(), chunkBufferSize);
+  chunkDataBuffer->unmap();
+
+  for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    indirectDrawBuffers[i] = device.createBuffer(
+        totalChunks * sizeof(RHI::DrawIndexedIndirectCommand),
+        RHI::BufferUsage::Storage | RHI::BufferUsage::Indirect |
+            RHI::BufferUsage::TransferDst,
+        RHI::MemoryProperty::GPULocal);
+  }
 }
 
 void TerrainPass::createPipeline() {
+  RHI::PipelineConfig cullConfig{};
+  cullConfig.bindings = {
+      {0, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Compute}, // chunkData
+      {1, RHI::DescriptorType::UniformBuffer, 1,
+       RHI::ShaderStage::Compute}, // camera UBO
+      {2, RHI::DescriptorType::StorageBuffer, 1,
+       RHI::ShaderStage::Compute} // indirect buffer
+  };
+  cullConfig.pushConstants.size = sizeof(uint32_t); // totalChunks
+  cullConfig.pushConstants.offset = 0;
+  cullConfig.pushConstants.stage = RHI::ShaderStage::Compute;
+  cullPipeline =
+      device.createComputePipeline("terrain_cull_compute", cullConfig);
+
   RHI::PipelineConfig config{};
 
   // Binding 0: StorageBuffer for Vertex Pulling (t type)
@@ -122,6 +154,36 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
   cameraUniformBuffers[frameIndex]->unmap();
 }
 
+void TerrainPass::cull(RHI::CommandList &commandList, uint32_t frameIndex) {
+  commandList.beginDebugMarker("Terrain GPU Culling", nullptr);
+
+  RHI::ResourceState fromState = isFirstFrame[frameIndex]
+                                     ? RHI::ResourceState::Undefined
+                                     : RHI::ResourceState::IndirectArgument;
+  isFirstFrame[frameIndex] = false;
+
+  commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(), fromState,
+                               RHI::ResourceState::UnorderedAccess);
+
+  commandList.bindPipeline(*cullPipeline);
+  commandList.bindStorageBuffer(0, chunkDataBuffer.get());
+  commandList.bindUniformBuffer(1, cameraUniformBuffers[frameIndex].get());
+  commandList.bindStorageBuffer(2, indirectDrawBuffers[frameIndex].get());
+
+  commandList.pushConstants(0, sizeof(uint32_t), &totalChunks,
+                            RHI::ShaderStage::Compute);
+
+  uint32_t groupCount = (totalChunks + 255) / 256;
+  commandList.dispatch(groupCount, 1, 1);
+
+  // Transition to command execution state!
+  commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(),
+                               RHI::ResourceState::UnorderedAccess,
+                               RHI::ResourceState::IndirectArgument);
+
+  commandList.endDebugMarker();
+}
+
 void TerrainPass::render(RHI::CommandList &commandList,
                          RHI::Texture *targetColorTexture, uint32_t width,
                          uint32_t height, uint32_t frameIndex,
@@ -146,9 +208,12 @@ void TerrainPass::render(RHI::CommandList &commandList,
   commandList.pushConstants(0, sizeof(glm::vec4), &pushTarget,
                             RHI::ShaderStage::Fragment);
 
-  // bind index buffer
   commandList.bindIndexBuffer(indexBuffer.get(), RHI::IndexType::Uint32, 0);
-  commandList.drawIndexed(indexCount, 1, 0, 0, 0);
+  for (uint32_t i = 0; i < totalChunks; i++) {
+    commandList.drawIndexedIndirect(indirectDrawBuffers[frameIndex].get(),
+                                    i * sizeof(RHI::DrawIndexedIndirectCommand),
+                                    1, sizeof(RHI::DrawIndexedIndirectCommand));
+  }
 
   commandList.endDebugMarker();
 }

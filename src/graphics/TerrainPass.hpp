@@ -19,6 +19,8 @@ public:
   TerrainPass(RHI::Device &device, RHI::Swapchain &swapchain);
   ~TerrainPass() = default;
 
+  void cull(RHI::CommandList &commandList, uint32_t frameIndex);
+
   // Updates camera matrix transformations
   void update(WindowHandling &window, float deltaTime, float totalTime,
               uint32_t frameIndex);
@@ -33,7 +35,6 @@ public:
   Core::Camera &getCamera() { return camera; }
 
   // getter
-  // this now communicates with Clavet
   RHI::Texture *getDepthTexture(uint32_t frameIndex) const {
     return depthTextures[frameIndex].get();
   }
@@ -43,11 +44,16 @@ private:
   void createBuffers();
   void createPipeline();
 
-  uint32_t indexCount{0};
+  uint32_t totalChunks{0};
 
   RHI::Device &device;
   Core::Camera camera;
 
+  bool isFirstFrame[MAX_FRAMES_IN_FLIGHT]{true, true};
+  std::unique_ptr<RHI::Buffer> chunkDataBuffer;
+  std::array<std::unique_ptr<RHI::Buffer>, MAX_FRAMES_IN_FLIGHT>
+      indirectDrawBuffers;
+  std::unique_ptr<RHI::Pipeline> cullPipeline;
   std::array<std::unique_ptr<RHI::Texture>, MAX_FRAMES_IN_FLIGHT> depthTextures;
   std::unique_ptr<RHI::Buffer> vertexBuffer;
   std::unique_ptr<RHI::Buffer> indexBuffer;

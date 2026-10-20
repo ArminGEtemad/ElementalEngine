@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Texture.hpp"
 #include "Window.hpp"
 #include <cstdint>

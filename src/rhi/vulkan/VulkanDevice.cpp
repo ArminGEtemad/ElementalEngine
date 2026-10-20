@@ -167,7 +167,7 @@ void VulkanDevice::createInstance(const DeviceConfig &config) {
         VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT};
 
-    if (config.enableGPUAssistedValidatioLayer) {
+    if (config.enableGPUAssistedValidationLayer) {
       std::cout << "Vulkan GPU-Based Validation Enabled.\n";
       validationEnables.push_back(
           VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);

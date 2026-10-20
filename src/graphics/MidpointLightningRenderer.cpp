@@ -1,129 +1,89 @@
 #include "MidpointLightningRenderer.hpp"
-#include "Device.hpp"
-#include "Pipeline.hpp"
-#include "RHICommon.hpp"
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <cstring>
-#include <random>
-#include <vector>
 
 namespace elementalEngine::Renderer {
+
+struct StrikeComputeConfig {
+  float displacement;
+  uint32_t maxGenerations;
+  float pad[2];
+};
+
+struct LightningComputeConstants {
+  float startPoint[3];
+  float pad0;
+  float endPoint[3];
+  uint32_t randomSeed;
+  StrikeComputeConfig configs[4];
+};
+
 LightningRenderer::LightningRenderer(RHI::Device &device) : device(device) {
-  // initializing the randomizer
-  std::random_device rd;
-  randomizer.seed(rd());
-  timer = totDuration;
+  timer = 999.0f;
   opacity = 0.0f;
 
-  createLightningPipeline();
+  createBuffers();
+  createPipelines();
 }
 
-void LightningRenderer::generateJaggedPaths(
-    const glm::vec3 &startPoint, const glm::vec3 &endPoint, float displace,
-    int generation, int maxGenerated, float scale,
-    std::vector<Segments> &outSegments) {
-  // when reaching the max stop generating
-  if (generation >= maxGenerated) {
-    Segments seg;
-    seg.p0 = startPoint;
-    seg.p1 = endPoint;
-    seg.scale = scale;
-    seg.pad0 = 0.0f;
-    outSegments.push_back(seg);
-    return;
-  }
+void LightningRenderer::createBuffers() {
+  using namespace RHI;
 
-  // calculate the midpoint of a segment
-  glm::vec3 mid = (startPoint + endPoint) * 0.5f;
+  // 4 strikes * 2048 max segments per strike * 32 bytes per segment
+  uint32_t totalSegments = MAX_STRIKES * MAX_SEGMENTS_PER_STRIKE;
+  segmentsBuffer = device.createBuffer(
+      totalSegments * 32, BufferUsage::Storage | BufferUsage::Vertex,
+      MemoryProperty::GPULocal);
 
-  // the midpoint displacement must be perpendicular to the startPoint -
-  // endPoint vector
-  // first calculate the perpendicular vector
-  glm::vec3 direction = endPoint - startPoint;
-  float lengthSeg = glm::length(direction);
-
-  if (lengthSeg > 1e-5f) {
-    glm::vec3 mainDir = direction / lengthSeg;
-
-    // generate a completely random vector and take the cross product for
-    // perpendicular
-    glm::vec3 randomVec =
-        glm::normalize(glm::vec3(normalDist(randomizer), normalDist(randomizer),
-                                 normalDist(randomizer)));
-
-    // fallback if the random vector happens to be exactly parallel to the
-    // direction
-    if (glm::abs(glm::dot(mainDir, randomVec)) > 0.99f) {
-      randomVec = glm::vec3(1.0f, 0.0f, 0.0f);
-      if (glm::abs(glm::dot(mainDir, randomVec)) > 0.99f) {
-        randomVec = glm::vec3(0.0f, 1.0f, 0.0f);
-      }
-    }
-    glm::vec3 perpendicular = glm::normalize(glm::cross(mainDir, randomVec));
-
-    float midPointOffset = normalDist(randomizer) * displace;
-    mid += perpendicular * midPointOffset;
-  }
-
-  // forking logic and allow branching
-  if (generation == 2 || generation == 3) {
-    float forkRoll = (normalDist(randomizer) + 1.0f) * 0.5f;
-    if (forkRoll < 0.50f) { // 50% chance to fork a sister branch
-      // direction vector
-      glm::vec3 tDir = endPoint - mid;
-      float tLen = glm::length(tDir);
-
-      if (tLen > 1.0f) {
-        glm::vec3 mainDir = tDir / tLen;
-
-        // choosing a random downward angle
-        float angleSign = (normalDist(randomizer) > 0.0f) ? 1.0f : -1.0f;
-        float angle = angleSign *
-                      (20.0f + (normalDist(randomizer) + 1.0f) * 0.5f * 0.25f) *
-                      3.1415f / 180.0f;
-
-        glm::vec3 randomAxis = glm::normalize(
-            glm::vec3(normalDist(randomizer), normalDist(randomizer),
-                      normalDist(randomizer)));
-        if (std::abs(glm::dot(mainDir, randomAxis)) > 0.99f)
-          randomAxis = glm::vec3(1.0f, 0.0f, 0.0f);
-        glm::vec3 rotAxis = glm::normalize(glm::cross(mainDir, randomAxis));
-
-        // rotation matrix
-        float cosAngle = std::cos(angle);
-        float sinAngle = std::sin(angle);
-        glm::vec3 branchDir =
-            mainDir * cosAngle + glm::cross(rotAxis, mainDir) * sinAngle +
-            rotAxis * glm::dot(rotAxis, mainDir) * (1.0f - cosAngle);
-
-        glm::vec3 branchEnd = mid + branchDir * tLen;
-        // Recursively generate segments for the branch (dimmer scale, smaller
-        // displacement)
-        generateJaggedPaths(mid, branchEnd, displace * 0.5f, generation + 1,
-                            maxGenerated, scale * 0.35f, outSegments);
-      }
-    }
-  }
-
-  // Generate main trunk segments recursively
-  generateJaggedPaths(startPoint, mid, displace * 0.5f, generation + 1,
-                      maxGenerated, scale, outSegments);
-  generateJaggedPaths(mid, endPoint, displace * 0.5f, generation + 1,
-                      maxGenerated, scale, outSegments);
+  // Buffer to hold 4 Draw Commands (1 for each strike)
+  indirectDrawBuffer = device.createBuffer(
+      MAX_STRIKES * sizeof(DrawIndirectCommand),
+      BufferUsage::Storage | BufferUsage::Indirect | BufferUsage::TransferDst,
+      MemoryProperty::GPULocal);
 }
 
-void LightningRenderer::triggerLightning(float targetX, float targetZ) {
+void LightningRenderer::createPipelines() {
+  using namespace RHI;
+
+  PipelineConfig compConfig;
+  compConfig.bindings = {
+      {0, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute}, // segmentsBuffer
+      {1, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Compute} // indirectDrawBuffer
+  };
+  compConfig.pushConstants.size = sizeof(LightningComputeConstants);
+  compConfig.pushConstants.offset = 0;
+  compConfig.pushConstants.stage = ShaderStage::Compute;
+
+  computePipeline =
+      device.createComputePipeline("lightning_compute", compConfig);
+
+  PipelineConfig graphConfig;
+  graphConfig.bindings = {
+      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex}};
+  graphConfig.pushConstants.size = sizeof(MidpointLightningParams);
+  graphConfig.pushConstants.offset = 0;
+  graphConfig.pushConstants.stage = ShaderStage::Vertex | ShaderStage::Fragment;
+
+  graphConfig.blendMode = Blendmode::Additive;
+  graphConfig.depthState.depthTestEnable = true;
+  graphConfig.depthState.depthWriteEnable = false;
+  graphConfig.cullMode = CullMode::None;
+  graphConfig.colorFormat = TextureFormat::B8G8R8A8_SRGB;
+  graphConfig.depthFormat = TextureFormat::D32_FLOAT;
+  graphConfig.hasDepthAttachment = true;
+
+  lightningPipeline = device.createPipeline(
+      "midpoint_lightning_vs", "midpoint_lightning_fs", graphConfig);
+}
+
+void LightningRenderer::triggerLightning(RHI::CommandList &cmdList,
+                                         float targetX, float targetZ) {
   strikes.clear();
   timer = 0.0f;
+  totDuration = 0.0f;
 
-  // Hardcoded the roof. TODO make it dynamic later
-  glm::vec3 startPoint = glm::vec3(targetX, 20.0f, targetZ);
-  glm::vec3 endPoint = glm::vec3(targetX, 0.0f, targetZ);
-
-  // helper struct
-  struct StrikeConfig {
+  struct CPUSideStrikeConfig {
     float triggerTime;
     float duration;
     float peakOpacity;
@@ -132,122 +92,118 @@ void LightningRenderer::triggerLightning(float targetX, float targetZ) {
     int maxGenerations;
   };
 
-  std::vector<StrikeConfig> configs = {{0.00f, 0.06f, 0.3f, 0.05f, 1.8f, 8},
-                                       {0.06f, 0.05f, 0.5f, 0.08f, 2.0f, 8},
-                                       {0.11f, 0.07f, 0.5f, 0.08f, 2.0f, 8},
-                                       {0.18f, 0.05f, 1.0f, 0.15f, 1.5f, 6}};
+  std::vector<CPUSideStrikeConfig> strikesConfig = {
+      {0.00f, 0.06f, 0.3f, 0.05f, 1.8f, 8},
+      {0.06f, 0.05f, 0.5f, 0.08f, 2.0f, 8},
+      {0.11f, 0.07f, 0.5f, 0.08f, 2.0f, 8},
+      {0.18f, 0.05f, 1.0f, 0.15f, 1.5f, 6}};
 
-  totDuration = 0.0f;
+  LightningComputeConstants pc{};
+  pc.startPoint[0] = targetX;
+  pc.startPoint[1] = 20.0f;
+  pc.startPoint[2] = targetZ;
+  pc.pad0 = 0.0f;
+  pc.endPoint[0] = targetX;
+  pc.endPoint[1] = 0.0f;
+  pc.endPoint[2] = targetZ;
 
-  for (const auto &config : configs) {
-    LightningStrike strike;
-    strike.triggerTime = config.triggerTime;
-    strike.duration = config.duration;
-    strike.peakOpacity = config.peakOpacity;
-    strike.thickness = config.thickness;
+  seedCounter++;
+  pc.randomSeed = seedCounter * 1337;
 
-    // every strike is unique
-    std::vector<Segments> segments;
-    generateJaggedPaths(startPoint, endPoint, config.displacement, 0,
-                        config.maxGenerations, 1.0f, segments);
-    strike.segmentCount = static_cast<uint32_t>(segments.size());
+  for (size_t i = 0; i < MAX_STRIKES; i++) {
+    LightningStrike s;
+    s.triggerTime = strikesConfig[i].triggerTime;
+    s.duration = strikesConfig[i].duration;
+    s.peakOpacity = strikesConfig[i].peakOpacity;
+    s.thickness = strikesConfig[i].thickness;
+    strikes.push_back(s);
 
-    // Allocate storage buffer and upload vertices
-    size_t bufferSize = segments.size() * sizeof(Segments);
-    strike.strikeBuffer = device.createBuffer(
-        bufferSize, RHI::BufferUsage::Storage, RHI::MemoryProperty::CPUAccess);
-
-    void *mappedData = strike.strikeBuffer->map();
-    std::memcpy(mappedData, segments.data(), bufferSize);
-    strike.strikeBuffer->unmap();
-
-    strikes.push_back(std::move(strike));
-
-    // Keep track of the longest segment to know when the entire animation
-    // finishes
-    float endOfStrike = config.triggerTime + config.duration;
-    if (endOfStrike > totDuration) {
-      totDuration = endOfStrike;
+    if (s.triggerTime + s.duration > totDuration) {
+      totDuration = s.triggerTime + s.duration;
     }
+
+    pc.configs[i].displacement = strikesConfig[i].displacement;
+    pc.configs[i].maxGenerations = strikesConfig[i].maxGenerations;
   }
+  const float colComp[4] = {0.8f, 0.8f, 0.0f, 1.0f};
+  cmdList.beginDebugMarker("Lightning Generate Compute", colComp);
+
+  RHI::ResourceState indirectFrom = isFirstFrame
+                                        ? RHI::ResourceState::Undefined
+                                        : RHI::ResourceState::IndirectArgument;
+  cmdList.transitionBuffer(indirectDrawBuffer.get(), indirectFrom,
+                           RHI::ResourceState::TransferDst);
+  cmdList.clearBuffer(indirectDrawBuffer.get(), 0);
+  cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                           RHI::ResourceState::TransferDst,
+                           RHI::ResourceState::UnorderedAccess);
+
+  RHI::ResourceState segFrom = isFirstFrame
+                                   ? RHI::ResourceState::Undefined
+                                   : RHI::ResourceState::ShaderResource;
+  cmdList.transitionBuffer(segmentsBuffer.get(), segFrom,
+                           RHI::ResourceState::UnorderedAccess);
+
+  isFirstFrame = false;
+
+  cmdList.bindPipeline(*computePipeline);
+  cmdList.bindStorageBuffer(0, segmentsBuffer.get());
+  cmdList.bindStorageBuffer(1, indirectDrawBuffer.get());
+
+  cmdList.pushConstants(0, sizeof(LightningComputeConstants), &pc,
+                        RHI::ShaderStage::Compute);
+
+  // 1 thread group with 4 threads. 1 thread for each strike
+  cmdList.dispatch(1, 1, 1);
+
+  // Transition to ShaderResource & IndirectArgument for the Graphics pass
+  cmdList.transitionBuffer(segmentsBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess,
+                           RHI::ResourceState::ShaderResource);
+  cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess,
+                           RHI::ResourceState::IndirectArgument);
+
+  cmdList.endDebugMarker();
 }
 
 void LightningRenderer::update(float dt) {
   if (timer < totDuration) {
     timer += dt;
-    float t = timer;
-
-    // Reset default opacity
     opacity = 0.0f;
 
-    // Check which strike in our collection is currently active on the
-    // timeline
     for (const auto &strike : strikes) {
-      if (t >= strike.triggerTime && t < strike.triggerTime + strike.duration) {
-        float strikeAge = t - strike.triggerTime;
-        float progress = strikeAge / strike.duration;
-
-        //  fast rise, linear decay
-        if (progress < 0.20f) {
-          opacity = (progress / 0.20f) * strike.peakOpacity;
-        } else {
-          opacity = (1.0f - (progress - 0.20f) / 0.80f) * strike.peakOpacity;
-        }
+      if (timer >= strike.triggerTime &&
+          timer < strike.triggerTime + strike.duration) {
+        float progress = (timer - strike.triggerTime) / strike.duration;
+        opacity = (progress < 0.20f) ? (progress / 0.20f) * strike.peakOpacity
+                                     : (1.0f - (progress - 0.20f) / 0.80f) *
+                                           strike.peakOpacity;
         break;
       }
     }
   } else {
     opacity = 0.0f;
-    timer = totDuration;
-    // Free GPU buffers once the sequence completes
-    strikes.clear();
+    timer = 999.0f;
   }
 }
 
-void LightningRenderer::createLightningPipeline() {
-  using namespace RHI;
-
-  PipelineConfig config;
-  config.bindings = {
-      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex}};
-
-  config.pushConstants.size = sizeof(MidpointLightningParams);
-  config.pushConstants.offset = 0;
-  config.pushConstants.stage = ShaderStage::Vertex | ShaderStage::Fragment;
-
-  // We want standard additive blending so our glowing lightning arcs
-  // brighten the background scene cleanly
-  config.blendMode = Blendmode::Additive;
-  config.depthState.depthTestEnable = true;
-  config.depthState.depthWriteEnable = false;
-  config.cullMode = CullMode::None;
-  config.colorFormat = TextureFormat::B8G8R8A8_SRGB;
-  config.depthFormat = TextureFormat::D32_FLOAT;
-  config.hasDepthAttachment = true;
-
-  lightningPipeline = device.createPipeline("midpoint_lightning_vs",
-                                            "midpoint_lightning_fs", config);
-}
-
-void LightningRenderer::draw(RHI::CommandList &commandList,
+void LightningRenderer::draw(RHI::CommandList &cmdList,
                              const float *viewProjMatrix,
                              const glm::vec3 &cameraPos) {
-
-  const float colorLightning[4] = {0.45f, 0.85f, 1.0f, 1.0f}; // Electric Cyan
-  commandList.beginDebugMarker("Lightning Strike Render", colorLightning);
-
-  if (opacity <= 0.0f || strikes.empty()) {
+  if (opacity <= 0.0f || strikes.empty())
     return;
-  }
 
-  // Iterate over our database to find and draw the currently active strike
-  for (const auto &strike : strikes) {
+  // marker color
+  const float colorLightning[4] = {0.45f, 0.85f, 1.0f, 1.0f};
+  cmdList.beginDebugMarker("Lightning Strike Render", colorLightning);
+
+  cmdList.bindPipeline(*lightningPipeline);
+
+  for (size_t i = 0; i < strikes.size(); i++) {
+    const auto &strike = strikes[i];
     if (timer >= strike.triggerTime &&
         timer < strike.triggerTime + strike.duration) {
-      if (strike.segmentCount == 0)
-        continue;
-
-      commandList.bindPipeline(*lightningPipeline);
 
       MidpointLightningParams params{};
       std::memcpy(params.viewProj, viewProjMatrix, sizeof(float) * 16);
@@ -258,17 +214,19 @@ void LightningRenderer::draw(RHI::CommandList &commandList,
       params.opacity = opacity;
       params.thickness = strike.thickness;
 
-      commandList.pushConstants(0, sizeof(MidpointLightningParams), &params,
-                                RHI::ShaderStage::AllGraphics);
-      commandList.bindStorageBuffer(0, strike.strikeBuffer.get());
+      cmdList.pushConstants(0, sizeof(MidpointLightningParams), &params,
+                            RHI::ShaderStage::AllGraphics);
 
-      uint32_t vertexCount = strike.segmentCount * 6;
-      commandList.draw(vertexCount, 1, 0, 0);
-      break; // Only draw the active strike, then exit
+      cmdList.bindStorageBuffer(0, segmentsBuffer.get());
+
+      size_t indirectOffset = i * sizeof(RHI::DrawIndirectCommand);
+      cmdList.drawIndirect(indirectDrawBuffer.get(), indirectOffset, 1,
+                           sizeof(RHI::DrawIndirectCommand));
+
+      break;
     }
   }
-
-  commandList.endDebugMarker();
+  cmdList.endDebugMarker();
 }
 
 } // namespace elementalEngine::Renderer

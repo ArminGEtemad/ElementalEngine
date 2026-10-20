@@ -1,9 +1,12 @@
 #pragma once
 
+#include "Buffer.hpp"
 #include "CommandList.hpp"
 #include "Pipeline.hpp"
 #include "Texture.hpp"
 #include "VulkanDevice.hpp"
+#include <cstddef>
+#include <cstdint>
 
 namespace elementalEngine::RHI {
 class VulkanCommandList : public CommandList {
@@ -49,8 +52,11 @@ public:
   void drawIndexed(uint32_t indexCount, uint32_t instanceCount,
                    uint32_t firstIndex, int32_t vertexOffset,
                    uint32_t firstInstance) override;
+  void drawIndirect(Buffer *buffer, size_t offset, uint32_t drawCount,
+                    uint32_t stride) override;
+  void drawIndexedIndirect(Buffer *buffer, size_t offset, uint32_t drawCount,
+                           uint32_t stride) override;
 
-  // profiling tool helper functions
   void beginDebugMarker(const char *name,
                         const float color[4] = nullptr) override;
   void endDebugMarker() override;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.hpp"
 #include "Device.hpp"
 #include <cstdint>
 #include <memory>
@@ -11,12 +12,10 @@ struct Particle {
   float position[4];          // 4's state is just padding
   float velocity[4];          // 4's state is just padding
   float predictedPosition[4]; //  4's state is just padding
-
   float density;
   float nearDensity;
   float pressure;
   float nearPressure;
-
   float health;
   float pad[3];
 };
@@ -26,28 +25,22 @@ struct ParticleSimulationParameters {
   uint32_t numParticles;
   float interactionRadius;  // h
   float interactionRadius2; // h^2
-
-  float restDensity;     // rho0
-  float stiffness;       // k
-  float nearStiffness;   // k^near
-  float linearViscosity; // sigma
-
+  float restDensity;        // rho0
+  float stiffness;          // k
+  float nearStiffness;      // k^near
+  float linearViscosity;    // sigma
   float quadraticViscosity; // beta
   float springStiffness;    // k^spring
   float plasticity;         // alpha
   float yieldRatio;         // gamma
-
   float sticknessRadius;
   float sticknessMultiplier; // mu
   float cellSpacing;
   uint32_t hashGridSize;
-
-  // I used these parameters in my 2D versions so for now I keep them
   float domainWidth = 2000.0f;
   float domainDepth = 2000.0f;
   float domainHeight = 2000.0f;
   float strikeX;
-
   float strikeZ;
   float strikeForce;
   float pad[2];
@@ -69,21 +62,22 @@ public:
 
   RHI::Buffer *getParticleBuffer() const { return particleBuffer.get(); }
   uint32_t getParticleCount() const { return numParticles; }
+  RHI::Buffer *getAliveIndexBuffer() const { return aliveIndexBuffer.get(); }
+  RHI::Buffer *getIndirectDrawBuffer() const {
+    return indirectDrawBuffer.get();
+  }
 
 private:
   RHI::Device &device;
   uint32_t numParticles;
   ParticleSimulationParameters simParams;
-  bool isFirstFrame = true;
-
-  // resources
+  bool isFirstFrame{true};
+  std::unique_ptr<RHI::Buffer> aliveIndexBuffer;
+  std::unique_ptr<RHI::Buffer> indirectDrawBuffer;
   std::unique_ptr<RHI::Buffer> particleBuffer;
-  // Spatial Hashing Linked-List Buffers
   std::unique_ptr<RHI::Buffer> gridHeadBuffer; // 1 uint per cell
   std::unique_ptr<RHI::Buffer> gridNextBuffer; // 1 uint per particle
   std::unique_ptr<RHI::Buffer> springBuffer;
-
-  // compute pipelines
   std::unique_ptr<RHI::Pipeline> clearGridPipeline;
   std::unique_ptr<RHI::Pipeline> buildGridPipeline;
   std::unique_ptr<RHI::Pipeline> predictionPipeline;
@@ -93,12 +87,9 @@ private:
   std::unique_ptr<RHI::Pipeline> relaxPipeline;
   std::unique_ptr<RHI::Pipeline> integratePipeline;
 
-  // create functions
   void createPipelines();
   void createRenderPipeline();
   void createResources();
-  // for the slime it is ok to do on CPU but if I add massive amount of water
-  // moving it to GPU
-  void initializeParticles(); // cpu initialization (TODO move to GPU)
+  void initializeParticles();
 };
 } // namespace elementalEngine::Physics

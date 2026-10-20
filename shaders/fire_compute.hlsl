@@ -1,9 +1,15 @@
 static const uint THREAD_GROUP_SIZE = 256;
 
+struct DrawIndirectCommand {
+  uint vertexCount;
+  uint instanceCount;
+  uint firstVertex;
+  uint firstInstance;
+};
+
 struct FireParticles {
   float4 position;
   float4 velocity;
-
   float life;
   float maxLife;
   float temperature; // core 1.0, 0.0 cold (should I transition to smoke?)
@@ -14,12 +20,10 @@ struct SlimeParticle {
   float4 position;
   float4 velocity;
   float4 predictedPosition;
-
   float density;
   float nearDensity;
   float pressure;
   float nearPressure;
-
   float health;
   float3 pad;
 };
@@ -29,12 +33,10 @@ struct FireSimParameters {
   uint numParticles;
   float buoyancy; // upward thermal lift
   float drag;     // damping factor
-
   float coolingRate;
   float expansionRate; // hotgas expands particle radius
   float emitterX;      // X position for respawning in GPU
   float emitterY;      // Y position for respawning in GPU
-
   float emitterZ;
   uint isBurning;
   uint slimeParticleCount;
@@ -45,6 +47,8 @@ struct FireSimParameters {
 
 RWStructuredBuffer<FireParticles> particles : register(u0);
 StructuredBuffer<SlimeParticle> slimeParticles : register(t1);
+RWStructuredBuffer<uint> aliveIndices : register(u2);
+RWStructuredBuffer<DrawIndirectCommand> indirectCmd : register(u3);
 
 // shader toy  David Hoskins  Hash without Sine
 float hash11(float p1) {
@@ -168,4 +172,21 @@ CSMain(uint3 DTid : SV_DispatchThreadID) {
   p.position.xyz += p.velocity.xyz * particleParams.dt;
 
   particles[id] = p;
+
+  if (p.life > 0.0f) {
+    uint drawIndex = 0;
+
+    // Atomically increment the instanceCount!
+    // InterlockedAdd returns the original value before the addition into
+    // 'drawIndex'
+    InterlockedAdd(indirectCmd[0].instanceCount, 1, drawIndex);
+
+    // Store this particle's global ID into the dense array at the atomic index
+    aliveIndices[drawIndex] = id;
+
+    // Make sure the vertexCount is always 6 (1 quad per particle)
+    indirectCmd[0].vertexCount = 6;
+    indirectCmd[0].firstVertex = 0;
+    indirectCmd[0].firstInstance = 0;
+  }
 }

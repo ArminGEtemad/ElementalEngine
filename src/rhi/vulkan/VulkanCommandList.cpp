@@ -296,20 +296,16 @@ void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,
         (from == ResourceState::Undefined) ? 0 : VK_ACCESS_2_SHADER_READ_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-  }
-  // RenderTarget -> Present (Swapchain Backbuffer presentation)
-  else if (from == ResourceState::RenderTarget &&
-           to == ResourceState::Present) {
+  } else if (from == ResourceState::RenderTarget &&
+             to == ResourceState::Present) {
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
     barrier.dstAccessMask = 0;
-  }
-  // RenderTarget -> ShaderResource (Sampling offscreen RT in next pass)
-  else if (from == ResourceState::RenderTarget &&
-           to == ResourceState::ShaderResource) {
+  } else if (from == ResourceState::RenderTarget &&
+             to == ResourceState::ShaderResource) {
     barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -317,10 +313,8 @@ void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-  }
-  // Undefined -> DepthStencilWrite
-  else if (from == ResourceState::Undefined &&
-           to == ResourceState::DepthStencilWrite) {
+  } else if (from == ResourceState::Undefined &&
+             to == ResourceState::DepthStencilWrite) {
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
@@ -328,10 +322,8 @@ void VulkanCommandList::transitionTexture(Texture *texture, ResourceState from,
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-  }
-  // Compute / UAV transitions
-  else if (from == ResourceState::Undefined &&
-           to == ResourceState::UnorderedAccess) {
+  } else if (from == ResourceState::Undefined &&
+             to == ResourceState::UnorderedAccess) {
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
@@ -391,7 +383,8 @@ void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
       to == ResourceState::ShaderResource) {
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT |
+                           VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
   } else if (from == ResourceState::ShaderResource &&
@@ -401,13 +394,11 @@ void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    // compute to compute barrier
   } else if (from == ResourceState::UnorderedAccess &&
              to == ResourceState::UnorderedAccess) {
     barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    // We need to wait for writes to finish before we Read OR Write again
     barrier.dstAccessMask =
         VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
   } else if (from == ResourceState::TransferDst &&
@@ -432,6 +423,37 @@ void VulkanCommandList::transitionBuffer(Buffer *buffer, ResourceState from,
     barrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
     barrier.dstStageMask = VK_PIPELINE_STAGE_2_CLEAR_BIT;
     barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+  } else if (from == ResourceState::UnorderedAccess &&
+             to == ResourceState::IndirectArgument) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+  } else if (from == ResourceState::IndirectArgument &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    barrier.srcAccessMask = 0;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+  } else if (from == ResourceState::IndirectArgument &&
+             to == ResourceState::TransferDst) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_CLEAR_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+  } else if (from == ResourceState::Undefined &&
+             to == ResourceState::TransferDst) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    barrier.srcAccessMask = 0;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_CLEAR_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+  } else if (from == ResourceState::Undefined &&
+             to == ResourceState::UnorderedAccess) {
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    barrier.srcAccessMask = 0;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    barrier.dstAccessMask =
+        VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT;
   }
 
   VkDependencyInfo depInfo{};
@@ -555,6 +577,21 @@ void VulkanCommandList::clearBuffer(Buffer *buffer, uint32_t value) {
   auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
   vkCmdFillBuffer(commandBuffer, vkBuffer->getVkBuffer(), 0, VK_WHOLE_SIZE,
                   value);
+}
+
+void VulkanCommandList::drawIndirect(Buffer *buffer, size_t offset,
+                                     uint32_t drawCount, uint32_t stride) {
+  auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
+  vkCmdDrawIndirect(commandBuffer, vkBuffer->getVkBuffer(), offset, drawCount,
+                    stride);
+};
+
+void VulkanCommandList::drawIndexedIndirect(Buffer *buffer, size_t offset,
+                                            uint32_t drawCount,
+                                            uint32_t stride) {
+  auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);
+  vkCmdDrawIndexedIndirect(commandBuffer, vkBuffer->getVkBuffer(), offset,
+                           drawCount, stride);
 }
 
 void VulkanCommandList::beginDebugMarker(const char *name,
