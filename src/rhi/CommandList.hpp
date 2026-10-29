@@ -50,10 +50,8 @@ public:
   // clearing and transitioning resouce states to prevent race conditions-
   // the ResourceState can be found in the rhicommon.
   virtual void clearBuffer(Buffer *buffer, uint32_t value) = 0;
-  virtual void transitionBuffer(Buffer *buffer, ResourceState from,
-                                ResourceState to) = 0;
-  virtual void transitionTexture(Texture *texture, ResourceState from,
-                                 ResourceState to) = 0;
+  virtual void transitionBuffer(Buffer *buffer, ResourceState to) = 0;
+  virtual void transitionTexture(Texture *texture, ResourceState to) = 0;
 
   // binding functions
   // the bind pipeline function is unified. graphics and compute both use the

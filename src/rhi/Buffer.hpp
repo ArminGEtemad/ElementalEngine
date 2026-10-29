@@ -23,7 +23,11 @@ public:
   virtual BufferUsage getBufferUsage() const = 0;
   virtual MemoryProperty getMemoryProperty() const = 0;
 
+  ResourceState getState() const { return state; }
+  void setState(ResourceState newState) { state = newState; }
+
 protected:
   Buffer() = default;
+  ResourceState state{ResourceState::Undefined};
 };
 } // namespace elementalEngine::RHI
