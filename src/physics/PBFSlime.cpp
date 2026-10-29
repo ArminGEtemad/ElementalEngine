@@ -154,39 +154,23 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
   simParams.strikeZ = strikeY;
   simParams.strikeForce = lightningOpacity;
 
-  bool firstFrame = isFirstFrame;
-  if (!firstFrame) {
-    cmdList.transitionBuffer(particleBuffer.get(),
-                             RHI::ResourceState::ShaderResource,
-                             RHI::ResourceState::UnorderedAccess);
-    cmdList.transitionBuffer(indirectDrawBuffer.get(),
-                             RHI::ResourceState::IndirectArgument,
-                             RHI::ResourceState::TransferDst);
-    cmdList.transitionBuffer(aliveIndexBuffer.get(),
-                             RHI::ResourceState::ShaderResource,
-                             RHI::ResourceState::UnorderedAccess);
-  } else {
-    cmdList.transitionBuffer(indirectDrawBuffer.get(),
-                             RHI::ResourceState::Undefined,
-                             RHI::ResourceState::TransferDst);
-    cmdList.transitionBuffer(aliveIndexBuffer.get(),
-                             RHI::ResourceState::Undefined,
-                             RHI::ResourceState::UnorderedAccess);
-  }
-
+  cmdList.transitionBuffer(particleBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess);
+  cmdList.transitionBuffer(indirectDrawBuffer.get(),
+                           RHI::ResourceState::TransferDst);
   cmdList.clearBuffer(indirectDrawBuffer.get(), 0);
   cmdList.transitionBuffer(indirectDrawBuffer.get(),
-                           RHI::ResourceState::TransferDst,
+                           RHI::ResourceState::UnorderedAccess);
+  cmdList.transitionBuffer(aliveIndexBuffer.get(),
+                           RHI::ResourceState::UnorderedAccess);
+  cmdList.transitionBuffer(gridNextBuffer.get(),
                            RHI::ResourceState::UnorderedAccess);
 
   uint32_t groupX = (numParticles + 255) / 256;
   if (isFirstFrame) {
-    cmdList.transitionBuffer(springBuffer.get(), ResourceState::UnorderedAccess,
-                             ResourceState::TransferDst);
-
+    cmdList.transitionBuffer(springBuffer.get(), ResourceState::TransferDst);
     cmdList.clearBuffer(springBuffer.get(), 0xFFFFFFFF);
-
-    cmdList.transitionBuffer(springBuffer.get(), ResourceState::TransferDst,
+    cmdList.transitionBuffer(springBuffer.get(),
                              ResourceState::UnorderedAccess);
     isFirstFrame = false;
   }
@@ -203,15 +187,12 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
 
   auto computeBarrier = [&]() {
     cmdList.transitionBuffer(particleBuffer.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::UnorderedAccess);
     cmdList.transitionBuffer(gridHeadBuffer.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::UnorderedAccess);
     cmdList.transitionBuffer(gridNextBuffer.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::UnorderedAccess);
-    cmdList.transitionBuffer(springBuffer.get(), ResourceState::UnorderedAccess,
+    cmdList.transitionBuffer(springBuffer.get(),
                              ResourceState::UnorderedAccess);
   };
 
@@ -219,10 +200,9 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
   const float colorGrid[4] = {0.3f, 0.7f, 0.45f, 1.0f};
   cmdList.beginDebugMarker("PBF - Construct Initial Grid", colorGrid);
 
-  cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::UnorderedAccess,
-                           ResourceState::TransferDst);
+  cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::TransferDst);
   cmdList.clearBuffer(gridHeadBuffer.get(), 0xFFFFFFFF);
-  cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::TransferDst,
+  cmdList.transitionBuffer(gridHeadBuffer.get(),
                            ResourceState::UnorderedAccess);
   cmdList.bindPipeline(*buildGridPipeline);
   bindPBFResources();
@@ -247,10 +227,9 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
   cmdList.beginDebugMarker("PBF - Construct Predicted Grid & Viscosity",
                            colorPredGrid);
 
-  cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::UnorderedAccess,
-                           ResourceState::TransferDst);
+  cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::TransferDst);
   cmdList.clearBuffer(gridHeadBuffer.get(), 0xFFFFFFFF);
-  cmdList.transitionBuffer(gridHeadBuffer.get(), ResourceState::TransferDst,
+  cmdList.transitionBuffer(gridHeadBuffer.get(),
                            ResourceState::UnorderedAccess);
 
   cmdList.bindPipeline(*buildGridPredictedPipeline);
@@ -311,13 +290,10 @@ void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,
   cmdList.dispatch(groupX, 1, 1);
 
   cmdList.transitionBuffer(particleBuffer.get(),
-                           RHI::ResourceState::UnorderedAccess,
                            RHI::ResourceState::ShaderResource);
   cmdList.transitionBuffer(indirectDrawBuffer.get(),
-                           RHI::ResourceState::UnorderedAccess,
                            RHI::ResourceState::IndirectArgument);
   cmdList.transitionBuffer(aliveIndexBuffer.get(),
-                           RHI::ResourceState::UnorderedAccess,
                            RHI::ResourceState::ShaderResource);
 
   cmdList.endDebugMarker();

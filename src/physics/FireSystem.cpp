@@ -95,23 +95,16 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
 
   if (slimeBuffer) {
     commandList.transitionBuffer(slimeBuffer,
-                                 RHI::ResourceState::UnorderedAccess,
                                  RHI::ResourceState::ShaderResource);
   }
-  RHI::ResourceState indirectFrom = isFirstFrame
-                                        ? RHI::ResourceState::Undefined
-                                        : RHI::ResourceState::IndirectArgument;
-  commandList.transitionBuffer(indirectDrawBuffer.get(), indirectFrom,
-                               RHI::ResourceState::TransferDst);
-  RHI::ResourceState aliveFrom = isFirstFrame
-                                     ? RHI::ResourceState::Undefined
-                                     : RHI::ResourceState::ShaderResource;
-  commandList.transitionBuffer(aliveIndexBuffer.get(), aliveFrom,
+  commandList.transitionBuffer(particleBuffer.get(),
                                RHI::ResourceState::UnorderedAccess);
-  isFirstFrame = false;
+  commandList.transitionBuffer(indirectDrawBuffer.get(),
+                               RHI::ResourceState::TransferDst);
   commandList.clearBuffer(indirectDrawBuffer.get(), 0);
   commandList.transitionBuffer(indirectDrawBuffer.get(),
-                               RHI::ResourceState::TransferDst,
+                               RHI::ResourceState::UnorderedAccess);
+  commandList.transitionBuffer(aliveIndexBuffer.get(),
                                RHI::ResourceState::UnorderedAccess);
 
   simParams.dt = dt;
@@ -138,20 +131,11 @@ void FireSystem::simulate(RHI::CommandList &commandList, float dt,
   commandList.dispatch(groupX, 1, 1);
 
   commandList.transitionBuffer(particleBuffer.get(),
-                               RHI::ResourceState::UnorderedAccess,
-                               RHI::ResourceState::UnorderedAccess);
+                               RHI::ResourceState::ShaderResource);
   commandList.transitionBuffer(indirectDrawBuffer.get(),
-                               RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::IndirectArgument);
   commandList.transitionBuffer(aliveIndexBuffer.get(),
-                               RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::ShaderResource);
-
-  if (slimeBuffer) {
-    commandList.transitionBuffer(slimeBuffer,
-                                 RHI::ResourceState::ShaderResource,
-                                 RHI::ResourceState::UnorderedAccess);
-  }
 
   commandList.endDebugMarker();
 }
