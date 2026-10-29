@@ -48,7 +48,6 @@ private:
   uint32_t gridWidth;
   uint32_t gridHeight;
   uint32_t gridDepth;
-  bool isFirstFrame{true};
 
   SimConfig simConfig;
 

@@ -66,7 +66,6 @@ private:
   float totDuration{0.0f};
   float timer{999.0f};
   uint32_t seedCounter{0};
-  bool isFirstFrame{true};
 
   void createPipelines();
   void createBuffers();

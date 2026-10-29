@@ -72,7 +72,6 @@ private:
   float emitterX{0.0f};
   float emitterY{0.0f};
   float emitterZ{0.0f};
-  bool isFirstFrame{true};
 
   std::unique_ptr<RHI::Buffer> particleBuffer;
   std::unique_ptr<RHI::Pipeline> simulatePipeline;
