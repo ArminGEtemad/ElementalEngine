@@ -22,10 +22,8 @@ public:
 
   void clearBuffer(Buffer *buffer, uint32_t value) override;
 
-  void transitionBuffer(Buffer *buffer, ResourceState from,
-                        ResourceState to) override;
-  void transitionTexture(Texture *texture, ResourceState from,
-                         ResourceState to) override;
+  void transitionBuffer(Buffer *buffer, ResourceState to) override;
+  void transitionTexture(Texture *texture, ResourceState to) override;
 
   void bindTexture(uint32_t bindingSlot, Texture *texture) override;
   void bindStorageImage(uint32_t bindingSlot, Texture *texture) override;
