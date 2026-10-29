@@ -157,12 +157,7 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
 void TerrainPass::cull(RHI::CommandList &commandList, uint32_t frameIndex) {
   commandList.beginDebugMarker("Terrain GPU Culling", nullptr);
 
-  RHI::ResourceState fromState = isFirstFrame[frameIndex]
-                                     ? RHI::ResourceState::Undefined
-                                     : RHI::ResourceState::IndirectArgument;
-  isFirstFrame[frameIndex] = false;
-
-  commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(), fromState,
+  commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(),
                                RHI::ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*cullPipeline);
@@ -178,7 +173,6 @@ void TerrainPass::cull(RHI::CommandList &commandList, uint32_t frameIndex) {
 
   // Transition to command execution state!
   commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(),
-                               RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::IndirectArgument);
 
   commandList.endDebugMarker();
