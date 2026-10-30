@@ -128,23 +128,13 @@ void LightningRenderer::triggerLightning(RHI::CommandList &cmdList,
   const float colComp[4] = {0.8f, 0.8f, 0.0f, 1.0f};
   cmdList.beginDebugMarker("Lightning Generate Compute", colComp);
 
-  RHI::ResourceState indirectFrom = isFirstFrame
-                                        ? RHI::ResourceState::Undefined
-                                        : RHI::ResourceState::IndirectArgument;
-  cmdList.transitionBuffer(indirectDrawBuffer.get(), indirectFrom,
+  cmdList.transitionBuffer(indirectDrawBuffer.get(),
                            RHI::ResourceState::TransferDst);
   cmdList.clearBuffer(indirectDrawBuffer.get(), 0);
   cmdList.transitionBuffer(indirectDrawBuffer.get(),
-                           RHI::ResourceState::TransferDst,
                            RHI::ResourceState::UnorderedAccess);
-
-  RHI::ResourceState segFrom = isFirstFrame
-                                   ? RHI::ResourceState::Undefined
-                                   : RHI::ResourceState::ShaderResource;
-  cmdList.transitionBuffer(segmentsBuffer.get(), segFrom,
+  cmdList.transitionBuffer(segmentsBuffer.get(),
                            RHI::ResourceState::UnorderedAccess);
-
-  isFirstFrame = false;
 
   cmdList.bindPipeline(*computePipeline);
   cmdList.bindStorageBuffer(0, segmentsBuffer.get());
@@ -158,10 +148,8 @@ void LightningRenderer::triggerLightning(RHI::CommandList &cmdList,
 
   // Transition to ShaderResource & IndirectArgument for the Graphics pass
   cmdList.transitionBuffer(segmentsBuffer.get(),
-                           RHI::ResourceState::UnorderedAccess,
                            RHI::ResourceState::ShaderResource);
   cmdList.transitionBuffer(indirectDrawBuffer.get(),
-                           RHI::ResourceState::UnorderedAccess,
                            RHI::ResourceState::IndirectArgument);
 
   cmdList.endDebugMarker();

@@ -7,8 +7,8 @@ namespace elementalEngine::RHI {
 VulkanTexture::VulkanTexture(VulkanDevice &device, uint32_t width,
                              uint32_t height, TextureFormat format,
                              TextureUsage usage, uint32_t depth)
-    : device(device), width(width), height(height), format(format),
-      usage(usage) {
+    : device(device), width(width), height(height), depth(depth),
+      format(format), usage(usage) {
 
   vkFormat = mapFormat(format);
   VkImageUsageFlags vkUsage = mapUsage(usage);
@@ -71,8 +71,9 @@ VulkanTexture::VulkanTexture(VulkanDevice &device, VkImage image,
                              VkImageView imageView, uint32_t width,
                              uint32_t height, TextureFormat format,
                              TextureUsage usage, uint32_t depth)
-    : device(device), width(width), height(height), format(format),
-      usage(usage), image(image), imageView(imageView), ownsResources(false) {
+    : device(device), width(width), height(height), depth(depth),
+      format(format), usage(usage), image(image), imageView(imageView),
+      ownsResources(false) {
   vkFormat = mapFormat(format);
 }
 
@@ -126,7 +127,7 @@ TextureFormat VulkanTexture::reverseMapFormat(VkFormat format) {
   case VK_FORMAT_R16G16_SFLOAT:
     return TextureFormat::R16G16_FLOAT;
   case VK_FORMAT_R32G32_SFLOAT:
-    return TextureFormat::R32G32_FLOAT;
+    return TextureFormat::R32_FLOAT;
   case VK_FORMAT_R32G32B32A32_SFLOAT:
     return TextureFormat::R32G32B32A32_FLOAT;
   case VK_FORMAT_D32_SFLOAT:

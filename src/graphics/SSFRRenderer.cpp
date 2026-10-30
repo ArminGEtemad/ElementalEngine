@@ -139,14 +139,17 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   cmdList.beginDebugMarker("SSFR - GBuffer Generation", colorGBuffer);
 
   cmdList.transitionTexture(fluidDepthTextures[frameIndex].get(),
-                            RHI::ResourceState::Undefined,
                             RHI::ResourceState::RenderTarget);
   cmdList.transitionTexture(fluidThicknessTextures[frameIndex].get(),
-                            RHI::ResourceState::Undefined,
                             RHI::ResourceState::RenderTarget);
   cmdList.transitionTexture(internalDepthBuffers[frameIndex].get(),
-                            RHI::ResourceState::Undefined,
                             RHI::ResourceState::DepthStencilWrite);
+  cmdList.transitionBuffer(slimeSim.getParticleBuffer(),
+                           RHI::ResourceState::ShaderResource);
+  cmdList.transitionBuffer(slimeSim.getAliveIndexBuffer(),
+                           RHI::ResourceState::ShaderResource);
+  cmdList.transitionBuffer(slimeSim.getIndirectDrawBuffer(),
+                           RHI::ResourceState::IndirectArgument);
 
   SSFRPushConstants pc{};
   std::memcpy(pc.viewMatrix, viewMatrix, sizeof(float) * 16);
@@ -229,10 +232,8 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
 
   // Transition to ShaderResource for the next bluring
   cmdList.transitionTexture(fluidDepthTextures[frameIndex].get(),
-                            RHI::ResourceState::RenderTarget,
                             RHI::ResourceState::ShaderResource);
   cmdList.transitionTexture(fluidThicknessTextures[frameIndex].get(),
-                            RHI::ResourceState::RenderTarget,
                             RHI::ResourceState::ShaderResource);
 }
 
@@ -264,7 +265,6 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
   cmdList.beginDebugMarker("SSFR - Horizontal Blur (X)", colorBlurH);
 
   cmdList.transitionTexture(tempDepthTextures[frameIndex].get(),
-                            RHI::ResourceState::Undefined,
                             RHI::ResourceState::UnorderedAccess);
 
   cmdList.bindTexture(0,
@@ -286,10 +286,8 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
 
   // Transition Temp to be Read, and Blurred to be Written
   cmdList.transitionTexture(tempDepthTextures[frameIndex].get(),
-                            RHI::ResourceState::UnorderedAccess,
                             RHI::ResourceState::ShaderResource);
   cmdList.transitionTexture(blurredDepthTextures[frameIndex].get(),
-                            RHI::ResourceState::Undefined,
                             RHI::ResourceState::UnorderedAccess);
 
   cmdList.bindTexture(0, tempDepthTextures[frameIndex].get()); // Read temp
@@ -306,7 +304,6 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
 
   // Final Transition
   cmdList.transitionTexture(blurredDepthTextures[frameIndex].get(),
-                            RHI::ResourceState::UnorderedAccess,
                             RHI::ResourceState::ShaderResource);
 
   cmdList.endDebugMarker();

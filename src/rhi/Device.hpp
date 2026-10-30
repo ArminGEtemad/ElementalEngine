@@ -42,6 +42,9 @@ public:
                                                  TextureUsage usage,
                                                  uint32_t depth = 1) = 0;
 
+  virtual void uploadBufferData(Buffer *dst, const void *data, size_t size,
+                                size_t dstOffset = 0) = 0;
+
   virtual void waitIdle() = 0;
   virtual void submit(CommandList *commandList, Swapchain *swapchain) = 0;
 

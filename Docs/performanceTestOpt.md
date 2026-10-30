@@ -139,3 +139,19 @@ With Fire Global-memory stall: 47%
 In my old shader I had one thread to check out 8 x 8 x 8 = 512 cells by itself to look for gas. When the slime was burnt there was no gas in the scene anymore. So the thread couldn't stop checking earlier and hit `break` and it had to go through all 512 cells. The solution is to have 512 threads and each look into each cell.
 
 After doing so the problem is solved and even when there is no slime left the frame time does not spike! and when all the slime is burnt we can make it over 1000 FPS.
+
+## ElEn Version 1.4.0 BUGFIX
+
+When the slime particles (and the terrain meshes) were first created, their starting positions had to be generated on the CPU and sent to the GPU once at startup. Because the engine didn't have a "staging buffer" helper yet (a temporary bridge to copy data from the CPU into fast GPU-only memory), the slime particle buffer was created in `CPUAccess` memory instead of `GPULocal` memory just so the CPU could copy the initial particles into it.
+
+The problem with `CPUAccess` memory is that it lives in shared host-visible memory so the CPU can reach it, which is much slower for the GPU to read and write than dedicated GPU VRAM (`GPULocal`). And since the PBF Slime simulation runs 7 compute passes every single frame—plus the Fire simulation, the Stam gas injection, and the fluid renderer all reading those same particles—the GPU was constantly going back and forth to slow CPU-accessible memory on every step of the physics! On top of that:
+
+1. In the Fire system, the particle buffer was set to `GPULocal`, so the initial random fire data generated on the CPU was never actually copied over and was just getting thrown away.
+2. In the Terrain pass, instead of telling the GPU to draw all 64 terrain chunks in one single indirect draw call, the CPU was running a `for` loop 64 times and sending 64 separate draw commands.
+3. Buffers and textures didn't remember their own state, so different passes were firing extra unnecessary memory barriers when reading the same slime buffer.
+
+### How it was solved
+
+1. **Added a Staging Upload Bridge (`uploadBufferData` & `copyBuffer`):** Now when the engine starts up, it creates a temporary CPU buffer, copies the starting particles/terrain into fast dedicated GPU memory (`GPULocal`), and deletes the temporary buffer. Now the slime particles, fire particles, and terrain geometry live 100% inside fast GPU VRAM.
+2. **Single-Call Multi-Draw for Terrain:** Enabled `multiDrawIndirect` on the GPU and replaced the 64-step CPU loop with a single indirect draw call.
+3. **Smart Resource State Tracking:** Every buffer and texture now remembers what state it is in, so the engine skips redundant barriers automatically when multiple passes just need to read the same data.

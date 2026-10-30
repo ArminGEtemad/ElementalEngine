@@ -49,7 +49,6 @@ private:
   RHI::Device &device;
   Core::Camera camera;
 
-  bool isFirstFrame[MAX_FRAMES_IN_FLIGHT]{true, true};
   std::unique_ptr<RHI::Buffer> chunkDataBuffer;
   std::array<std::unique_ptr<RHI::Buffer>, MAX_FRAMES_IN_FLIGHT>
       indirectDrawBuffers;

@@ -125,43 +125,19 @@ void StamFluid::createPipeline() {
 
 void StamFluid::init(RHI::CommandList &setupCmd) {
   using namespace RHI;
-  // Transition all textures from Undefined to UnorderedAccess
-  setupCmd.transitionTexture(densityPingTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-  setupCmd.transitionTexture(densityPongTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-  setupCmd.transitionTexture(velocityPingTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-  setupCmd.transitionTexture(velocityPongTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-  setupCmd.transitionTexture(pressurePingTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-  setupCmd.transitionTexture(pressurePongTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-  setupCmd.transitionTexture(divergenceTex.get(), ResourceState::Undefined,
-                             ResourceState::UnorderedAccess);
-
-  // Transition all back to ShaderResource
   setupCmd.transitionTexture(densityPingTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
   setupCmd.transitionTexture(densityPongTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
   setupCmd.transitionTexture(velocityPingTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
   setupCmd.transitionTexture(velocityPongTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
   setupCmd.transitionTexture(pressurePingTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
   setupCmd.transitionTexture(pressurePongTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
   setupCmd.transitionTexture(divergenceTex.get(),
-                             ResourceState::UnorderedAccess,
                              ResourceState::ShaderResource);
 }
 
@@ -185,16 +161,16 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
 
   // Injection pass
   commandList.transitionBuffer(injectionBuffer.get(),
-                               RHI::ResourceState::ShaderResource,
                                RHI::ResourceState::TransferDst);
   commandList.clearBuffer(injectionBuffer.get(), 0);
   commandList.transitionBuffer(injectionBuffer.get(),
-                               RHI::ResourceState::TransferDst,
                                RHI::ResourceState::UnorderedAccess);
 
   if (particleBuffer && numParticles > 0) {
     const float colorInject[4] = {0.8f, 0.3f, 0.8f, 1.0f};
     commandList.beginDebugMarker("Particle Injection", colorInject);
+    commandList.transitionBuffer(particleBuffer,
+                                 RHI::ResourceState::ShaderResource);
     // Run the injection scatter
     commandList.bindPipeline(*injectPipeline);
     commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
@@ -210,7 +186,6 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
 
   // Transition buffer for the Advection shader to read it
   commandList.transitionBuffer(injectionBuffer.get(),
-                               RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::ShaderResource);
 
   Texture *densityRead =
@@ -224,9 +199,10 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   const float colorAdvect[4] = {0.2f, 0.6f, 1.0f, 1.0f};
   commandList.beginDebugMarker("Advection Pass", colorAdvect);
 
-  commandList.transitionTexture(densityWrite, ResourceState::ShaderResource,
-                                ResourceState::UnorderedAccess);
-  commandList.transitionTexture(velocityAdvected, ResourceState::ShaderResource,
+  commandList.transitionTexture(densityRead, ResourceState::ShaderResource);
+  commandList.transitionTexture(velocityStart, ResourceState::ShaderResource);
+  commandList.transitionTexture(densityWrite, ResourceState::UnorderedAccess);
+  commandList.transitionTexture(velocityAdvected,
                                 ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*advectionPipeline);
@@ -247,10 +223,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.beginDebugMarker("Divergence Pass", colorDiv);
 
   commandList.transitionTexture(velocityAdvected,
-                                ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
   commandList.transitionTexture(divergenceTex.get(),
-                                ResourceState::ShaderResource,
                                 ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*divPipeline);
@@ -267,7 +241,6 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.beginDebugMarker("Jacobi Solver", colorJacobi);
 
   commandList.transitionTexture(divergenceTex.get(),
-                                ResourceState::UnorderedAccess,
                                 ResourceState::ShaderResource);
   commandList.bindPipeline(*jacobiPipeline);
   commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
@@ -283,12 +256,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
     Texture *pWrite =
         usePressurePing ? pressurePongTex.get() : pressurePingTex.get();
 
-    if (i > 0) {
-      commandList.transitionTexture(pRead, ResourceState::UnorderedAccess,
-                                    ResourceState::ShaderResource);
-    }
-    commandList.transitionTexture(pWrite, ResourceState::ShaderResource,
-                                  ResourceState::UnorderedAccess);
+    commandList.transitionTexture(pRead, ResourceState::ShaderResource);
+    commandList.transitionTexture(pWrite, ResourceState::UnorderedAccess);
 
     commandList.bindTexture(1, pRead);
     commandList.bindStorageImage(3, pWrite);
@@ -305,10 +274,8 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   Texture *finalPressure =
       usePressurePing ? pressurePingTex.get() : pressurePongTex.get();
 
-  commandList.transitionTexture(finalPressure, ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-  commandList.transitionTexture(velocityStart, ResourceState::ShaderResource,
-                                ResourceState::UnorderedAccess);
+  commandList.transitionTexture(finalPressure, ResourceState::ShaderResource);
+  commandList.transitionTexture(velocityStart, ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*gradPipeline);
   commandList.pushConstants(0, sizeof(SimConfig), &simConfig,
@@ -320,14 +287,15 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
 
   // Transition densityWrite to Read so the Culling and Graphics pipelines can
   // read it
-  commandList.transitionTexture(densityWrite, ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
-  commandList.transitionTexture(velocityStart, ResourceState::UnorderedAccess,
-                                ResourceState::ShaderResource);
+  commandList.transitionTexture(densityWrite, ResourceState::ShaderResource);
+  commandList.transitionTexture(velocityStart, ResourceState::ShaderResource);
 
   // volume culling
   const float colorCull[4] = {0.8f, 0.1f, 0.1f, 1.0f};
   commandList.beginDebugMarker("Stam Fluid Volume Culling", colorCull);
+
+  commandList.transitionBuffer(activeChunkBuffer.get(),
+                               RHI::ResourceState::UnorderedAccess);
 
   commandList.bindPipeline(*cullPipeline);
   commandList.bindTexture(0, densityWrite); // Read the density
@@ -338,12 +306,10 @@ void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
   commandList.dispatch(groupX, groupY, groupZ);
 
   commandList.transitionBuffer(activeChunkBuffer.get(),
-                               RHI::ResourceState::UnorderedAccess,
                                RHI::ResourceState::ShaderResource);
 
   commandList.endDebugMarker(); // End Culling Marker
 
-  isFirstFrame = false;
   useBufferPingToRead = !useBufferPingToRead;
 
   commandList.endDebugMarker(); // End Gradient Marker

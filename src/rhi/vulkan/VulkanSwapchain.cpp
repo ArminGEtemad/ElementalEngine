@@ -297,8 +297,9 @@ bool VulkanSwapchain::acquireNextImage() {
     throw std::runtime_error("Failed to acquire swapchain image!");
   }
 
-  // if acquire succeeded reset the fence
+  // if acquire succeeded reset the fence and reset tracked backbuffer state
   vkResetFences(device.getLogicalDevice(), 1, &inFlightFence[currentFrame]);
+  backBuffers[currentImageIndex]->setState(ResourceState::Undefined);
   return true;
 }
 

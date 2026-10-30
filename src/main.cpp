@@ -189,11 +189,9 @@ int main() {
 
       // Transition acquired image to Render Target before drawing
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
-                                 RHI::ResourceState::Undefined,
                                  RHI::ResourceState::RenderTarget);
 
       cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
-                                 RHI::ResourceState::Undefined,
                                  RHI::ResourceState::DepthStencilWrite);
 
       RHI::RenderingInfo renderingInfo{};
@@ -289,7 +287,6 @@ int main() {
       // -- stam --
 
       cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
-                                 RHI::ResourceState::DepthStencilWrite,
                                  RHI::ResourceState::ShaderResource);
 
       glm::mat4 invViewProj = invView * invProj;
@@ -313,7 +310,6 @@ int main() {
 
       // Transition Backbuffer to Present
       cmdList->transitionTexture(swapchain->getCurrentBackBuffer(),
-                                 RHI::ResourceState::RenderTarget,
                                  RHI::ResourceState::Present);
       cmdList->end();
       // ==============================================

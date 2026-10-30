@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RHICommon.hpp"
 #include <cstdint>
 
 namespace elementalEngine::RHI {
@@ -50,8 +51,12 @@ public:
   virtual TextureFormat getFormat() const = 0;
   virtual TextureUsage getUsage() const = 0;
 
+  ResourceState getState() const { return state; }
+  void setState(ResourceState newState) { state = newState; }
+
 protected:
   Texture() = default;
+  ResourceState state{ResourceState::Undefined};
 };
 
 } // namespace elementalEngine::RHI
