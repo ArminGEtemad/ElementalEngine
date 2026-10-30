@@ -533,6 +533,23 @@ void VulkanCommandList::clearBuffer(Buffer *buffer, uint32_t value) {
                   value);
 }
 
+void VulkanCommandList::copyBuffer(Buffer *src, Buffer *dst, size_t size,
+                                   size_t srcOffset, size_t dstOffset) {
+  transitionBuffer(src, ResourceState::TransferSrc);
+  transitionBuffer(dst, ResourceState::TransferDst);
+
+  auto *vkSrc = static_cast<VulkanBuffer *>(src);
+  auto *vkDst = static_cast<VulkanBuffer *>(dst);
+
+  VkBufferCopy copyRegion{};
+  copyRegion.srcOffset = srcOffset;
+  copyRegion.dstOffset = dstOffset;
+  copyRegion.size = size;
+
+  vkCmdCopyBuffer(commandBuffer, vkSrc->getVkBuffer(), vkDst->getVkBuffer(), 1,
+                  &copyRegion);
+}
+
 void VulkanCommandList::drawIndirect(Buffer *buffer, size_t offset,
                                      uint32_t drawCount, uint32_t stride) {
   auto *vkBuffer = static_cast<VulkanBuffer *>(buffer);

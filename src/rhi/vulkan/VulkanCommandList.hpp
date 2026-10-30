@@ -21,6 +21,8 @@ public:
   void endRendering() override;
 
   void clearBuffer(Buffer *buffer, uint32_t value) override;
+  void copyBuffer(Buffer *src, Buffer *dst, size_t size,
+                  size_t srcOffset = 0, size_t dstOffset = 0) override;
 
   void transitionBuffer(Buffer *buffer, ResourceState to) override;
   void transitionTexture(Texture *texture, ResourceState to) override;
