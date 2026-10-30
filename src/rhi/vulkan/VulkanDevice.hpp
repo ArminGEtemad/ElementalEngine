@@ -22,6 +22,8 @@ public:
 
   void waitIdle() override;
   void submit(CommandList *commandList, Swapchain *swapchain) override;
+  void uploadBufferData(Buffer *dst, const void *data, size_t size,
+                        size_t dstOffset = 0) override;
 
   std::unique_ptr<Swapchain> createSwapchain(WindowHandling &window) override;
   std::unique_ptr<CommandList> createCommandList() override;

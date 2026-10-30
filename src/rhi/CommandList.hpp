@@ -47,9 +47,11 @@ public:
   virtual void beginRendering(const RenderingInfo &info) = 0;
   virtual void endRendering() = 0;
 
-  // clearing and transitioning resouce states to prevent race conditions-
-  // the ResourceState can be found in the rhicommon.
+  // clearing, copying, and transitioning resource states to prevent race
+  // conditions - the ResourceState can be found in the rhicommon.
   virtual void clearBuffer(Buffer *buffer, uint32_t value) = 0;
+  virtual void copyBuffer(Buffer *src, Buffer *dst, size_t size,
+                          size_t srcOffset = 0, size_t dstOffset = 0) = 0;
   virtual void transitionBuffer(Buffer *buffer, ResourceState to) = 0;
   virtual void transitionTexture(Texture *texture, ResourceState to) = 0;
 

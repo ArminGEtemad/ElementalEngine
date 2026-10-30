@@ -9,6 +9,7 @@
 #include "VulkanSwapchain.hpp"
 #include "VulkanTexture.hpp"
 #include "Window.hpp"
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <set>
@@ -56,6 +57,24 @@ std::unique_ptr<Texture> VulkanDevice::createTexture(uint32_t width,
   return std::make_unique<VulkanTexture>(*this, width, height, format, usage,
                                          depth);
 }
+
+void VulkanDevice::uploadBufferData(Buffer *dst, const void *data, size_t size,
+                                    size_t dstOffset) {
+  std::unique_ptr<Buffer> stagingBuffer =
+      createBuffer(size, BufferUsage::TransferSrc, MemoryProperty::CPUAccess);
+  void *mapped = stagingBuffer->map();
+  std::memcpy(mapped, data, size);
+  stagingBuffer->unmap();
+
+  std::unique_ptr<CommandList> uploadCmd = createCommandList();
+  uploadCmd->begin();
+  uploadCmd->copyBuffer(stagingBuffer.get(), dst, size, 0, dstOffset);
+  uploadCmd->end();
+
+  submit(uploadCmd.get(), nullptr);
+  waitIdle();
+}
+
 namespace {
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -376,6 +395,7 @@ void VulkanDevice::createLogicalDevice() {
   VkPhysicalDeviceFeatures2 deviceFeatures2{};
   deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
+  deviceFeatures2.features.multiDrawIndirect = VK_TRUE;
   deviceFeatures2.pNext = &features12;
 
   VkDeviceCreateInfo createInfo = {};
