@@ -40,9 +40,9 @@ struct VSOutput {
 VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   VSOutput output;
   uint realID = AliveIndices[instanceID];
-  float health = Particles[instanceID].health;
+  float health = Particles[realID].health;
 
-  float3 pos3D = Particles[instanceID].position.xyz;
+  float3 pos3D = Particles[realID].position.xyz;
   float scaleX = pushConstants.WorldSizeX / pushConstants.DomainWidth;
 
   float worldX = pos3D.x * scaleX;
