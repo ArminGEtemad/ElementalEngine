@@ -44,10 +44,10 @@ void PBFSlime::createResources() {
   size_t numGridCells = 210011;
   size_t springBufferSize = numParticles * MAX_SPRINGS * sizeof(Spring);
 
-  // initialized in cpu
   particleBuffer = device.createBuffer(
-      particleBufferSize, BufferUsage::Storage | BufferUsage::Vertex,
-      MemoryProperty::CPUAccess);
+      particleBufferSize,
+      BufferUsage::Storage | BufferUsage::Vertex | BufferUsage::TransferDst,
+      MemoryProperty::GPULocal);
   gridHeadBuffer =
       device.createBuffer(numGridCells * sizeof(uint32_t),
                           BufferUsage::Storage | BufferUsage::TransferDst,
@@ -136,10 +136,8 @@ void PBFSlime::initializeParticles() {
     initialData[i].health = 1.0;
   }
 
-  void *mappedData = particleBuffer->map();
-  std::memcpy(mappedData, initialData.data(),
-              initialData.size() * sizeof(Particle));
-  particleBuffer->unmap();
+  device.uploadBufferData(particleBuffer.get(), initialData.data(),
+                          initialData.size() * sizeof(Particle));
 }
 
 void PBFSlime::simulate(RHI::CommandList &cmdList, float dt, float strikeX,

@@ -31,7 +31,9 @@ void FireSystem::createResource() {
 
   // vertex usage so the vertex shader fetches with no need for assembler
   particleBuffer = device.createBuffer(
-      bufferSize, RHI::BufferUsage::Storage | RHI::BufferUsage::Vertex,
+      bufferSize,
+      RHI::BufferUsage::Storage | RHI::BufferUsage::Vertex |
+          RHI::BufferUsage::TransferDst,
       RHI::MemoryProperty::GPULocal);
 
   // needed for gpu driven rendering
@@ -49,11 +51,11 @@ void FireSystem::createResource() {
     initialData[i].position[0] = emitterX;
     initialData[i].position[1] = emitterY;
     initialData[i].position[2] = emitterZ;
+    initialData[i].position[3] = 0.0f; // padding
 
     initialData[i].velocity[0] = initialSpeedXZ(randomEngine);
     initialData[i].velocity[1] = initialSpeedY(randomEngine);
     initialData[i].velocity[2] = initialSpeedXZ(randomEngine);
-
     initialData[i].velocity[3] = 0.0f; // padding
 
     float lifeTime = lifeDist(randomEngine);
@@ -62,6 +64,8 @@ void FireSystem::createResource() {
     initialData[i].temperature = 1.0f;
     initialData[i].particleRadius = 2.0f;
   }
+
+  device.uploadBufferData(particleBuffer.get(), initialData.data(), bufferSize);
 }
 
 void FireSystem::createPipeline() {
