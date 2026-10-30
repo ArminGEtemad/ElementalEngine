@@ -40,21 +40,19 @@ void TerrainPass::createBuffers() {
   TerrainMesh terrain = TerrainMesh::generateGrid(64, 64, 20.0f, 20.0f);
 
   size_t vertexBufferSize = terrain.Vertices.size() * sizeof(RHI::Vertex3D);
-  vertexBuffer =
-      device.createBuffer(vertexBufferSize, RHI::BufferUsage::Storage,
-                          RHI::MemoryProperty::CPUAccess);
-
-  void *mappedVerts = vertexBuffer->map();
-  std::memcpy(mappedVerts, terrain.Vertices.data(), vertexBufferSize);
-  vertexBuffer->unmap();
+  vertexBuffer = device.createBuffer(
+      vertexBufferSize,
+      RHI::BufferUsage::Storage | RHI::BufferUsage::TransferDst,
+      RHI::MemoryProperty::GPULocal);
+  device.uploadBufferData(vertexBuffer.get(), terrain.Vertices.data(),
+                          vertexBufferSize);
 
   size_t indexBufferSize = terrain.Indices.size() * sizeof(uint32_t);
-  indexBuffer = device.createBuffer(indexBufferSize, RHI::BufferUsage::Index,
-                                    RHI::MemoryProperty::CPUAccess);
-
-  void *mappedIndices = indexBuffer->map();
-  std::memcpy(mappedIndices, terrain.Indices.data(), indexBufferSize);
-  indexBuffer->unmap();
+  indexBuffer = device.createBuffer(
+      indexBufferSize, RHI::BufferUsage::Index | RHI::BufferUsage::TransferDst,
+      RHI::MemoryProperty::GPULocal);
+  device.uploadBufferData(indexBuffer.get(), terrain.Indices.data(),
+                          indexBufferSize);
 
   for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     cameraUniformBuffers[i] = device.createBuffer(
@@ -65,12 +63,12 @@ void TerrainPass::createBuffers() {
   totalChunks = static_cast<uint32_t>(terrain.Chunks.size());
 
   size_t chunkBufferSize = totalChunks * sizeof(TerrainChunkData);
-  chunkDataBuffer =
-      device.createBuffer(chunkBufferSize, RHI::BufferUsage::Storage,
-                          RHI::MemoryProperty::CPUAccess);
-  void *mappedChunks = chunkDataBuffer->map();
-  std::memcpy(mappedChunks, terrain.Chunks.data(), chunkBufferSize);
-  chunkDataBuffer->unmap();
+  chunkDataBuffer = device.createBuffer(
+      chunkBufferSize,
+      RHI::BufferUsage::Storage | RHI::BufferUsage::TransferDst,
+      RHI::MemoryProperty::GPULocal);
+  device.uploadBufferData(chunkDataBuffer.get(), terrain.Chunks.data(),
+                          chunkBufferSize);
 
   for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     indirectDrawBuffers[i] = device.createBuffer(
@@ -157,6 +155,8 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
 void TerrainPass::cull(RHI::CommandList &commandList, uint32_t frameIndex) {
   commandList.beginDebugMarker("Terrain GPU Culling", nullptr);
 
+  commandList.transitionBuffer(chunkDataBuffer.get(),
+                               RHI::ResourceState::ShaderResource);
   commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(),
                                RHI::ResourceState::UnorderedAccess);
 
@@ -188,6 +188,9 @@ void TerrainPass::render(RHI::CommandList &commandList,
 
   glm::vec4 pushTarget = glm::vec4(targetPos.x, targetPos.y, targetPos.z, 0.0f);
 
+  commandList.transitionBuffer(vertexBuffer.get(),
+                               RHI::ResourceState::ShaderResource);
+
   // Viewport & Scissor not hardcoded like before since the window can change
   // size now
   commandList.setViewport(0.0f, 0.0f, static_cast<float>(width),
@@ -203,11 +206,9 @@ void TerrainPass::render(RHI::CommandList &commandList,
                             RHI::ShaderStage::Fragment);
 
   commandList.bindIndexBuffer(indexBuffer.get(), RHI::IndexType::Uint32, 0);
-  for (uint32_t i = 0; i < totalChunks; i++) {
-    commandList.drawIndexedIndirect(indirectDrawBuffers[frameIndex].get(),
-                                    i * sizeof(RHI::DrawIndexedIndirectCommand),
-                                    1, sizeof(RHI::DrawIndexedIndirectCommand));
-  }
+  commandList.drawIndexedIndirect(indirectDrawBuffers[frameIndex].get(), 0,
+                                  totalChunks,
+                                  sizeof(RHI::DrawIndexedIndirectCommand));
 
   commandList.endDebugMarker();
 }
