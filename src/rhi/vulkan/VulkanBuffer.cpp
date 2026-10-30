@@ -25,17 +25,18 @@ VulkanBuffer::VulkanBuffer(VulkanDevice &device, size_t size, BufferUsage usage,
     vkUsage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
   }
 
-  bufferInfo.usage = vkUsage;
-  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
   VmaAllocationCreateInfo allocInfo{};
   if (memoryProperty == MemoryProperty::CPUAccess) {
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
   } else {
+    vkUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   }
+
+  bufferInfo.usage = vkUsage;
+  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   if (vmaCreateBuffer(device.getAllocator(), &bufferInfo, &allocInfo, &buffer,
                       &allocation, nullptr) != VK_SUCCESS) {
