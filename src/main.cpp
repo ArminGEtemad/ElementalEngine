@@ -12,7 +12,6 @@
 #include "rhi/RHICommon.hpp"
 #include <chrono>
 #include <cstdlib>
-#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <memory>
 
@@ -147,6 +146,7 @@ int main() {
 
       // Update Camera Matrices & GPU Uniform Buffer
       terrainPass.update(window, deltaTime, totalTime, syncFrameIdx);
+      RHI::Buffer *cameraUBO = terrainPass.getCameraBuffer(syncFrameIdx);
 
       if (glfwGetKey(rawWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
         if (!isSpacePressed) {
@@ -227,21 +227,8 @@ int main() {
       // ==========================================
       // PASS 2: 3 step SSFR (GBuffer -> Blur -> Composite)
       // ==========================================
-      // Extract the matrices we need for Screen-Space logic
-      const float *viewMat =
-          glm::value_ptr(terrainPass.getCamera().getFrameData().viewMatrix);
-      const float *projMat = glm::value_ptr(
-          terrainPass.getCamera().getFrameData().projectionMatrix);
-
-      glm::mat4 invView =
-          glm::inverse(terrainPass.getCamera().getFrameData().viewMatrix);
-      glm::mat4 invProj =
-          glm::inverse(terrainPass.getCamera().getFrameData().projectionMatrix);
-      const float *invViewMat = glm::value_ptr(invView);
-      const float *invProjMat = glm::value_ptr(invProj);
-
       // A: Render particles to offscreen depth/thickness G-Buffer
-      ssfrRenderer.renderGBuffer(*cmdList, slimeSim, viewMat, projMat, 0.2f,
+      ssfrRenderer.renderGBuffer(*cmdList, slimeSim, cameraUBO, 0.2f,
                                  syncFrameIdx, 20.0f, 20.0f);
 
       // B: Melt the depths using the Compute Shader blur
@@ -251,8 +238,7 @@ int main() {
       float lightDir[3] = {1.5f, 1.5f, 1.5f}; // Matches Terrain lighting
       ssfrRenderer.renderComposite(*cmdList, swapchain->getCurrentBackBuffer(),
                                    terrainPass.getDepthTexture(syncFrameIdx),
-                                   invViewMat, invProjMat, projMat, lightDir,
-                                   syncFrameIdx);
+                                   cameraUBO, lightDir, syncFrameIdx);
 
       // -- fire --
 
@@ -272,15 +258,11 @@ int main() {
 
       cmdList->beginRendering(additiveInfo);
 
-      glm::vec3 camPos = terrainPass.getCamera().getPosition();
-      const float *vpMat =
-          glm::value_ptr(terrainPass.getCamera().getFrameData().viewProjection);
-
       lightningRenderer.update(deltaTime);
-      lightningRenderer.draw(*cmdList, vpMat, camPos);
+      lightningRenderer.draw(*cmdList, cameraUBO);
 
-      fireRenderer.draw(*cmdList, fireSim, swapchain->getWidth(),
-                        swapchain->getHeight(), viewMat, projMat);
+      fireRenderer.draw(*cmdList, fireSim, cameraUBO, swapchain->getWidth(),
+                        swapchain->getHeight());
 
       cmdList->endRendering();
 
@@ -288,9 +270,6 @@ int main() {
 
       cmdList->transitionTexture(terrainPass.getDepthTexture(syncFrameIdx),
                                  RHI::ResourceState::ShaderResource);
-
-      glm::mat4 invViewProj = invView * invProj;
-      glm::vec3 cameraPos = terrainPass.getCamera().getPosition();
 
       RHI::RenderingInfo stamInfo{};
       stamInfo.renderWidth = swapchain->getWidth();
@@ -303,8 +282,8 @@ int main() {
 
       cmdList->beginRendering(stamInfo);
 
-      stamRenderer.draw(*cmdList, stamSim, invViewProj, cameraPos,
-                        swapchain->getWidth(), swapchain->getHeight(),
+      stamRenderer.draw(*cmdList, stamSim, cameraUBO, swapchain->getWidth(),
+                        swapchain->getHeight(),
                         terrainPass.getDepthTexture(syncFrameIdx));
       cmdList->endRendering();
 

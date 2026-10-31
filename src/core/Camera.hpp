@@ -10,11 +10,14 @@
 
 namespace elementalEngine::Core {
 
-// should be register as b0
+// Shared per-frame camera uniform buffer data
 struct alignas(16) CameraFrameData {
   glm::mat4 viewMatrix{1.0f};
   glm::mat4 projectionMatrix{1.0f};
   glm::mat4 viewProjection{1.0f};
+  glm::mat4 invViewMatrix{1.0f};
+  glm::mat4 invProjectionMatrix{1.0f};
+  glm::mat4 invViewProjection{1.0f};
   glm::vec4 cameraPosition{0.0f};
   float time{0.0f};
   float deltaTime{0.0f};
