@@ -60,7 +60,9 @@ void LightningRenderer::createPipelines() {
 
   PipelineConfig graphConfig;
   graphConfig.bindings = {
-      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex}};
+      {0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex},
+      {1, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex} // Camera UBO
+  };
   graphConfig.pushConstants.size = sizeof(MidpointLightningParams);
   graphConfig.pushConstants.offset = 0;
   graphConfig.pushConstants.stage = ShaderStage::Vertex | ShaderStage::Fragment;
@@ -177,8 +179,7 @@ void LightningRenderer::update(float dt) {
 }
 
 void LightningRenderer::draw(RHI::CommandList &cmdList,
-                             const float *viewProjMatrix,
-                             const glm::vec3 &cameraPos) {
+                             RHI::Buffer *cameraBuffer) {
   if (opacity <= 0.0f || strikes.empty())
     return;
 
@@ -194,11 +195,6 @@ void LightningRenderer::draw(RHI::CommandList &cmdList,
         timer < strike.triggerTime + strike.duration) {
 
       MidpointLightningParams params{};
-      std::memcpy(params.viewProj, viewProjMatrix, sizeof(float) * 16);
-      params.cameraPos[0] = cameraPos.x;
-      params.cameraPos[1] = cameraPos.y;
-      params.cameraPos[2] = cameraPos.z;
-      params.cameraPos[3] = 1.0f;
       params.opacity = opacity;
       params.thickness = strike.thickness;
 
@@ -206,6 +202,7 @@ void LightningRenderer::draw(RHI::CommandList &cmdList,
                             RHI::ShaderStage::AllGraphics);
 
       cmdList.bindStorageBuffer(0, segmentsBuffer.get());
+      cmdList.bindUniformBuffer(1, cameraBuffer);
 
       size_t indirectOffset = i * sizeof(RHI::DrawIndirectCommand);
       cmdList.drawIndirect(indirectDrawBuffer.get(), indirectOffset, 1,
