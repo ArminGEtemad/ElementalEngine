@@ -14,7 +14,9 @@ void FireRenderer::createGraphicPipeline() {
   config.bindings = {
       {0, DescriptorType::StorageBuffer, 1,
        ShaderStage::Vertex}, // FireParticles
-      {1, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex} // aliveIndices
+      {1, DescriptorType::StorageBuffer, 1,
+       ShaderStage::Vertex}, // aliveIndices
+      {2, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex} // Camera UBO
   };
   config.pushConstants.size = sizeof(FireRenderParameters);
   config.pushConstants.offset = 0;
@@ -34,8 +36,8 @@ void FireRenderer::createGraphicPipeline() {
 
 void FireRenderer::draw(RHI::CommandList &commandList,
                         const Physics::FireSystem &fireSystem,
-                        uint32_t screenWidth, uint32_t screenHeight,
-                        const float *viewMatrix, const float *projMatrix) {
+                        RHI::Buffer *cameraBuffer, uint32_t screenWidth,
+                        uint32_t screenHeight) {
 
   // marker color
   const float colorDraw[4] = {1.0f, 0.65f, 0.15f, 1.0f};
@@ -47,8 +49,6 @@ void FireRenderer::draw(RHI::CommandList &commandList,
   commandList.setScissor(0, 0, screenWidth, screenHeight);
 
   FireRenderParameters params{};
-  std::memcpy(params.viewMatrix, viewMatrix, sizeof(float) * 16);
-  std::memcpy(params.projMatrix, projMatrix, sizeof(float) * 16);
   params.domainWidth = 2000.0f;
   params.worldSizeX = 20.0f;
 
@@ -56,6 +56,7 @@ void FireRenderer::draw(RHI::CommandList &commandList,
                             RHI::ShaderStage::Vertex);
   commandList.bindStorageBuffer(0, fireSystem.getParticleBuffer());
   commandList.bindStorageBuffer(1, fireSystem.getAliveIndexBuffer());
+  commandList.bindUniformBuffer(2, cameraBuffer);
   commandList.drawIndirect(fireSystem.getIndirectDrawBuffer(), 0, 1,
                            sizeof(RHI::DrawIndirectCommand));
 

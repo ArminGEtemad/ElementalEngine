@@ -1,3 +1,16 @@
+struct CameraFrameData {
+  float4x4 viewMatrix;
+  float4x4 projectionMatrix;
+  float4x4 viewProjection;
+  float4x4 invViewMatrix;
+  float4x4 invProjectionMatrix;
+  float4x4 invViewProjection;
+  float4 cameraPosition;
+  float time;
+  float deltaTime;
+  float2 padding;
+};
+
 struct Particle {
   float4 position;
   float4 velocity;
@@ -13,10 +26,6 @@ struct Particle {
 };
 
 struct PushConstants {
-  // splitting view projection into two steps view matrix and projection matrix
-  float4x4 ViewMatrix;
-  float4x4 projMatrix;
-
   float DomainWidth;
   float DomainHeight;
   float WorldSizeX;
@@ -28,6 +37,7 @@ struct PushConstants {
 
 StructuredBuffer<Particle> Particles : register(t0);
 StructuredBuffer<uint> AliveIndices : register(t1);
+cbuffer FrameData : register(b2) { CameraFrameData camera; };
 [[vk::push_constant]] PushConstants pushConstants;
 
 struct VSOutput {
@@ -40,9 +50,9 @@ struct VSOutput {
 VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   VSOutput output;
   uint realID = AliveIndices[instanceID];
-  float health = Particles[instanceID].health;
+  float health = Particles[realID].health;
 
-  float3 pos3D = Particles[instanceID].position.xyz;
+  float3 pos3D = Particles[realID].position.xyz;
   float scaleX = pushConstants.WorldSizeX / pushConstants.DomainWidth;
 
   float worldX = pos3D.x * scaleX;
@@ -58,14 +68,14 @@ VSOutput VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   float2 offset = QUAD_OFFSETS[vertexID];
   output.uv = offset;
 
-  float4 viewCenter = mul(pushConstants.ViewMatrix, float4(centerWorld, 1.0));
+  float4 viewCenter = mul(camera.viewMatrix, float4(centerWorld, 1.0));
   float currentRadius = pushConstants.ParticleRadius * health;
 
   float3 viewPos =
       viewCenter.xyz + float3(offset.x, offset.y, 0.0) * currentRadius;
 
   output.posView = viewPos;
-  output.posClip = mul(pushConstants.projMatrix, float4(viewPos, 1.0));
+  output.posClip = mul(camera.projectionMatrix, float4(viewPos, 1.0));
 
   output.health = health;
 

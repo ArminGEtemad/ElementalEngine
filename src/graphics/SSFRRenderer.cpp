@@ -1,4 +1,5 @@
 #include "SSFRRenderer.hpp"
+#include <cstring>
 
 namespace elementalEngine::Renderer {
 
@@ -44,7 +45,9 @@ void SSFRRenderer::createPipelines() {
   config.bindings = {
       {0, RHI::DescriptorType::StorageBuffer, 1, RHI::ShaderStage::Vertex},
       {1, RHI::DescriptorType::StorageBuffer, 1,
-       RHI::ShaderStage::Vertex} // Alive Indices
+       RHI::ShaderStage::Vertex}, // Alive Indices
+      {2, RHI::DescriptorType::UniformBuffer, 1,
+       RHI::ShaderStage::Vertex | RHI::ShaderStage::Fragment} // Camera UBO
   };
   config.pushConstants.size = sizeof(SSFRPushConstants);
   config.pushConstants.offset = 0;
@@ -99,12 +102,10 @@ void SSFRRenderer::createPipelines() {
   compConfig.bindings = {
       {0, DescriptorType::SampledImage, 1, ShaderStage::Fragment},
       {1, DescriptorType::SampledImage, 1, ShaderStage::Fragment},
-      {2, DescriptorType::Sampler, 1, ShaderStage::Fragment}};
+      {2, DescriptorType::Sampler, 1, ShaderStage::Fragment},
+      {3, DescriptorType::UniformBuffer, 1, ShaderStage::Fragment}};
 
-  struct CompPushConstants {
-    float invProj[16];
-    float invView[16];
-    float proj[16];
+  struct alignas(16) CompPushConstants {
     float lightDir[4];
   };
   compConfig.pushConstants.size = sizeof(CompPushConstants);
@@ -130,10 +131,9 @@ void SSFRRenderer::createPipelines() {
 
 void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
                                  const Physics::PBFSlime &slimeSim,
-                                 const float *viewMatrix,
-                                 const float *projMatrix, float particleRadius,
-                                 uint32_t frameIndex, float worldSizeX,
-                                 float worldSizeZ) {
+                                 RHI::Buffer *cameraBuffer,
+                                 float particleRadius, uint32_t frameIndex,
+                                 float worldSizeX, float worldSizeZ) {
 
   const float colorGBuffer[4] = {0.1f, 0.65f, 0.85f, 1.0f};
   cmdList.beginDebugMarker("SSFR - GBuffer Generation", colorGBuffer);
@@ -152,8 +152,6 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
                            RHI::ResourceState::IndirectArgument);
 
   SSFRPushConstants pc{};
-  std::memcpy(pc.viewMatrix, viewMatrix, sizeof(float) * 16);
-  std::memcpy(pc.projMatrix, projMatrix, sizeof(float) * 16);
   pc.domainWidth = 2000.0f;
   pc.domainDepth = 2000.0f;
   pc.worldSizeX = worldSizeX;
@@ -188,6 +186,7 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   cmdList.bindPipeline(*depthPipeline);
   cmdList.bindStorageBuffer(0, slimeSim.getParticleBuffer());
   cmdList.bindStorageBuffer(1, slimeSim.getAliveIndexBuffer());
+  cmdList.bindUniformBuffer(2, cameraBuffer);
   cmdList.pushConstants(0, sizeof(SSFRPushConstants), &pc,
                         RHI::ShaderStage::Vertex | RHI::ShaderStage::Fragment);
   cmdList.drawIndirect(slimeSim.getIndirectDrawBuffer(), 0, 1,
@@ -222,6 +221,7 @@ void SSFRRenderer::renderGBuffer(RHI::CommandList &cmdList,
   cmdList.bindPipeline(*thicknessPipeline);
   cmdList.bindStorageBuffer(0, slimeSim.getParticleBuffer());
   cmdList.bindStorageBuffer(1, slimeSim.getAliveIndexBuffer());
+  cmdList.bindUniformBuffer(2, cameraBuffer);
   cmdList.pushConstants(0, sizeof(SSFRPushConstants), &pc,
                         RHI::ShaderStage::Vertex | RHI::ShaderStage::Fragment);
   cmdList.drawIndirect(slimeSim.getIndirectDrawBuffer(), 0, 1,
@@ -312,9 +312,7 @@ void SSFRRenderer::renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex) {
 void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
                                    RHI::Texture *swapchainTexture,
                                    RHI::Texture *terrainDepthTexture,
-                                   const float *invViewMatrix,
-                                   const float *invProjMatrix,
-                                   const float *projMatrix,
+                                   RHI::Buffer *cameraBuffer,
                                    const float *lightDir, uint32_t frameIndex) {
 
   // debug color
@@ -344,17 +342,12 @@ void SSFRRenderer::renderComposite(RHI::CommandList &cmdList,
   cmdList.bindTexture(0, blurredDepthTextures[frameIndex].get());
   cmdList.bindTexture(1, fluidThicknessTextures[frameIndex].get());
   cmdList.bindSampler(2);
+  cmdList.bindUniformBuffer(3, cameraBuffer);
 
-  struct CompPushConstants {
-    float invProj[16];
-    float invView[16];
-    float proj[16];
+  struct alignas(16) CompPushConstants {
     float lightDir[4];
   } pc;
 
-  std::memcpy(pc.invProj, invProjMatrix, sizeof(float) * 16);
-  std::memcpy(pc.invView, invViewMatrix, sizeof(float) * 16);
-  std::memcpy(pc.proj, projMatrix, sizeof(float) * 16);
   pc.lightDir[0] = lightDir[0];
   pc.lightDir[1] = lightDir[1];
   pc.lightDir[2] = lightDir[2];

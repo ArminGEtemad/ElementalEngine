@@ -1,6 +1,17 @@
+struct CameraFrameData {
+  float4x4 viewMatrix;
+  float4x4 projectionMatrix;
+  float4x4 viewProjection;
+  float4x4 invViewMatrix;
+  float4x4 invProjectionMatrix;
+  float4x4 invViewProjection;
+  float4 cameraPosition;
+  float time;
+  float deltaTime;
+  float2 padding;
+};
+
 struct LightningRenderParams {
-  float4x4 viewProj;
-  float4 cameraPos;
   float opacity;
   float thickness;
   float2 pad;
@@ -16,6 +27,7 @@ struct Segments {
 [[vk::push_constant]] LightningRenderParams renderParams;
 
 StructuredBuffer<Segments> segments : register(t0);
+cbuffer FrameData : register(b1) { CameraFrameData camera; };
 
 struct VSOut {
   float4 position : SV_POSITION;
@@ -51,7 +63,7 @@ VSOut VSMain(uint vertexID : SV_VertexID) {
     float3 branchDir = dir / len;
 
     // Find the vector pointing from the lightning to the camera lens
-    float3 viewDir = normalize(renderParams.cameraPos.xyz - p0);
+    float3 viewDir = normalize(camera.cameraPosition.xyz - p0);
 
     // Cross Product yields a vector that is perpendicular to BOTH the
     // branch and the camera -> the quad will automatically rotate its
@@ -73,7 +85,7 @@ VSOut VSMain(uint vertexID : SV_VertexID) {
       basePos + (perp * (offsetMode.y * thickness * output.scale));
 
   // Project to screen
-  output.position = mul(renderParams.viewProj, float4(worldPos, 1.0f));
+  output.position = mul(camera.viewProjection, float4(worldPos, 1.0f));
   output.uv = offsetMode;
 
   return output;

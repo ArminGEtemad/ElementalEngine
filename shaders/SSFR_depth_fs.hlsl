@@ -1,3 +1,16 @@
+struct CameraFrameData {
+  float4x4 viewMatrix;
+  float4x4 projectionMatrix;
+  float4x4 viewProjection;
+  float4x4 invViewMatrix;
+  float4x4 invProjectionMatrix;
+  float4x4 invViewProjection;
+  float4 cameraPosition;
+  float time;
+  float deltaTime;
+  float2 padding;
+};
+
 struct VSOutput {
   float4 posClip : SV_POSITION;
   float3 posView : TEXCOORD0;
@@ -6,9 +19,6 @@ struct VSOutput {
 };
 
 struct PushConstants {
-  float4x4 ViewMatrix;
-  float4x4 projMatrix;
-
   float DomainWidth;
   float DomainDepth;
   float WorldSizeX;
@@ -18,6 +28,7 @@ struct PushConstants {
   float3 pad;
 };
 
+cbuffer FrameData : register(b2) { CameraFrameData camera; };
 [[vk::push_constant]] PushConstants pushConstants;
 
 struct PSOutput {
@@ -42,7 +53,7 @@ PSOutput FSMain(VSOutput input) {
 
   output.depthOut = float4(spherePosView.z, input.health, 0.0, 1.0);
 
-  float4 clipPos = mul(pushConstants.projMatrix, float4(spherePosView, 1.0));
+  float4 clipPos = mul(camera.projectionMatrix, float4(spherePosView, 1.0));
   output.depthZ = clipPos.z / clipPos.w;
 
   return output;

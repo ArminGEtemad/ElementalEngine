@@ -17,6 +17,7 @@ static PFN_vkCmdBeginDebugUtilsLabelEXT pfnCmdBeginDebugUtilsLabelEXT = nullptr;
 static PFN_vkCmdEndDebugUtilsLabelEXT pfnCmdEndDebugUtilsLabelEXT = nullptr;
 static PFN_vkCmdInsertDebugUtilsLabelEXT pfnCmdInsertDebugUtilsLabelEXT =
     nullptr;
+static PFN_vkCmdPushDescriptorSetKHR pfnCmdPushDescriptorSetKHR = nullptr;
 
 static VkShaderStageFlags mapShaderStage(ShaderStage stage) {
   VkShaderStageFlags flags = 0;
@@ -144,6 +145,12 @@ VulkanCommandList::VulkanCommandList(VulkanDevice &device) : device(device) {
             instance, "vkCmdInsertDebugUtilsLabelEXT");
   }
 
+  if (!pfnCmdPushDescriptorSetKHR) {
+    pfnCmdPushDescriptorSetKHR =
+        (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
+            device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
+  }
+
   if (vkAllocateCommandBuffers(device.getLogicalDevice(), &allocInfo,
                                &commandBuffer) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate command buffers!");
@@ -260,14 +267,14 @@ void VulkanCommandList::bindTexture(uint32_t bindingSlot, Texture *texture) {
   writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
   writeDesc.pImageInfo = &descImageInfo;
 
-  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
-      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
-  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-             computePiplineLayout, 0, 1, &writeDesc);
-  } else {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-             graphicsPiplineLayout, 0, 1, &writeDesc);
+  if (pfnCmdPushDescriptorSetKHR) {
+    if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                 computePiplineLayout, 0, 1, &writeDesc);
+    } else {
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 graphicsPiplineLayout, 0, 1, &writeDesc);
+    }
   }
 }
 
@@ -286,14 +293,14 @@ void VulkanCommandList::bindStorageImage(uint32_t bindingSlot,
   writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
   writeDesc.pImageInfo = &descImageInfo;
 
-  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
-      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
-  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-             computePiplineLayout, 0, 1, &writeDesc);
-  } else {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-             graphicsPiplineLayout, 0, 1, &writeDesc);
+  if (pfnCmdPushDescriptorSetKHR) {
+    if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                 computePiplineLayout, 0, 1, &writeDesc);
+    } else {
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 graphicsPiplineLayout, 0, 1, &writeDesc);
+    }
   }
 }
 
@@ -308,14 +315,14 @@ void VulkanCommandList::bindSampler(uint32_t bindingSlot) {
   writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
   writeDesc.pImageInfo = &samplerInfo;
 
-  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
-      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
-  if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-             computePiplineLayout, 0, 1, &writeDesc);
-  } else {
-    pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-             graphicsPiplineLayout, 0, 1, &writeDesc);
+  if (pfnCmdPushDescriptorSetKHR) {
+    if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                 computePiplineLayout, 0, 1, &writeDesc);
+    } else {
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 graphicsPiplineLayout, 0, 1, &writeDesc);
+    }
   }
 }
 
@@ -470,15 +477,13 @@ void VulkanCommandList::bindStorageBuffer(uint32_t bindingSlot,
   writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   writeDescSet.pBufferInfo = &bufferInfo;
 
-  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
-      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
-  if (pushFunc) {
+  if (pfnCmdPushDescriptorSetKHR) {
     if (currentPipeline->getBindPoint() == PipelineBindPoint::Compute) {
-      pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-               computePiplineLayout, 0, 1, &writeDescSet);
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                 computePiplineLayout, 0, 1, &writeDescSet);
     } else { // graphics
-      pushFunc(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-               graphicsPiplineLayout, 0, 1, &writeDescSet);
+      pfnCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 graphicsPiplineLayout, 0, 1, &writeDescSet);
     }
   }
 }
@@ -500,9 +505,7 @@ void VulkanCommandList::bindUniformBuffer(uint32_t bindingSlot, Buffer *buffer,
   writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   writeDescSet.pBufferInfo = &bufferInfo;
 
-  auto pushFunc = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
-      device.getLogicalDevice(), "vkCmdPushDescriptorSetKHR");
-  if (pushFunc) {
+  if (pfnCmdPushDescriptorSetKHR) {
     VkPipelineBindPoint bindPoint =
         (currentPipeline->getBindPoint() == PipelineBindPoint::Compute)
             ? VK_PIPELINE_BIND_POINT_COMPUTE
@@ -510,7 +513,8 @@ void VulkanCommandList::bindUniformBuffer(uint32_t bindingSlot, Buffer *buffer,
     VkPipelineLayout layout = (bindPoint == VK_PIPELINE_BIND_POINT_COMPUTE)
                                   ? computePiplineLayout
                                   : graphicsPiplineLayout;
-    pushFunc(commandBuffer, bindPoint, layout, 0, 1, &writeDescSet);
+    pfnCmdPushDescriptorSetKHR(commandBuffer, bindPoint, layout, 0, 1,
+                               &writeDescSet);
   }
 }
 

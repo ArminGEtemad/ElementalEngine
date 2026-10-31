@@ -1,6 +1,20 @@
+struct CameraFrameData {
+  float4x4 viewMatrix;
+  float4x4 projectionMatrix;
+  float4x4 viewProjection;
+  float4x4 invViewMatrix;
+  float4x4 invProjectionMatrix;
+  float4x4 invViewProjection;
+  float4 cameraPosition;
+  float time;
+  float deltaTime;
+  float2 padding;
+};
+
 Texture2D<float> BlurredDepthMap : register(t0);
 Texture2D<float2> ThicknessMap : register(t1);
 SamplerState LinearSampler : register(s2);
+cbuffer FrameData : register(b3) { CameraFrameData camera; };
 
 struct VSOutput {
   float4 posClip : SV_POSITION;
@@ -13,9 +27,6 @@ struct PSOutput {
 };
 
 struct PushConstants {
-  float4x4 InvProjMatrix;
-  float4x4 InvViewMatrix;
-  float4x4 ProjMatrix;
   float4 lightDir;
 };
 
@@ -26,7 +37,7 @@ float3 ReconstructViewPos(float2 uv, float viewDepth) {
   float2 ndc = float2(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f);
 
   float4 clipPos = float4(ndc, 0.5f, 1.0f);
-  float4 viewRay = mul(pc.InvProjMatrix, clipPos);
+  float4 viewRay = mul(camera.invProjectionMatrix, clipPos);
   viewRay.xyz /= viewRay.w;
 
   return viewRay.xyz * (viewDepth / viewRay.z);
@@ -72,7 +83,7 @@ PSOutput FSMain(VSOutput input) {
   float3 posView = ReconstructViewPos(input.uv, viewDepth);
 
   // Write hardware depth
-  float4 clipPos = mul(pc.ProjMatrix, float4(posView, 1.0f));
+  float4 clipPos = mul(camera.projectionMatrix, float4(posView, 1.0f));
   output.depth = clipPos.z / clipPos.w;
 
   //  ADAPTIVE FINITE DIFFERENCES (ddx/ddy whhere making the edges have teeth
@@ -114,12 +125,12 @@ PSOutput FSMain(VSOutput input) {
   // lighting --------------
 
   // Rotate to World-Space for lighting
-  float3 normalWorld = normalize(mul((float3x3)pc.InvViewMatrix, normalView));
+  float3 normalWorld = normalize(mul((float3x3)camera.invViewMatrix, normalView));
 
   float3 lightDir = normalize(pc.lightDir.xyz);
   float NdotL = max(dot(normalWorld, lightDir), 0.0f);
 
-  float3 viewDir = normalize(mul((float3x3)pc.InvViewMatrix, -posView));
+  float3 viewDir = normalize(mul((float3x3)camera.invViewMatrix, -posView));
   float3 halfVector = normalize(lightDir + viewDir);
   float spec = pow(max(0.0f, dot(normalWorld, halfVector)), 256.0f) * 1.5f;
 

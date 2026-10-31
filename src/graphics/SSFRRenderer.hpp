@@ -9,9 +9,7 @@
 
 namespace elementalEngine::Renderer {
 
-struct SSFRPushConstants {
-  float viewMatrix[16];
-  float projMatrix[16];
+struct alignas(16) SSFRPushConstants {
   float domainWidth;
   float domainDepth;
   float worldSizeX;
@@ -29,18 +27,16 @@ public:
   void onResize(uint32_t width, uint32_t height);
 
   void renderGBuffer(RHI::CommandList &commandList,
-                     const Physics::PBFSlime &slime, const float *viewMatrix,
-                     const float *projMatrix, float particleRadius,
-                     uint32_t frameIndex, float worldSizeX = 20.0f,
-                     float worldSizeZ = 20.0f);
+                     const Physics::PBFSlime &slime, RHI::Buffer *cameraBuffer,
+                     float particleRadius, uint32_t frameIndex,
+                     float worldSizeX = 20.0f, float worldSizeZ = 20.0f);
 
   void renderBlur(RHI::CommandList &cmdList, uint32_t frameIndex);
 
   void renderComposite(RHI::CommandList &cmdList,
                        RHI::Texture *swapchainTexture,
                        RHI::Texture *terrainDepthTexture,
-                       const float *invViewMatrix, const float *invProjMatrix,
-                       const float *projMatrix, const float *lightDir,
+                       RHI::Buffer *cameraBuffer, const float *lightDir,
                        uint32_t frameIndex);
 
   RHI::Texture *getDepthTexture(uint32_t frameIndex) const {

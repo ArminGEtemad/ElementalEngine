@@ -2,7 +2,7 @@
 
 A real-time, compute-driven **Multi-Physics & Reactivity Engine** built from scratch in C++20 and **Vulkan 1.3**, featuring gpu-driven indirect rendering, coupled multi-element interactions (gas, viscoelastic fluids, electricity, thermodynamics) and a custom Render Hardware Interface (RHI).
 
-> version 1.4.0
+> version 1.5.0
 
 ## Showcase
 
@@ -44,17 +44,17 @@ GIFs and pictures of the older versions can be found [here](PicturesAndGifs).
 
 | Pipeline Phase               | Type               | Time ($\text{ms}$) |
 | :--------------------------- | :----------------- | :----------------: |
-| **PBF Slime Simulation**     | Compute            |    **1.75 ms**     |
-| **Stam Fluid Simulation**    | Compute            |    **1.44 ms**     |
-| **Stam Culling**             | Compute            |    **0.12 ms**     |
-| **Stam Fluid Raymarcher**    | Graphics           |    **0.09 ms**     |
+| **PBF Slime Simulation**     | Compute            |    **2.03 ms**     |
+| **Stam Fluid Simulation**    | Compute            |    **1.08 ms**     |
+| **Stam Fluid Raymarcher**    | Graphics           |    **0.10 ms**     |
 | **SSFR**                     | Graphics / Compute |    **0.03 ms**     |
-| **Fire Particle Simulation** | Compute            |    **0.03 ms**     |
-| **Fire Particle Renders**    | Graphics           |    **0.02 ms**     |
+| **Fire Particle Renders**    | Graphics           |    **0.03 ms**     |
+| **Stam Culling**             | Compute            |    **0.02 ms**     |
+| **Fire Particle Simulation** | Compute            |    **0.02 ms**     |
 | **Terrain Culling**          | Compute            |    **<0.01 ms**    |
 | **Terrain Geometry Pass**    | Graphics           |    **<0.01 ms**    |
-| **Active Frame Time**        | **Mixed**          |    **~3.48 ms**    |
-| **Total Frame Time**         | **Mixed**          |    **~3.48 ms**    |
+| **Active Frame Time**        | **Mixed**          |    **~3.39 ms**    |
+| **Total Frame Time**         | **Mixed**          |    **~3.40 ms**    |
 
 **On a Mac M2 using MoltenVK:** The frame rate with 10000 Clavet Slime particle stays well over 80 FPS (version 1.4.0 not tested yet).
 

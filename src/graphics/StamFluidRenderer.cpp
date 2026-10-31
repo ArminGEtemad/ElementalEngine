@@ -28,19 +28,20 @@ void StamFluidRenderer::createRenderingPipeline() {
        ShaderStage::Fragment}, // Linear Sampler (s2)
       {3, DescriptorType::SampledImage, 1,
        ShaderStage::Fragment}, // Depth Texture (t3)
+      {4, DescriptorType::UniformBuffer, 1,
+       ShaderStage::Fragment}, // Camera UBO (b4)
   };
 
   config.pushConstants.size = sizeof(GasRenderConfig);
   config.pushConstants.offset = 0;
-  config.pushConstants.stage = ShaderStage::Vertex | ShaderStage::Fragment;
+  config.pushConstants.stage = ShaderStage::Fragment;
 
   graphicsPipeline = device.createPipeline("grid_vs", "grid_fs", config);
 }
 
 void StamFluidRenderer::draw(RHI::CommandList &commandList,
                              const Physics::StamFluid &fluidSimulation,
-                             const glm::mat4 &invViewProj,
-                             const glm::vec3 &cameraPos, uint32_t screenWidth,
+                             RHI::Buffer *cameraBuffer, uint32_t screenWidth,
                              uint32_t screenHeight,
                              RHI::Texture *terrainDepthTexture) {
 
@@ -53,9 +54,6 @@ void StamFluidRenderer::draw(RHI::CommandList &commandList,
   float worldSizeZ = 20.0f;
 
   GasRenderConfig renderConfig{};
-  renderConfig.invViewProj = invViewProj;
-  renderConfig.cameraPos = glm::vec4(cameraPos, 1.0f);
-
   renderConfig.domainMin =
       glm::vec4(-worldSizeX * 0.5f, 0.0f, -worldSizeZ * 0.5f, 1.0f);
   renderConfig.domainMax =
@@ -66,12 +64,13 @@ void StamFluidRenderer::draw(RHI::CommandList &commandList,
                           static_cast<float>(screenHeight));
   commandList.setScissor(0, 0, screenWidth, screenHeight);
   commandList.pushConstants(0, sizeof(GasRenderConfig), &renderConfig,
-                            RHI::ShaderStage::AllGraphics);
+                            RHI::ShaderStage::Fragment);
   commandList.bindStorageBuffer(
-      0, fluidSimulation.getActiveChunkBuffer());                 // VS Buffer
+      0, fluidSimulation.getActiveChunkBuffer());                 // FS Chunks
   commandList.bindTexture(1, fluidSimulation.getRenderTexture()); // FS Density
   commandList.bindSampler(2);                                     // FS Sampler
   commandList.bindTexture(3, terrainDepthTexture);                // FS Depth
+  commandList.bindUniformBuffer(4, cameraBuffer);                 // FS Camera
 
   commandList.draw(3, 1, 0, 0);
 

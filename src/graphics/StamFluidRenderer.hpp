@@ -1,3 +1,5 @@
+#pragma once
+
 #include "CommandList.hpp"
 #include "Device.hpp"
 #include "Pipeline.hpp"
@@ -8,9 +10,7 @@
 
 namespace elementalEngine::Renderer {
 
-struct GasRenderConfig {
-  glm::mat4 invViewProj;
-  glm::vec4 cameraPos;
+struct alignas(16) GasRenderConfig {
   glm::vec4 domainMin;
   glm::vec4 domainMax;
 };
@@ -22,9 +22,8 @@ public:
 
   void draw(RHI::CommandList &commandList,
             const elementalEngine::Physics::StamFluid &fluidSimulation,
-            const glm::mat4 &invViewProj, const glm::vec3 &cameraPos,
-            uint32_t screenWidth, uint32_t screenHeight,
-            RHI::Texture *terrainDepthTexture);
+            RHI::Buffer *cameraBuffer, uint32_t screenWidth,
+            uint32_t screenHeight, RHI::Texture *terrainDepthTexture);
 
 private:
   RHI::Device &device;

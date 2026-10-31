@@ -43,12 +43,13 @@ void Camera::updateMatrices() {
   glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), -position);
 
   frameData.viewMatrix = rotationMatrix * translationMatrix;
-
-  // Perspective Matrix (zero-to-one depth enforced by macro)
   frameData.projectionMatrix = glm::perspective(fov, aspect, zNear, zFar);
-
-  // combine View-Projection
   frameData.viewProjection = frameData.projectionMatrix * frameData.viewMatrix;
+  frameData.invViewMatrix = glm::inverse(frameData.viewMatrix);
+  frameData.invProjectionMatrix = glm::inverse(frameData.projectionMatrix);
+  frameData.invViewProjection =
+      frameData.invViewMatrix * frameData.invProjectionMatrix;
+
   frameData.cameraPosition = glm::vec4(position, 1.0f);
 }
 
