@@ -1,6 +1,4 @@
 struct LightningRenderParams {
-  float4x4 viewProj;
-  float4 cameraPos;
   float opacity;
   float thickness;
   float2 pad;
