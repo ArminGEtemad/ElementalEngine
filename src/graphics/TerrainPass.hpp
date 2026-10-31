@@ -34,9 +34,12 @@ public:
 
   Core::Camera &getCamera() { return camera; }
 
-  // getter
+  // getters
   RHI::Texture *getDepthTexture(uint32_t frameIndex) const {
     return depthTextures[frameIndex].get();
+  }
+  RHI::Buffer *getCameraBuffer(uint32_t frameIndex) const {
+    return cameraUniformBuffers[frameIndex].get();
   }
 
 private:

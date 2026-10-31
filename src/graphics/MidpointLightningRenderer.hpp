@@ -15,12 +15,7 @@ namespace elementalEngine::Renderer {
 // cpu. and then the information was sent to gpu. now everything is moved to
 // gpu. the strikes are calculated with 4 threads
 
-// TODO: in fire renderer as well there are duplicate of camera parameters that
-// were built because at that moment it was faster to prototype and were
-// forgotten to be fixed. CLEAN UP after gpu driven rendering
-struct MidpointLightningParams {
-  float viewProj[16];
-  float cameraPos[4];
+struct alignas(16) MidpointLightningParams {
   float opacity;
   float thickness;
   float pad[2];
@@ -46,8 +41,7 @@ public:
 
   void update(float dt);
 
-  void draw(RHI::CommandList &commandList, const float *viewProjMatrix,
-            const glm::vec3 &cameraPos);
+  void draw(RHI::CommandList &commandList, RHI::Buffer *cameraBuffer);
 
   // getter
   float getOpacity() const { return opacity; }
