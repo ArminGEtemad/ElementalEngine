@@ -155,3 +155,18 @@ The problem with `CPUAccess` memory is that it lives in shared host-visible memo
 1. **Added a Staging Upload Bridge (`uploadBufferData` & `copyBuffer`):** Now when the engine starts up, it creates a temporary CPU buffer, copies the starting particles/terrain into fast dedicated GPU memory (`GPULocal`), and deletes the temporary buffer. Now the slime particles, fire particles, and terrain geometry live 100% inside fast GPU VRAM.
 2. **Single-Call Multi-Draw for Terrain:** Enabled `multiDrawIndirect` on the GPU and replaced the 64-step CPU loop with a single indirect draw call.
 3. **Smart Resource State Tracking:** Every buffer and texture now remembers what state it is in, so the engine skips redundant barriers automatically when multiple passes just need to read the same data.
+
+## ElEn Version 1.5.0 Camera & Push Constant Optimization
+
+While looking into how the camera data was being sent to the shaders, three hidden bottlenecks and a subtle shader bug showed up:
+
+1. **SSFR Vertex Shader Indexing Bug:** In the fluid vertex shader (`SSFR_fluid_vs.hlsl`), the code was looking up the `realID` of each living slime particle from the compacted `AliveIndices` list, and using it to read the particle's health—but then accidentally used the raw `instanceID` instead of `realID` to read the particle's position! As particles started dying in the fire, the renderer was drawing the positions of dead particles instead of living ones.
+2. **Redundant Camera Math & Bloated Push Constants:** The `Camera` class had a smart `isDirty` flag so it only recalculated its view and projection matrices when the player actually moved the camera. However, inside the `main.cpp` loop, the CPU was still recalculating the inverse camera matrices (`invView`, `invProj`, `invViewProj`) every single frame whether the camera moved or not. Even worse, instead of sharing the `TerrainPass` camera Uniform Buffer (`UBO`), every single renderer (SSFR Slime, Fire, Lightning, and Stam Gas) was copying big 4x4 camera matrices directly into its **Push Constants** on every draw call. Push constants are meant to be tiny, super-fast registers on the GPU (Vulkan only guarantees 128 bytes of push constant space), and our SSFR and Fire passes were stuffing up to **208 bytes** of camera matrices into them!
+3. **Repeated Driver Function Lookups:** Every time the engine bound a buffer, texture, or sampler (over 80 times per frame), the command list was asking the Vulkan driver to look up the address of the `vkCmdPushDescriptorSetKHR` function by name (`vkGetDeviceProcAddr`) instead of saving that pointer once at startup.
+
+### How it was solved
+
+1. **Fixed `realID` Indexing in SSFR:** Updated `SSFR_fluid_vs.hlsl` so both the health and 3D position are read using `Particles[realID]`.
+2. **One Shared Camera UBO + Lazy Inverse Calculation:** Moved `invViewMatrix`, `invProjectionMatrix`, and `invViewProjection` into `Camera::updateMatrices()`, so the CPU only computes them when the camera actually moves (`isDirty == true`). All 5 rendering passes now read from the same shared per-frame Camera Uniform Buffer (`cameraUBO`) instead of duplicating camera matrices.
+3. **Shrunk Push Constants Under 32 Bytes:** Stripped all camera matrices out of the Push Constants across SSFR, Fire, Lightning, and Stam Fluid. Every renderer's push constant block dropped from 96–208 bytes down to just **16–32 bytes**, fitting comfortably inside the fastest hardware registers on any GPU.
+4. **Cached `vkCmdPushDescriptorSetKHR`:** Looked up the Vulkan push-descriptor function pointer once when the command list is created and reused it for the rest of the run, eliminating ~80 driver string lookups per frame.
