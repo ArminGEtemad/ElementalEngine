@@ -1,6 +1,17 @@
+struct CameraFrameData {
+  float4x4 viewMatrix;
+  float4x4 projectionMatrix;
+  float4x4 viewProjection;
+  float4x4 invViewMatrix;
+  float4x4 invProjectionMatrix;
+  float4x4 invViewProjection;
+  float4 cameraPosition;
+  float time;
+  float deltaTime;
+  float2 padding;
+};
+
 struct GasRenderConfig {
-  float4x4 invViewProj;
-  float4 cameraPos;
   float4 domainMin;
   float4 domainMax;
 };
@@ -11,6 +22,7 @@ StructuredBuffer<uint4> ActiveChunks : register(t0);
 Texture3D<float> ReadDensity : register(t1);
 SamplerState LinearSampler : register(s2);
 Texture2D<float> TerrainDepth : register(t3);
+cbuffer FrameData : register(b4) { CameraFrameData camera; };
 
 struct VSOut {
   float4 position : SV_POSITION;
@@ -36,12 +48,12 @@ float4 FSMain(VSOut input) : SV_TARGET {
   float4 clipNear = float4(ndc.x, ndc.y, 0.0f, 1.0f);
   float4 clipFar = float4(ndc.x, ndc.y, 1.0f, 1.0f);
 
-  float4 worldNear = mul(RenderConfig.invViewProj, clipNear);
-  float4 worldFar = mul(RenderConfig.invViewProj, clipFar);
+  float4 worldNear = mul(camera.invViewProjection, clipNear);
+  float4 worldFar = mul(camera.invViewProjection, clipFar);
   worldNear /= worldNear.w;
   worldFar /= worldFar.w;
 
-  float3 ro = RenderConfig.cameraPos.xyz;
+  float3 ro = camera.cameraPosition.xyz;
   float3 rd = normalize(worldFar.xyz - worldNear.xyz);
 
   float3 boxMin = RenderConfig.domainMin.xyz;
@@ -56,7 +68,7 @@ float4 FSMain(VSOut input) : SV_TARGET {
 
   if (hwDepth < 1.0f) {
     float4 hitClip = float4(ndc.x, ndc.y, hwDepth, 1.0f);
-    float4 hitWorld = mul(RenderConfig.invViewProj, hitClip);
+    float4 hitWorld = mul(camera.invViewProjection, hitClip);
     hitWorld /= hitWorld.w;
     float distToSolid = distance(ro, hitWorld.xyz);
     tFar = min(tFar, distToSolid);

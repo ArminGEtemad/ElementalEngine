@@ -1,3 +1,16 @@
+struct CameraFrameData {
+  float4x4 viewMatrix;
+  float4x4 projectionMatrix;
+  float4x4 viewProjection;
+  float4x4 invViewMatrix;
+  float4x4 invProjectionMatrix;
+  float4x4 invViewProjection;
+  float4 cameraPosition;
+  float time;
+  float deltaTime;
+  float2 padding;
+};
+
 struct FireParticles {
   float4 position;
   float4 velocity;
@@ -9,9 +22,6 @@ struct FireParticles {
 };
 
 struct FireRenderParams {
-  float4x4 viewMatrix;
-  float4x4 projMatrix;
-
   float domainWidth;
   float worldSizeX;
   float2 pad;
@@ -21,6 +31,7 @@ struct FireRenderParams {
 
 StructuredBuffer<FireParticles> particles : register(t0);
 StructuredBuffer<uint> aliveIndices : register(t1);
+cbuffer FrameData : register(b2) { CameraFrameData camera; };
 
 struct VSOut {
   float4 position : SV_POSITION;
@@ -53,13 +64,13 @@ VSOut VSMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) {
   float scaledRadius = radius * scaleX;
 
   float4 viewCenter =
-      mul(renderParams.viewMatrix, float4(scaledWorldPos, 1.0f));
+      mul(camera.viewMatrix, float4(scaledWorldPos, 1.0f));
 
   float4 viewPos = float4(
       viewCenter.xyz + float3(localPos.x, localPos.y, 0.0f) * scaledRadius,
       1.0f);
 
-  output.position = mul(renderParams.projMatrix, viewPos);
+  output.position = mul(camera.projectionMatrix, viewPos);
 
   output.temperature = p.temperature;
   output.lifeRatio = saturate(p.life / p.maxLife);
