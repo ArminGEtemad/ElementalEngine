@@ -126,19 +126,19 @@ void StamFluid::createPipeline() {
 void StamFluid::init(RHI::CommandList &setupCmd) {
   using namespace RHI;
   setupCmd.transitionTexture(densityPingTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
   setupCmd.transitionTexture(densityPongTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
   setupCmd.transitionTexture(velocityPingTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
   setupCmd.transitionTexture(velocityPongTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
   setupCmd.transitionTexture(pressurePingTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
   setupCmd.transitionTexture(pressurePongTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
   setupCmd.transitionTexture(divergenceTex.get(),
-                             ResourceState::ShaderResource);
+                             ResourceState::UnorderedAccess);
 }
 
 void StamFluid::simulate(RHI::CommandList &commandList, float dt, float strikeX,
