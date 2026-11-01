@@ -155,6 +155,8 @@ void TerrainPass::update(WindowHandling &window, float deltaTime,
 void TerrainPass::cull(RHI::CommandList &commandList, uint32_t frameIndex) {
   commandList.beginDebugMarker("Terrain GPU Culling", nullptr);
 
+  commandList.transitionBuffer(vertexBuffer.get(),
+                               RHI::ResourceState::ShaderResource);
   commandList.transitionBuffer(chunkDataBuffer.get(),
                                RHI::ResourceState::ShaderResource);
   commandList.transitionBuffer(indirectDrawBuffers[frameIndex].get(),
@@ -187,9 +189,6 @@ void TerrainPass::render(RHI::CommandList &commandList,
   commandList.beginDebugMarker("Terrain Geometry Pass", colorTerrain);
 
   glm::vec4 pushTarget = glm::vec4(targetPos.x, targetPos.y, targetPos.z, 0.0f);
-
-  commandList.transitionBuffer(vertexBuffer.get(),
-                               RHI::ResourceState::ShaderResource);
 
   // Viewport & Scissor not hardcoded like before since the window can change
   // size now
