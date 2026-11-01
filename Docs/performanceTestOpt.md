@@ -170,3 +170,16 @@ While looking into how the camera data was being sent to the shaders, three hidd
 2. **One Shared Camera UBO + Lazy Inverse Calculation:** Moved `invViewMatrix`, `invProjectionMatrix`, and `invViewProjection` into `Camera::updateMatrices()`, so the CPU only computes them when the camera actually moves (`isDirty == true`). All 5 rendering passes now read from the same shared per-frame Camera Uniform Buffer (`cameraUBO`) instead of duplicating camera matrices.
 3. **Shrunk Push Constants Under 32 Bytes:** Stripped all camera matrices out of the Push Constants across SSFR, Fire, Lightning, and Stam Fluid. Every renderer's push constant block dropped from 96–208 bytes down to just **16–32 bytes**, fitting comfortably inside the fastest hardware registers on any GPU.
 4. **Cached `vkCmdPushDescriptorSetKHR`:** Looked up the Vulkan push-descriptor function pointer once when the command list is created and reused it for the rest of the run, eliminating ~80 driver string lookups per frame.
+
+
+## ElEn Version 1.5.1 Validation Layer Bugfix
+
+Two Vulkan validation warnings showed up at startup:
+
+1. **Stam Fluid Initial Texture Transition:** At startup, `StamFluid::init` was transitioning all 7 3D gas textures directly from `Undefined` (uninitialized memory) into `ShaderResource` (a read-only state), which made Vulkan warn that the textures were being set to read-only before ever being written to.
+2. **Terrain Buffer Barrier Inside Active Render Pass:** On the very first frame, `TerrainPass::render` was transitioning the terrain `vertexBuffer` from `TransferDst` to `ShaderResource` *inside* an active `beginRendering` / `endRendering` block, which Vulkan 1.3 Dynamic Rendering does not allow.
+
+### How it was solved
+
+1. Changed `StamFluid::init` to transition its 7 3D textures into `UnorderedAccess` (a writable state) at startup instead of `ShaderResource`.
+2. Moved the `vertexBuffer` transition out of `TerrainPass::render` and into `TerrainPass::cull`, which runs before `beginRendering` starts.
